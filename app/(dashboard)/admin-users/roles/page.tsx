@@ -22,7 +22,7 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
   DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { listRoles, createRole, updateRole, deleteRole } from '@/features/admin-users/api'
+import { listAdminRoles as listRoles, createRole, updateRole, deleteRole } from '@/features/admin-users/api'
 import type { AdminRole } from '@/features/admin-users/api'
 
 // ─── Permission groups ────────────────────────────────────────────────────────
