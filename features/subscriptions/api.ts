@@ -260,3 +260,25 @@ export const getSubscriptionStatusDistribution = async (): Promise<StatusDistrib
   const { data } = await api.get('/admins/subscriptions/analytics/status-distribution')
   return data.data ?? []
 }
+
+export interface MrrByPlan {
+  plan:        string
+  subscribers: number
+  mrr:         number
+}
+
+export interface MrrAnalytics {
+  current_mrr:            number
+  mrr_by_plan:            MrrByPlan[]
+  new_mrr_this_month:     number
+  churned_mrr_this_month: number
+  net_mrr_movement:       number
+  churn_rate:             number
+  active_subscriptions:   number
+  cancelled_this_month:   number
+}
+
+export const getMrrAnalytics = async (): Promise<MrrAnalytics> => {
+  const { data } = await api.get('/admins/subscriptions/analytics/mrr')
+  return data.data ?? data
+}
