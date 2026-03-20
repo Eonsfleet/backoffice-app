@@ -1,0 +1,231 @@
+import { api } from '@/lib/api/client'
+import { normalizePaginated } from '@/lib/api/utils'
+import type { SubscriptionPlan, Subscription, Feature, Addon, PaginatedResponse, SubscriptionAnalytics, Transaction, Invoice } from '@/types/api'
+
+// ─── Normalizers ─────────────────────────────────────────────────────────────
+
+type RawNestedItem = {
+  id: string | number
+  attributes?: Record<string, unknown>
+  relationships?: unknown
+}
+
+type RawPlan = {
+  id: string | number
+  attributes: Record<string, unknown>
+  relationships?: {
+    features?: RawNestedItem[]
+    addons?: RawNestedItem[]
+  }
+}
+
+function flattenNestedItem<T>(raw: RawNestedItem): T {
+  return { id: raw.id, ...(raw.attributes ?? {}) } as T
+}
+
+function normalizePlan(raw: RawPlan): SubscriptionPlan {
+  return {
+    id: raw.id,
+    ...(raw.attributes as Omit<SubscriptionPlan, 'id' | 'features' | 'addons'>),
+    features: (raw.relationships?.features ?? []).map((f) => flattenNestedItem<Feature>(f)),
+    addons:   (raw.relationships?.addons   ?? []).map((a) => flattenNestedItem<Addon>(a)),
+  }
+}
+
+type RawSubscription = {
+  id: string | number
+  attributes: Record<string, unknown>
+  relationships?: {
+    organization?: { id: string | number; name?: string; attributes?: { name: string } }
+    plan?: { id: string | number; name: string }
+  }
+}
+
+function normalizeSubscription(raw: RawSubscription): Subscription {
+  const org = raw.relationships?.organization
+  const orgName = org
+    ? (org as { name?: string }).name ?? (org as { attributes?: { name: string } }).attributes?.name ?? ''
+    : ''
+  return {
+    id: raw.id,
+    ...(raw.attributes as Omit<Subscription, 'id' | 'organization' | 'plan'>),
+    organization: org ? { id: org.id, name: orgName } : { id: '', name: '' },
+    plan: raw.relationships?.plan ?? { id: '', name: '' },
+  }
+}
+
+// ─── Plans ────────────────────────────────────────────────────────────────────
+
+export const listPlans = async (): Promise<SubscriptionPlan[]> => {
+  const { data } = await api.get('/admins/subscriptions/plans')
+  const raw: RawPlan[] = data.data ?? []
+  return raw.map(normalizePlan)
+}
+
+export const getPlan = async (id: string | number): Promise<SubscriptionPlan> => {
+  const { data } = await api.get(`/admins/subscriptions/plans/${id}`)
+  return normalizePlan(data.data)
+}
+
+export interface CreatePlanPayload {
+  name:               string
+  description:        string
+  price_monthly:      number
+  price_yearly:       number
+  has_custom_pricing: boolean
+  features?:          Array<{ id: string | number; unit?: number }>
+  addons?:            Array<string | number>
+}
+
+export const createPlan = async (payload: CreatePlanPayload): Promise<SubscriptionPlan> => {
+  const { data } = await api.post('/admins/subscriptions/plans', payload)
+  return normalizePlan(data.data)
+}
+
+export const updatePlan = async (
+  id: string | number,
+  payload: Partial<CreatePlanPayload>
+): Promise<SubscriptionPlan> => {
+  const { data } = await api.put(`/admins/subscriptions/plans/${id}`, payload)
+  return normalizePlan(data.data)
+}
+
+export const togglePlanStatus = async (id: string | number): Promise<void> => {
+  await api.post(`/admins/subscriptions/plans/${id}/toggle`)
+}
+
+// ─── Add-ons ──────────────────────────────────────────────────────────────────
+
+export const listAddons = async (): Promise<Addon[]> => {
+  const { data } = await api.get('/admins/subscriptions/addons')
+  const raw: RawNestedItem[] = data.data ?? []
+  return raw.map((a) => flattenNestedItem<Addon>(a))
+}
+
+export interface CreateAddonPayload {
+  name:   string
+  price:  number
+  module: string
+}
+
+export const createAddon = async (payload: CreateAddonPayload): Promise<Addon> => {
+  const { data } = await api.post('/admins/subscriptions/addons', payload)
+  return data.data
+}
+
+export const updateAddon = async (id: string | number, payload: Partial<CreateAddonPayload>): Promise<Addon> => {
+  const { data } = await api.put(`/admins/subscriptions/addons/${id}`, payload)
+  return data.data
+}
+
+export const deleteAddon = async (id: string | number): Promise<void> => {
+  await api.delete(`/admins/subscriptions/addons/${id}`)
+}
+
+// ─── Features ─────────────────────────────────────────────────────────────────
+
+export const listFeatures = async (): Promise<Feature[]> => {
+  const { data } = await api.get('/admins/subscriptions/features')
+  const raw: RawNestedItem[] = data.data ?? []
+  return raw.map((f) => flattenNestedItem<Feature>(f))
+}
+
+export const createFeature = async (payload: { name: string; description: string }): Promise<Feature> => {
+  const { data } = await api.post('/admins/subscriptions/features', payload)
+  return data.data
+}
+
+// ─── Subscribers ──────────────────────────────────────────────────────────────
+
+export const listSubscribers = async (params?: {
+  page?:     number
+  per_page?: number
+  q?:        string
+  status?:   string
+  billing_cycle?: string
+}): Promise<PaginatedResponse<Subscription>> => {
+  const { data } = await api.get('/admins/subscriptions', { params })
+  const inner = data.data
+  const raw: RawSubscription[] = inner?.subscriptions ?? inner?.data ?? []
+  const pg = inner?.pagination
+  return {
+    data: raw.map(normalizeSubscription),
+    meta: {
+      current_page: pg?.current_page ?? pg?.current ?? 1,
+      last_page:    pg?.last_page    ?? pg?.lastPage ?? 1,
+      per_page:     pg?.per_page     ?? pg?.perPage  ?? raw.length,
+      total:        pg?.total        ?? raw.length,
+    },
+  }
+}
+
+export const getSubscription = async (id: string | number): Promise<Subscription> => {
+  const { data } = await api.get(`/admins/subscriptions/${id}/show`)
+  return normalizeSubscription(data.data)
+}
+
+export const getSubscriptionTransactions = async (id: string | number) => {
+  const { data } = await api.get(`/admins/subscriptions/${id}/transactions`)
+  return data.data?.transactions ?? data.data ?? []
+}
+
+// ─── Billing ──────────────────────────────────────────────────────────────────
+
+export const listTransactions = async (params?: {
+  page?:     number
+  per_page?: number
+  status?:   string
+  gateway?:  string
+}): Promise<PaginatedResponse<Transaction>> => {
+  const { data } = await api.get('/admins/subscriptions/transactions', { params })
+  return normalizePaginated<Transaction>(data)
+}
+
+export const listInvoices = async (params?: {
+  page?:     number
+  per_page?: number
+  status?:   string
+}): Promise<PaginatedResponse<Invoice>> => {
+  const { data } = await api.get('/admins/subscriptions/invoices', { params })
+  return normalizePaginated<Invoice>(data)
+}
+
+export const downloadInvoice = async (id: string | number): Promise<void> => {
+  const response = await api.get(`/admins/subscriptions/invoices/${id}/download`, {
+    responseType: 'blob',
+  })
+  const url = URL.createObjectURL(new Blob([response.data]))
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `invoice-${id}.pdf`
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
+export const retryPayment = async (organizationId: string | number): Promise<void> => {
+  await api.post(`/admins/subscriptions/retry/${organizationId}`)
+}
+
+export const exportTransactions = async (): Promise<void> => {
+  const response = await api.get('/admins/subscriptions/transactions/export', {
+    responseType: 'blob',
+  })
+  const url = URL.createObjectURL(new Blob([response.data]))
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `transactions-${Date.now()}.csv`
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
+// ─── Analytics ────────────────────────────────────────────────────────────────
+
+export const getSubscriptionAnalytics = async (): Promise<SubscriptionAnalytics> => {
+  const { data } = await api.get('/admin/analytics/subscriptions/summary')
+  return data.data
+}
+
+export const getSubscriptionStatusDistribution = async () => {
+  const { data } = await api.get('/admin/analytics/subscriptions/status-distribution')
+  return data.data
+}
