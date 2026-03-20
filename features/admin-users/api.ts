@@ -52,7 +52,31 @@ export interface AdminRole {
   permissions?: string[]
 }
 
-export { listRoles as listAdminRoles } from '@/features/roles/api'
+type RawAdminRole = {
+  id: string | number
+  attributes?: {
+    name?: string
+    slug?: string
+    is_custom?: boolean
+    permissions?: string[]
+  }
+  name?: string
+  slug?: string
+  is_custom?: boolean
+  permissions?: string[]
+}
+
+export const listAdminRoles = async (): Promise<AdminRole[]> => {
+  const { data: res } = await api.get('/roles', { params: { guard_name: 'admin' } })
+  const raw: RawAdminRole[] = res.data?.adminroles ?? res.data?.roles ?? res.data?.data ?? []
+  return raw.map((r) => ({
+    id:          r.id,
+    name:        r.attributes?.name  ?? r.name  ?? '',
+    slug:        r.attributes?.slug  ?? r.slug,
+    is_custom:   r.attributes?.is_custom  ?? r.is_custom,
+    permissions: r.attributes?.permissions ?? r.permissions ?? [],
+  }))
+}
 
 export const createRole = async (payload: { name: string; permissions: string[] }): Promise<AdminRole> => {
   const { data } = await api.post('/admin/roles', payload)

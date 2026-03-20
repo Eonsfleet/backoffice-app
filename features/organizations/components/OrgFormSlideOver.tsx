@@ -49,7 +49,8 @@ export function OrgFormSlideOver({ open, onOpenChange, org }: OrgFormSlideOverPr
   const isEdit = !!org
 
   const { register, handleSubmit, reset, formState: { errors } } = useForm<FormValues>({
-    resolver: zodResolver(schema),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    resolver: zodResolver(schema) as any,
   })
 
   useEffect(() => {

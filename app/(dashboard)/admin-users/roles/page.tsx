@@ -226,7 +226,7 @@ export default function RolesPage() {
 
   const { data: roles, isLoading } = useQuery({
     queryKey: ['admin-roles'],
-    queryFn: listRoles,
+    queryFn: () => listRoles(),
     staleTime: 60_000,
   })
 
@@ -331,7 +331,7 @@ export default function RolesPage() {
                   ))}
                   {(role.permissions?.length ?? 0) > 6 && (
                     <Badge variant="outline" className="text-[10px] font-normal">
-                      +{role.permissions.length - 6} more
+                      +{(role.permissions?.length ?? 0) - 6} more
                     </Badge>
                   )}
                 </div>
