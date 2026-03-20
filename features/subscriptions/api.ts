@@ -256,9 +256,22 @@ export interface StatusDistributionItem {
   count:  number
 }
 
+const STATUS_LABEL_MAP: Record<string, string> = {
+  '1': 'active',
+  '2': 'trial',
+  '3': 'grace',
+  '4': 'restricted',
+  '5': 'suspended',
+  '0': 'expired',
+}
+
 export const getSubscriptionStatusDistribution = async (): Promise<StatusDistributionItem[]> => {
   const { data } = await api.get('/admins/subscriptions/analytics/status-distribution')
-  return data.data ?? []
+  const raw: StatusDistributionItem[] = data.message ?? []
+  return raw.map((item) => ({
+    status: STATUS_LABEL_MAP[item.status] ?? item.status,
+    count:  item.count,
+  }))
 }
 
 export interface MrrByPlan {
