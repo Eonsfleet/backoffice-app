@@ -1,6 +1,6 @@
 import { api } from '@/lib/api/client'
 import { normalizePaginated } from '@/lib/api/utils'
-import type { SubscriptionPlan, Subscription, Feature, Addon, PaginatedResponse, SubscriptionAnalytics, Transaction, Invoice } from '@/types/api'
+import type { SubscriptionPlan, Subscription, Feature, Addon, PaginatedResponse, SubscriptionSummary, Transaction, Invoice } from '@/types/api'
 
 // ─── Normalizers ─────────────────────────────────────────────────────────────
 
@@ -245,12 +245,18 @@ export const exportTransactions = async (): Promise<void> => {
 
 // ─── Analytics ────────────────────────────────────────────────────────────────
 
-export const getSubscriptionAnalytics = async (): Promise<SubscriptionAnalytics> => {
-  const { data } = await api.get('/admin/analytics/subscriptions/summary')
-  return data.data
+export const getSubscriptionSummary = async (): Promise<SubscriptionSummary> => {
+  const { data } = await api.get('/admin/subscriptions/summary')
+  // Stats live in `message`, not `data`
+  return data.message as SubscriptionSummary
 }
 
-export const getSubscriptionStatusDistribution = async () => {
-  const { data } = await api.get('/admin/analytics/subscriptions/status-distribution')
-  return data.data
+export interface StatusDistributionItem {
+  status: string
+  count:  number
+}
+
+export const getSubscriptionStatusDistribution = async (): Promise<StatusDistributionItem[]> => {
+  const { data } = await api.get('/admin/subscriptions/analytics/status-distribution')
+  return data.data ?? []
 }

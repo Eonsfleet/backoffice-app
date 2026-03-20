@@ -310,9 +310,9 @@ export interface Vehicle {
 
 // ─── Analytics ────────────────────────────────────────────────────────────────
 
-export interface SubscriptionAnalytics {
-  mrr: number
-  arr: number
-  churn_rate: number
-  new_subscriptions: number
+export interface SubscriptionSummary {
+  total:    number
+  active:   number
+  inactive: number
+  canceled: number
 }

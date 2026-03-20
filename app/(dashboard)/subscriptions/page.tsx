@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
 import { format } from 'date-fns'
 import {
-  CreditCard, TrendingUp, TrendingDown, Users, Activity,
+  CreditCard, Users, XCircle, Ban,
   Layers, Receipt, FileText, ChevronRight,
 } from 'lucide-react'
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts'
@@ -17,7 +17,7 @@ import { Skeleton }    from '@/components/ui/skeleton'
 import { Button }      from '@/components/ui/button'
 
 import {
-  getSubscriptionAnalytics, getSubscriptionStatusDistribution, listSubscribers,
+  getSubscriptionSummary, getSubscriptionStatusDistribution, listSubscribers,
 } from '@/features/subscriptions/api'
 
 const STATUS_COLORS: Record<string, string> = {
@@ -27,11 +27,8 @@ const STATUS_COLORS: Record<string, string> = {
   restricted: '#f97316',
   suspended:  '#ef4444',
   expired:    '#6b7280',
-}
-
-function fmt(v?: number) {
-  if (v == null) return '—'
-  return new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', maximumFractionDigits: 0 }).format(v)
+  inactive:   '#94a3b8',
+  canceled:   '#dc2626',
 }
 
 const QUICK_LINKS = [
@@ -44,9 +41,9 @@ const QUICK_LINKS = [
 export default function SubscriptionsOverviewPage() {
   const router = useRouter()
 
-  const { data: analytics, isLoading: loadingKpi } = useQuery({
-    queryKey: ['subscription-analytics'],
-    queryFn:  getSubscriptionAnalytics,
+  const { data: summary, isLoading: loadingKpi } = useQuery({
+    queryKey: ['subscription-summary'],
+    queryFn:  getSubscriptionSummary,
     staleTime: 60_000,
   })
 
@@ -62,15 +59,13 @@ export default function SubscriptionsOverviewPage() {
     staleTime: 30_000,
   })
 
-  const chartData = distribution
-    ? Object.entries(distribution as Record<string, number>)
-        .filter(([, v]) => v > 0)
-        .map(([key, value]) => ({
-          name:  key.charAt(0).toUpperCase() + key.slice(1),
-          value,
-          color: STATUS_COLORS[key] ?? '#94a3b8',
-        }))
-    : []
+  const chartData = (distribution ?? [])
+    .filter((d) => d.count > 0)
+    .map((d) => ({
+      name:  d.status.charAt(0).toUpperCase() + d.status.slice(1),
+      value: d.count,
+      color: STATUS_COLORS[d.status] ?? '#94a3b8',
+    }))
 
   const recent = recentData?.data ?? []
 
@@ -84,10 +79,10 @@ export default function SubscriptionsOverviewPage() {
 
       {/* KPIs */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <KpiCard label="MRR"               value={fmt(analytics?.mrr)}          icon={TrendingUp}   isLoading={loadingKpi} iconClassName="bg-emerald-500/10" />
-        <KpiCard label="ARR"               value={fmt(analytics?.arr)}          icon={Activity}     isLoading={loadingKpi} iconClassName="bg-blue-500/10" />
-        <KpiCard label="New Subscriptions" value={analytics?.new_subscriptions} icon={Users}        isLoading={loadingKpi} iconClassName="bg-violet-500/10" />
-        <KpiCard label="Churn Rate"        value={analytics?.churn_rate != null ? `${analytics.churn_rate}%` : '—'} icon={TrendingDown} isLoading={loadingKpi} iconClassName="bg-red-500/10" />
+        <KpiCard label="Total"    value={summary?.total}    icon={CreditCard} isLoading={loadingKpi} iconClassName="bg-primary/10" />
+        <KpiCard label="Active"   value={summary?.active}   icon={Users}      isLoading={loadingKpi} iconClassName="bg-emerald-500/10" />
+        <KpiCard label="Inactive" value={summary?.inactive} icon={XCircle}    isLoading={loadingKpi} iconClassName="bg-yellow-500/10" />
+        <KpiCard label="Canceled" value={summary?.canceled} icon={Ban}        isLoading={loadingKpi} iconClassName="bg-red-500/10" />
       </div>
 
       {/* Quick nav */}
