@@ -257,6 +257,6 @@ export interface StatusDistributionItem {
 }
 
 export const getSubscriptionStatusDistribution = async (): Promise<StatusDistributionItem[]> => {
-  const { data } = await api.get('/admin/subscriptions/analytics/status-distribution')
+  const { data } = await api.get('/admins/subscriptions/analytics/status-distribution')
   return data.data ?? []
 }
