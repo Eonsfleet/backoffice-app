@@ -25,15 +25,15 @@ const STATUS_OPTIONS = [
 ]
 
 const GATEWAY_OPTIONS = [
-  { value: 'all',          label: 'All Gateways' },
-  { value: 'paystack',     label: 'Paystack' },
-  { value: 'flutterwave',  label: 'Flutterwave' },
+  { value: 'all',       label: 'All Gateways' },
+  { value: 'paystack',  label: 'Paystack' },
+  { value: 'manual',    label: 'Manual' },
 ]
 
-function TransactionStatusBadge({ status }: { status: Transaction['status'] }) {
-  if (status === 'successful') return (
+function TransactionStatusBadge({ status }: { status: string }) {
+  if (status === 'successful' || status === 'completed') return (
     <Badge variant="outline" className="gap-1 text-emerald-600 border-emerald-200 bg-emerald-50">
-      <CheckCircle2 className="h-3 w-3" /> Successful
+      <CheckCircle2 className="h-3 w-3" /> {status === 'completed' ? 'Completed' : 'Successful'}
     </Badge>
   )
   if (status === 'failed') return (
@@ -117,10 +117,25 @@ export default function TransactionsPage() {
       ),
     },
     {
-      id: 'gateway',
+      id: 'plan',
+      header: 'Plan',
+      cell: ({ row }) => {
+        const sub = row.original.subscription
+        return sub?.plan?.name ? (
+          <div className="space-y-0.5">
+            <p className="text-sm">{sub.plan.name}</p>
+            {sub.billing_cycle && (
+              <p className="text-xs text-muted-foreground capitalize">{sub.billing_cycle}</p>
+            )}
+          </div>
+        ) : <span className="text-muted-foreground">—</span>
+      },
+    },
+    {
+      id: 'payment_method',
       header: 'Gateway',
       cell: ({ row }) => (
-        <Badge variant="secondary" className="capitalize text-xs">{row.original.gateway}</Badge>
+        <Badge variant="secondary" className="capitalize text-xs">{row.original.payment_method}</Badge>
       ),
     },
     {
@@ -129,13 +144,16 @@ export default function TransactionsPage() {
       cell: ({ row }) => <TransactionStatusBadge status={row.original.status} />,
     },
     {
-      id: 'created_at',
+      id: 'date',
       header: 'Date',
-      cell: ({ row }) => (
-        <span className="text-xs text-muted-foreground">
-          {format(new Date(row.original.created_at), 'MMM d, yyyy · h:mm a')}
-        </span>
-      ),
+      cell: ({ row }) => {
+        const d = row.original.paid_at ?? row.original.created_at
+        return (
+          <span className="text-xs text-muted-foreground">
+            {format(new Date(d), 'MMM d, yyyy · h:mm a')}
+          </span>
+        )
+      },
     },
   ]
 

@@ -196,6 +196,43 @@ export const getSubscriptionTransactions = async (id: string | number) => {
 
 // ─── Billing ──────────────────────────────────────────────────────────────────
 
+type RawTransaction = {
+  id: string | number
+  attributes: {
+    reference:      string
+    amount:         number
+    currency?:      string
+    payment_method: string
+    status:         string
+    paid_at?:       string | null
+    created_at:     string
+  }
+  relationships?: {
+    organization?: { id: string | number; name: string; email?: string } | null
+    subscription?: {
+      id: string | number
+      billing_cycle?: string
+      status?: string
+      plan?: { id: string | number; name: string }
+    } | null
+  }
+}
+
+function normalizeTransaction(r: RawTransaction): Transaction {
+  return {
+    id:             r.id,
+    reference:      r.attributes.reference,
+    amount:         r.attributes.amount,
+    currency:       r.attributes.currency,
+    payment_method: r.attributes.payment_method,
+    status:         r.attributes.status as Transaction['status'],
+    paid_at:        r.attributes.paid_at,
+    created_at:     r.attributes.created_at,
+    organization:   r.relationships?.organization ?? null,
+    subscription:   r.relationships?.subscription ?? null,
+  }
+}
+
 export const listTransactions = async (params?: {
   page?:     number
   per_page?: number
@@ -203,7 +240,18 @@ export const listTransactions = async (params?: {
   gateway?:  string
 }): Promise<PaginatedResponse<Transaction>> => {
   const { data } = await api.get('/admins/subscriptions/transactions', { params })
-  return normalizePaginated<Transaction>(data)
+  const inner = data.data
+  const raw: RawTransaction[] = inner?.transactions ?? inner?.data ?? []
+  const pg = inner?.pagination
+  return {
+    data: raw.map(normalizeTransaction),
+    meta: {
+      current_page: pg?.current_page ?? pg?.current ?? 1,
+      last_page:    pg?.last_page    ?? pg?.lastPage ?? 1,
+      per_page:     pg?.per_page     ?? pg?.perPage  ?? raw.length,
+      total:        pg?.total        ?? raw.length,
+    },
+  }
 }
 
 export const listInvoices = async (params?: {

@@ -176,11 +176,19 @@ export type InvoiceStatus = 'paid' | 'unpaid' | 'overdue'
 export interface Transaction {
   id: string | number
   reference: string
-  organization: Pick<Organization, 'id' | 'name'>
   amount: number
-  gateway: PaymentGateway
+  currency?: string
+  payment_method: string
   status: TransactionStatus
+  paid_at?: string | null
   created_at: string
+  organization: { id: string | number; name: string; email?: string } | null
+  subscription?: {
+    id: string | number
+    billing_cycle?: string
+    status?: string
+    plan?: { id: string | number; name: string }
+  } | null
 }
 
 export interface Invoice {

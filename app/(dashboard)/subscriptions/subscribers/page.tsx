@@ -156,7 +156,7 @@ function SubscriberDetail({ subscription }: { subscription: Subscription }) {
                 <TxStatusIcon status={tx.status} />
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-mono text-xs font-medium">{tx.reference}</p>
-                  <p className="text-[11px] text-muted-foreground capitalize">{tx.gateway}</p>
+                  <p className="text-[11px] text-muted-foreground capitalize">{tx.payment_method}</p>
                 </div>
                 <div className="text-right shrink-0">
                   <p className="text-xs font-semibold tabular-nums">{fmt(tx.amount)}</p>
