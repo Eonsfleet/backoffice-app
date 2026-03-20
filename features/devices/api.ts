@@ -157,6 +157,24 @@ export interface ApnPayload {
   status: number  // 1 | 0
 }
 
+type RawApn = {
+  id: string | number
+  attributes: {
+    name: string
+    status: number | null
+    created_at?: string
+  }
+}
+
+function normalizeApn(r: RawApn): Apn {
+  return {
+    id:         r.id,
+    name:       r.attributes.name,
+    status:     r.attributes.status,
+    created_at: r.attributes.created_at,
+  }
+}
+
 export const listApns = async (params?: {
   q?: string
   per_page?: number
@@ -164,10 +182,10 @@ export const listApns = async (params?: {
 }): Promise<PaginatedResponse<Apn>> => {
   const { data } = await api.get('/admin/apns', { params })
   const inner = data.data
-  const raw: Apn[] = inner?.apns ?? inner?.data ?? (Array.isArray(inner) ? inner : [])
+  const raw: RawApn[] = inner?.apns ?? inner?.data ?? (Array.isArray(inner) ? inner : [])
   const pg = inner?.pagination
   return {
-    data: raw,
+    data: raw.map(normalizeApn),
     meta: {
       current_page: pg?.current_page ?? pg?.current ?? 1,
       last_page:    pg?.last_page   ?? pg?.lastPage  ?? 1,

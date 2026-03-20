@@ -87,7 +87,7 @@ export type DeviceStatus = 'online' | 'offline' | 'unassigned'
 export interface Apn {
   id: string | number
   name: string
-  status: number   // 1 = active, 0 = inactive
+  status: number | null
   created_at?: string
 }
 

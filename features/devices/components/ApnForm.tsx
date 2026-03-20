@@ -33,7 +33,7 @@ export function ApnForm({
     resolver: zodResolver(schema),
     defaultValues: {
       name:   apn?.name   ?? '',
-      status: apn?.status ?? 1,
+      status: apn?.status ?? 0,
     },
   })
 
