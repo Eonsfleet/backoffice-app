@@ -34,23 +34,48 @@ function normalizePlan(raw: RawPlan): SubscriptionPlan {
 
 type RawSubscription = {
   id: string | number
-  attributes: Record<string, unknown>
+  attributes: {
+    started_at?:      string | null
+    ended_at?:        string | null
+    organization_id?: string | number | null
+    status?:          string | null
+    billing_cycle?:   string | null
+    next_billing_date?: string | null
+    vehicle_count?:   number | null
+    mrr?:             number | null
+    [key: string]:    unknown
+  }
   relationships?: {
-    organization?: { id: string | number; name?: string; attributes?: { name: string } }
-    plan?: { id: string | number; name: string }
+    organization?: { id: string | number; name?: string; attributes?: { name: string } } | null
+    plan?: { id: string | number; name: string } | null
   }
 }
 
+function resolveStatus(raw: string | null | undefined): Subscription['status'] {
+  if (!raw || raw === '0') return 'expired'
+  if (raw === '1' || raw === 'active') return 'active'
+  if (raw === '2') return 'trial'
+  return raw as Subscription['status']
+}
+
 function normalizeSubscription(raw: RawSubscription): Subscription {
-  const org = raw.relationships?.organization
-  const orgName = org
-    ? (org as { name?: string }).name ?? (org as { attributes?: { name: string } }).attributes?.name ?? ''
+  const relOrg = raw.relationships?.organization
+  const orgId  = relOrg?.id ?? raw.attributes.organization_id ?? ''
+  const orgName = relOrg
+    ? ((relOrg as { name?: string }).name ?? relOrg.attributes?.name ?? '')
     : ''
+
   return {
-    id: raw.id,
-    ...(raw.attributes as Omit<Subscription, 'id' | 'organization' | 'plan'>),
-    organization: org ? { id: org.id, name: orgName } : { id: '', name: '' },
-    plan: raw.relationships?.plan ?? { id: '', name: '' },
+    id:               raw.id,
+    status:           resolveStatus(raw.attributes.status),
+    started_at:       raw.attributes.started_at ?? '',
+    ends_at:          raw.attributes.ended_at   ?? null,
+    billing_cycle:    raw.attributes.billing_cycle as Subscription['billing_cycle'] ?? undefined,
+    next_billing_date: raw.attributes.next_billing_date ?? null,
+    vehicle_count:    raw.attributes.vehicle_count ?? undefined,
+    mrr:              raw.attributes.mrr ?? undefined,
+    organization:     { id: orgId, name: orgName },
+    plan:             raw.relationships?.plan ?? { id: '', name: '' },
   }
 }
 
