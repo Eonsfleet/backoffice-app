@@ -38,10 +38,16 @@ api.interceptors.response.use(
       const hasSession = !!useAuthStore.getState().token
 
       if (!isAuthEndpoint && hasSession && typeof window !== 'undefined') {
-        useAuthStore.getState().clearAuth()
-        document.cookie = 'eonsfleet-token=; path=/; max-age=0'
-        await api.get('/auth/admin/logout').catch(() => null)
-        window.location.replace('/login')
+        // Verify the session is actually expired before logging out.
+        // A 401 on a data endpoint may be a backend permission issue, not
+        // an invalid token — only log out if /me also rejects the token.
+        const sessionValid = await api.get('/auth/admin/me').then(() => true).catch(() => false)
+        if (!sessionValid) {
+          useAuthStore.getState().clearAuth()
+          document.cookie = 'eonsfleet-token=; path=/; max-age=0'
+          await api.get('/auth/admin/logout').catch(() => null)
+          window.location.replace('/login')
+        }
       }
     }
     return Promise.reject(error)
