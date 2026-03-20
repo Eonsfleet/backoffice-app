@@ -79,52 +79,92 @@ export default function AnalyticsPage() {
         icon={BarChart3}
       />
 
-      {/* Fleet Health KPIs */}
+      {/* Fleet Health */}
       <div>
         <h2 className="mb-3 text-sm font-semibold text-muted-foreground uppercase tracking-wide">Fleet Health</h2>
+
+        {/* Vehicle summary */}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <KpiCard
-            label="Maintenance Alerts"
-            value={fleet?.maintenance_alerts_total ?? '—'}
-            icon={AlertTriangle}
-            iconClassName="bg-amber-500/10"
-            isLoading={fleetQ.isLoading}
-          />
-          <KpiCard
-            label="Open Incidents"
-            value={fleet?.open_incidents ?? '—'}
-            icon={Activity}
-            iconClassName="bg-red-500/10"
-            isLoading={fleetQ.isLoading}
-          />
-          <KpiCard
-            label="Trip Completion Rate"
-            value={fleet?.trip_completion_rate != null ? `${fleet.trip_completion_rate}%` : '—'}
-            icon={CheckCircle2}
-            iconClassName="bg-emerald-500/10"
-            isLoading={fleetQ.isLoading}
-          />
-          <KpiCard
-            label="Resolved Incidents"
-            value={fleet?.resolved_incidents ?? '—'}
-            icon={CheckCircle2}
-            iconClassName="bg-blue-500/10"
-            isLoading={fleetQ.isLoading}
-          />
+          <KpiCard label="Total Vehicles"   value={fleet?.summary.total}          icon={Activity}      iconClassName="bg-primary/10"     isLoading={fleetQ.isLoading} />
+          <KpiCard label="With Device"      value={fleet?.summary.with_device}    icon={CheckCircle2}  iconClassName="bg-emerald-500/10" isLoading={fleetQ.isLoading} />
+          <KpiCard label="Device Online"    value={fleet?.summary.device_online}  icon={Wifi}          iconClassName="bg-blue-500/10"    isLoading={fleetQ.isLoading} />
+          <KpiCard label="Device Offline"   value={fleet?.summary.device_offline} icon={WifiOff}       iconClassName="bg-red-500/10"     isLoading={fleetQ.isLoading} />
+        </div>
+
+        <div className="mt-4 grid gap-4 lg:grid-cols-3">
+          {/* Movement */}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-semibold">Movement</CardTitle>
+              <CardDescription className="text-xs">Real-time vehicle activity</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {fleetQ.isLoading ? (
+                Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-8 w-full" />)
+              ) : (
+                [
+                  { label: 'Moving Now',      value: fleet?.movement.moving_now,     color: 'text-emerald-600' },
+                  { label: 'Active Today',    value: fleet?.movement.active_today,   color: 'text-blue-600' },
+                  { label: 'Inactive Today',  value: fleet?.movement.inactive_today, color: 'text-muted-foreground' },
+                ].map(({ label, value, color }) => (
+                  <div key={label} className="flex items-center justify-between rounded-lg border border-border px-3 py-2">
+                    <span className="text-sm text-muted-foreground">{label}</span>
+                    <span className={`text-sm font-bold tabular-nums ${color}`}>{value ?? '—'}</span>
+                  </div>
+                ))
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Trips */}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-semibold">Trips</CardTitle>
+              <CardDescription className="text-xs">Today and this month</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {fleetQ.isLoading ? (
+                Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-8 w-full" />)
+              ) : (
+                [
+                  { label: 'Total Today',          value: fleet?.trips.total_today },
+                  { label: 'In Progress',           value: fleet?.trips.in_progress },
+                  { label: 'Completed This Month',  value: fleet?.trips.completed_this_month },
+                  { label: 'Distance This Month',   value: `${fleet?.trips.total_distance_km_this_month ?? 0} km` },
+                ].map(({ label, value }) => (
+                  <div key={label} className="flex items-center justify-between rounded-lg border border-border px-3 py-2">
+                    <span className="text-sm text-muted-foreground">{label}</span>
+                    <span className="text-sm font-bold tabular-nums">{value ?? '—'}</span>
+                  </div>
+                ))
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Status distribution */}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-semibold">Vehicle Status</CardTitle>
+              <CardDescription className="text-xs">Distribution by status</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {fleetQ.isLoading ? (
+                <Skeleton className="h-40 w-full" />
+              ) : (
+                <ResponsiveContainer width="100%" height={160}>
+                  <BarChart data={fleet?.status_distribution ?? []} layout="vertical" margin={{ left: 8, right: 16 }}>
+                    <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="hsl(var(--border))" />
+                    <XAxis type="number" tick={{ fontSize: 10 }} allowDecimals={false} />
+                    <YAxis type="category" dataKey="status" width={72} tick={{ fontSize: 10 }} />
+                    <Tooltip contentStyle={{ fontSize: 12 }} />
+                    <Bar dataKey="count" fill={CHART_COLORS.primary} name="Vehicles" radius={[0, 3, 3, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
+            </CardContent>
+          </Card>
         </div>
       </div>
-
-      {/* Maintenance alerts breakdown */}
-      {fleet?.maintenance_by_status && (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {Object.entries(fleet.maintenance_by_status as Record<string, number>).map(([status, count]) => (
-            <div key={status} className="flex items-center justify-between rounded-lg border border-border bg-card px-4 py-3">
-              <span className="text-sm text-muted-foreground capitalize">{status.replace(/_/g, ' ')}</span>
-              <Badge variant="secondary">{count}</Badge>
-            </div>
-          ))}
-        </div>
-      )}
 
       {/* Device Health */}
       <div>

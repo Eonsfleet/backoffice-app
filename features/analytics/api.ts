@@ -45,9 +45,31 @@ export const getDeviceHealthMetrics = async (): Promise<DeviceHealth> => {
 
 // ─── Fleet Health ─────────────────────────────────────────────────────────────
 
-export const getFleetHealthMetrics = async () => {
+export interface FleetHealth {
+  summary: {
+    total:          number
+    with_device:    number
+    no_device:      number
+    device_online:  number
+    device_offline: number
+  }
+  movement: {
+    moving_now:     number
+    active_today:   number
+    inactive_today: number
+  }
+  trips: {
+    total_today:                  number
+    completed_this_month:         number
+    in_progress:                  number
+    total_distance_km_this_month: number
+  }
+  status_distribution: { status: string; count: number }[]
+}
+
+export const getFleetHealthMetrics = async (): Promise<FleetHealth> => {
   const { data } = await api.get('/admins/analytics/fleet-health')
-  return data.data ?? data.message
+  return data.data as FleetHealth
 }
 
 // ─── Growth ───────────────────────────────────────────────────────────────────
