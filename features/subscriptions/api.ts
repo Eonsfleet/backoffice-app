@@ -246,7 +246,7 @@ export const exportTransactions = async (): Promise<void> => {
 // ─── Analytics ────────────────────────────────────────────────────────────────
 
 export const getSubscriptionSummary = async (): Promise<SubscriptionSummary> => {
-  const { data } = await api.get('/admin/subscriptions/summary')
+  const { data } = await api.get('/admins/subscriptions/analytics/summary')
   // Stats live in `message`, not `data`
   return data.message as SubscriptionSummary
 }
@@ -280,5 +280,5 @@ export interface MrrAnalytics {
 
 export const getMrrAnalytics = async (): Promise<MrrAnalytics> => {
   const { data } = await api.get('/admins/subscriptions/analytics/mrr')
-  return data.data ?? data
+  return data.message as MrrAnalytics
 }
