@@ -9,7 +9,7 @@ import { format, formatDistanceToNow } from 'date-fns'
 import {
   Cpu, Search, MoreHorizontal, Eye, PowerOff, Download,
   Wifi, WifiOff, CircleDashed, Plus, Pencil, Trash2,
-  CircuitBoard, CheckCircle2, XCircle,
+  CircuitBoard, CheckCircle2, XCircle, Signal,
 } from 'lucide-react'
 
 import { PageHeader }    from '@/components/shared/PageHeader'
@@ -32,10 +32,12 @@ import {
 import {
   listDevices, deactivateDevice, exportDevices,
   listHardware, createHardware, updateHardware, deleteHardware,
+  listApns, createApn, updateApn, deleteApn,
 } from '@/features/devices/api'
 import { DeviceCreateForm } from '@/features/devices/components/DeviceCreateForm'
 import { HardwareForm, type HardwareFormValues } from '@/features/devices/components/HardwareForm'
-import type { Device, Hardware } from '@/types/api'
+import { ApnForm, type ApnFormValues } from '@/features/devices/components/ApnForm'
+import type { Apn, Device, Hardware } from '@/types/api'
 
 const STATUS_OPTIONS = [
   { value: 'all',        label: 'All Statuses' },
@@ -453,6 +455,173 @@ function HardwareTab() {
   )
 }
 
+// ─── APN Tab ──────────────────────────────────────────────────────────────────
+
+function ApnTab() {
+  const qc = useQueryClient()
+
+  const [search, setSearch]         = useState('')
+  const [page, setPage]             = useState(1)
+  const [formOpen, setFormOpen]     = useState(false)
+  const [editTarget, setEditTarget] = useState<Apn | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<Apn | null>(null)
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['apns', { search, page }],
+    queryFn: () => listApns({ q: search || undefined, per_page: PER_PAGE, page }),
+    staleTime: 60_000,
+  })
+
+  const saveMutation = useMutation({
+    mutationFn: (v: ApnFormValues) =>
+      editTarget ? updateApn(editTarget.id, v) : createApn(v),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['apns'] })
+      toast.success(editTarget ? 'APN updated' : 'APN created')
+      setFormOpen(false)
+      setEditTarget(null)
+    },
+    onError: () => toast.error('Failed to save APN'),
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string | number) => deleteApn(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['apns'] })
+      toast.success('APN deleted')
+      setDeleteTarget(null)
+    },
+    onError: () => toast.error('Failed to delete APN'),
+  })
+
+  const openCreate = () => { setEditTarget(null); setFormOpen(true) }
+  const openEdit   = (a: Apn) => { setEditTarget(a); setFormOpen(true) }
+
+  const columns: ColumnDef<Apn, unknown>[] = [
+    {
+      id: 'name',
+      header: 'APN Name',
+      cell: ({ row }) => (
+        <div className="flex items-center gap-3">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-sky-500/10">
+            <Signal className="h-4 w-4 text-sky-600" />
+          </div>
+          <p className="truncate text-sm font-medium text-foreground">{row.original.name}</p>
+        </div>
+      ),
+    },
+    {
+      id: 'status',
+      header: 'Status',
+      cell: ({ row }) =>
+        row.original.status === 1 ? (
+          <Badge variant="outline" className="gap-1 text-emerald-600 border-emerald-200 bg-emerald-50">
+            <CheckCircle2 className="h-3 w-3" /> Active
+          </Badge>
+        ) : (
+          <Badge variant="outline" className="gap-1 text-muted-foreground">
+            <XCircle className="h-3 w-3" /> Inactive
+          </Badge>
+        ),
+    },
+    {
+      id: 'created_at',
+      header: 'Added',
+      cell: ({ row }) => (
+        <span className="text-xs text-muted-foreground">
+          {row.original.created_at ? format(new Date(row.original.created_at), 'MMM d, yyyy') : '—'}
+        </span>
+      ),
+    },
+    {
+      id: 'actions',
+      header: '',
+      enableHiding: false,
+      cell: ({ row }) => {
+        const a = row.original
+        return (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8">
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-36">
+              <DropdownMenuItem onClick={() => openEdit(a)}>
+                <Pencil className="mr-2 h-4 w-4" /> Edit
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                className="text-destructive focus:text-destructive"
+                onClick={() => setDeleteTarget(a)}
+              >
+                <Trash2 className="mr-2 h-4 w-4" /> Delete
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )
+      },
+    },
+  ]
+
+  const toolbar = (
+    <div className="flex flex-wrap items-center justify-between gap-2">
+      <div className="relative min-w-[200px] max-w-sm flex-1">
+        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+        <Input
+          placeholder="Search APNs…"
+          value={search}
+          onChange={(e) => { setSearch(e.target.value); setPage(1) }}
+          className="pl-8"
+        />
+      </div>
+      <Button onClick={openCreate}>
+        <Plus className="mr-2 h-4 w-4" /> Add APN
+      </Button>
+    </div>
+  )
+
+  return (
+    <div className="space-y-4">
+      <DataTable
+        data={data?.data ?? []}
+        columns={columns}
+        isLoading={isLoading}
+        toolbar={toolbar}
+        pagination={{ pageIndex: page - 1, pageSize: PER_PAGE }}
+        pageCount={data?.meta?.last_page ?? 1}
+        onPaginationChange={(s) => setPage(s.pageIndex + 1)}
+      />
+
+      <SlideOver
+        open={formOpen}
+        onOpenChange={(o) => { setFormOpen(o); if (!o) setEditTarget(null) }}
+        title={editTarget ? 'Edit APN' : 'Add APN'}
+        description={editTarget ? 'Update APN details.' : 'Add a new APN configuration.'}
+      >
+        <ApnForm
+          apn={editTarget}
+          onSubmit={(v) => saveMutation.mutate(v)}
+          isPending={saveMutation.isPending}
+          onCancel={() => setFormOpen(false)}
+        />
+      </SlideOver>
+
+      {deleteTarget && (
+        <ConfirmDialog
+          open={!!deleteTarget}
+          onOpenChange={(o) => !o && setDeleteTarget(null)}
+          title="Delete APN"
+          description={`Permanently delete "${deleteTarget.name}"?`}
+          confirmLabel="Delete"
+          variant="destructive"
+          onConfirm={() => deleteMutation.mutateAsync(deleteTarget.id)}
+        />
+      )}
+    </div>
+  )
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function DevicesPage() {
@@ -480,6 +649,13 @@ export default function DevicesPage() {
             <CircuitBoard className="mr-2 h-4 w-4" />
             Hardware
           </TabsTrigger>
+          <TabsTrigger
+            value="apn"
+            className="rounded-none border-b-2 border-transparent px-4 pb-3 pt-1 text-sm font-medium text-muted-foreground data-[state=active]:border-primary data-[state=active]:text-foreground data-[state=active]:shadow-none bg-transparent"
+          >
+            <Signal className="mr-2 h-4 w-4" />
+            APN
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="devices" className="mt-6">
@@ -488,6 +664,10 @@ export default function DevicesPage() {
 
         <TabsContent value="hardware" className="mt-6">
           <HardwareTab />
+        </TabsContent>
+
+        <TabsContent value="apn" className="mt-6">
+          <ApnTab />
         </TabsContent>
       </Tabs>
     </div>

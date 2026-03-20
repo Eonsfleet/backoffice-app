@@ -1,5 +1,5 @@
 import { api } from '@/lib/api/client'
-import type { Device, Hardware, PaginatedResponse } from '@/types/api'
+import type { Apn, Device, Hardware, PaginatedResponse } from '@/types/api'
 
 export interface DeviceFilters {
   page?: number
@@ -148,6 +148,50 @@ export const updateHardware = async (
 
 export const deleteHardware = async (id: string | number): Promise<void> => {
   await api.delete(`/admin/hardwares/${id}`)
+}
+
+// ─── APNs ─────────────────────────────────────────────────────────────────────
+
+export interface ApnPayload {
+  name: string
+  status: number  // 1 | 0
+}
+
+export const listApns = async (params?: {
+  q?: string
+  per_page?: number
+  page?: number
+}): Promise<PaginatedResponse<Apn>> => {
+  const { data } = await api.get('/admin/apns', { params })
+  const inner = data.data
+  const raw: Apn[] = inner?.apns ?? inner?.data ?? (Array.isArray(inner) ? inner : [])
+  const pg = inner?.pagination
+  return {
+    data: raw,
+    meta: {
+      current_page: pg?.current_page ?? pg?.current ?? 1,
+      last_page:    pg?.last_page   ?? pg?.lastPage  ?? 1,
+      per_page:     pg?.per_page    ?? pg?.perPage   ?? raw.length,
+      total:        pg?.total       ?? raw.length,
+    },
+  }
+}
+
+export const createApn = async (payload: ApnPayload): Promise<Apn> => {
+  const { data } = await api.post('/admin/apns', payload)
+  return data.data
+}
+
+export const updateApn = async (
+  id: string | number,
+  payload: Partial<ApnPayload>
+): Promise<Apn> => {
+  const { data } = await api.patch(`/admin/apns/${id}`, payload)
+  return data.data
+}
+
+export const deleteApn = async (id: string | number): Promise<void> => {
+  await api.delete(`/admin/apns/${id}`)
 }
 
 export const exportDevices = async (filters?: DeviceFilters): Promise<void> => {

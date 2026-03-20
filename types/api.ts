@@ -84,6 +84,13 @@ export interface Organization {
 
 export type DeviceStatus = 'online' | 'offline' | 'unassigned'
 
+export interface Apn {
+  id: string | number
+  name: string
+  status: number   // 1 = active, 0 = inactive
+  created_at?: string
+}
+
 export interface Hardware {
   id: string | number
   name: string
