@@ -74,9 +74,48 @@ export const getFleetHealthMetrics = async (): Promise<FleetHealth> => {
 
 // ─── Growth ───────────────────────────────────────────────────────────────────
 
-export const getGrowthMetrics = async (params?: { months?: number }) => {
+export interface GrowthSeriesPoint {
+  period: string
+  count:  number
+}
+
+export interface GrowthChange {
+  value:   number
+  percent: number
+}
+
+export interface GrowthAnalytics {
+  period:   string
+  group_by: string
+  current: {
+    organizations: number
+    subscriptions: number
+    users:         number
+    devices:       number
+  }
+  previous: {
+    organizations: number
+    subscriptions: number
+    users:         number
+    devices:       number
+  }
+  change: {
+    organizations: GrowthChange
+    subscriptions: GrowthChange
+    users:         GrowthChange
+    devices:       GrowthChange
+  }
+  series: {
+    organizations: GrowthSeriesPoint[]
+    subscriptions: GrowthSeriesPoint[]
+    users:         GrowthSeriesPoint[]
+    devices:       GrowthSeriesPoint[]
+  }
+}
+
+export const getGrowthMetrics = async (params?: { period?: string }): Promise<GrowthAnalytics> => {
   const { data } = await api.get('/admins/analytics/growth', { params })
-  return data.data ?? data.message
+  return data.data as GrowthAnalytics
 }
 
 export const getPerformanceMetrics = async () => {

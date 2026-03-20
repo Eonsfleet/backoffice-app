@@ -4,7 +4,7 @@
 
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { BarChart3, Activity, Cpu, TrendingUp, AlertTriangle, CheckCircle2, Wifi, WifiOff, CircleDashed } from 'lucide-react'
+import { BarChart3, Activity, Cpu, TrendingUp, AlertTriangle, CheckCircle2, Wifi, WifiOff, CircleDashed, ArrowUpRight, ArrowDownRight } from 'lucide-react'
 import {
   LineChart, Line, BarChart, Bar, AreaChart, Area,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, Cell,
@@ -47,7 +47,7 @@ const CHART_COLORS = {
 }
 
 export default function AnalyticsPage() {
-  const [growthMonths, setGrowthMonths] = useState('12')
+  const [growthPeriod, setGrowthPeriod] = useState('30d')
 
   const fleetQ = useQuery({
     queryKey: ['analytics-fleet'],
@@ -62,8 +62,8 @@ export default function AnalyticsPage() {
   })
 
   const growthQ = useQuery({
-    queryKey: ['analytics-growth', growthMonths],
-    queryFn: () => getGrowthMetrics({ months: Number(growthMonths) }),
+    queryKey: ['analytics-growth', growthPeriod],
+    queryFn: () => getGrowthMetrics({ period: growthPeriod }),
     staleTime: 60_000,
   })
 
@@ -263,83 +263,79 @@ export default function AnalyticsPage() {
       <div>
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Growth Metrics</h2>
-          <Select value={growthMonths} onValueChange={setGrowthMonths}>
-            <SelectTrigger className="w-28 h-8 text-xs">
-              <SelectValue />
-            </SelectTrigger>
+          <Select value={growthPeriod} onValueChange={setGrowthPeriod}>
+            <SelectTrigger className="w-28 h-8 text-xs"><SelectValue /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="6">Last 6mo</SelectItem>
-              <SelectItem value="12">Last 12mo</SelectItem>
-              <SelectItem value="24">Last 24mo</SelectItem>
+              <SelectItem value="7d">Last 7d</SelectItem>
+              <SelectItem value="30d">Last 30d</SelectItem>
+              <SelectItem value="90d">Last 90d</SelectItem>
             </SelectContent>
           </Select>
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-3">
-          <KpiCard
-            label="New Orgs (Period)"
-            value={growth?.new_organizations_total ?? '—'}
-            icon={TrendingUp}
-            iconClassName="bg-blue-500/10"
-            isLoading={growthQ.isLoading}
-          />
-          <KpiCard
-            label="Fleet Size Growth"
-            value={growth?.fleet_growth_percent != null ? `+${growth.fleet_growth_percent}%` : '—'}
-            icon={TrendingUp}
-            iconClassName="bg-emerald-500/10"
-            isLoading={growthQ.isLoading}
-          />
-          <KpiCard
-            label="New Users (Period)"
-            value={growth?.new_users_total ?? '—'}
-            icon={TrendingUp}
-            iconClassName="bg-violet-500/10"
-            isLoading={growthQ.isLoading}
-          />
+        {/* KPIs with change % */}
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {[
+            { label: 'Organizations', key: 'organizations' as const, color: CHART_COLORS.blue,   iconClass: 'bg-blue-500/10' },
+            { label: 'Subscriptions', key: 'subscriptions' as const, color: CHART_COLORS.emerald, iconClass: 'bg-emerald-500/10' },
+            { label: 'Users',         key: 'users'         as const, color: CHART_COLORS.violet,  iconClass: 'bg-violet-500/10' },
+            { label: 'Devices',       key: 'devices'       as const, color: CHART_COLORS.amber,   iconClass: 'bg-amber-500/10' },
+          ].map(({ label, key, iconClass }) => {
+            const current = growth?.current[key]
+            const pct     = growth?.change[key].percent
+            const up      = (pct ?? 0) >= 0
+            return (
+              <Card key={key}>
+                <CardContent className="pt-5">
+                  <div className="flex items-start justify-between">
+                    <div className="space-y-1">
+                      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
+                      <p className="text-2xl font-bold tabular-nums">{growthQ.isLoading ? '—' : (current ?? '—')}</p>
+                      {pct != null && !growthQ.isLoading && (
+                        <p className={`text-xs flex items-center gap-1 ${up ? 'text-emerald-600' : 'text-destructive'}`}>
+                          {up ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
+                          {up ? '+' : ''}{pct}% vs prev period
+                        </p>
+                      )}
+                    </div>
+                    <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${iconClass}`}>
+                      <TrendingUp className="h-5 w-5 text-primary" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )
+          })}
         </div>
 
-        <div className="mt-4 grid gap-4 lg:grid-cols-3">
-          <ChartCard title="New Organizations / Month" isLoading={growthQ.isLoading}>
-            {growth?.organizations_by_month && (
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={growth.organizations_by_month}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis dataKey="month" tick={{ fontSize: 10 }} />
-                  <YAxis tick={{ fontSize: 10 }} />
-                  <Tooltip contentStyle={{ fontSize: 12 }} />
-                  <Bar dataKey="count" fill={CHART_COLORS.blue} name="Organizations" radius={[3, 3, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            )}
-          </ChartCard>
-
-          <ChartCard title="Vehicle Fleet Size Growth" isLoading={growthQ.isLoading}>
-            {growth?.vehicles_by_month && (
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={growth.vehicles_by_month}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis dataKey="month" tick={{ fontSize: 10 }} />
-                  <YAxis tick={{ fontSize: 10 }} />
-                  <Tooltip contentStyle={{ fontSize: 12 }} />
-                  <Line type="monotone" dataKey="count" stroke={CHART_COLORS.emerald} dot={false} name="Vehicles" strokeWidth={2} />
-                </LineChart>
-              </ResponsiveContainer>
-            )}
-          </ChartCard>
-
-          <ChartCard title="User Registrations / Month" isLoading={growthQ.isLoading}>
-            {growth?.users_by_month && (
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={growth.users_by_month}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis dataKey="month" tick={{ fontSize: 10 }} />
-                  <YAxis tick={{ fontSize: 10 }} />
-                  <Tooltip contentStyle={{ fontSize: 12 }} />
-                  <Area type="monotone" dataKey="count" fill={CHART_COLORS.violet} stroke={CHART_COLORS.violet} fillOpacity={0.2} name="Users" />
-                </AreaChart>
-              </ResponsiveContainer>
-            )}
+        {/* Combined multi-line chart */}
+        <div className="mt-4">
+          <ChartCard title="Growth Trends" isLoading={growthQ.isLoading}>
+            {growth?.series && (() => {
+              // Merge all 4 series by period
+              const merged = growth.series.organizations.map((pt, i) => ({
+                period:        pt.period.slice(5), // "MM-DD"
+                organizations: pt.count,
+                subscriptions: growth.series.subscriptions[i]?.count ?? 0,
+                users:         growth.series.users[i]?.count ?? 0,
+                devices:       growth.series.devices[i]?.count ?? 0,
+              }))
+              return (
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={merged}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                    <XAxis dataKey="period" tick={{ fontSize: 10 }} interval="preserveStartEnd" />
+                    <YAxis tick={{ fontSize: 10 }} allowDecimals={false} />
+                    <Tooltip contentStyle={{ fontSize: 12 }} />
+                    <Legend wrapperStyle={{ fontSize: 11 }} />
+                    <Line type="monotone" dataKey="organizations" stroke={CHART_COLORS.blue}   dot={false} strokeWidth={2} name="Orgs" />
+                    <Line type="monotone" dataKey="subscriptions" stroke={CHART_COLORS.emerald} dot={false} strokeWidth={2} name="Subscriptions" />
+                    <Line type="monotone" dataKey="users"         stroke={CHART_COLORS.violet}  dot={false} strokeWidth={2} name="Users" />
+                    <Line type="monotone" dataKey="devices"       stroke={CHART_COLORS.amber}   dot={false} strokeWidth={2} name="Devices" />
+                  </LineChart>
+                </ResponsiveContainer>
+              )
+            })()}
           </ChartCard>
         </div>
       </div>
