@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { format } from 'date-fns'
 import {
   CreditCard, Users, XCircle, Ban,
-  Layers, Receipt, FileText, ChevronRight,
+  Layers, Receipt, FileText, BarChart3, ChevronRight,
 } from 'lucide-react'
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts'
 
@@ -32,10 +32,11 @@ const STATUS_COLORS: Record<string, string> = {
 }
 
 const QUICK_LINKS = [
-  { label: 'Plans',        href: '/subscriptions/plans',        icon: Layers,   desc: 'Manage pricing tiers' },
-  { label: 'Subscribers',  href: '/subscriptions/subscribers',  icon: Users,    desc: 'All active subscriptions' },
-  { label: 'Transactions', href: '/subscriptions/transactions', icon: Receipt,  desc: 'Payment history' },
-  { label: 'Invoices',     href: '/subscriptions/invoices',     icon: FileText, desc: 'Download invoices' },
+  { label: 'Plans',        href: '/subscriptions/plans',        icon: Layers,    desc: 'Manage pricing tiers' },
+  { label: 'Subscribers',  href: '/subscriptions/subscribers',  icon: Users,     desc: 'All active subscriptions' },
+  { label: 'Transactions', href: '/subscriptions/transactions', icon: Receipt,   desc: 'Payment history' },
+  { label: 'Invoices',     href: '/subscriptions/invoices',     icon: FileText,  desc: 'Download invoices' },
+  { label: 'Analytics',    href: '/subscriptions/analytics',    icon: BarChart3, desc: 'MRR, churn & plan breakdown' },
 ]
 
 export default function SubscriptionsOverviewPage() {
