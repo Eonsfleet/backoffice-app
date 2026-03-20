@@ -1,15 +1,17 @@
 'use client'
 
+'use client'
+
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { BarChart3, Activity, Cpu, TrendingUp, AlertTriangle, CheckCircle2 } from 'lucide-react'
+import { BarChart3, Activity, Cpu, TrendingUp, AlertTriangle, CheckCircle2, Wifi, WifiOff, CircleDashed } from 'lucide-react'
 import {
   LineChart, Line, BarChart, Bar, AreaChart, Area,
-  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
+  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, Cell,
 } from 'recharts'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { KpiCard } from '@/components/shared/KpiCard'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -46,7 +48,6 @@ const CHART_COLORS = {
 
 export default function AnalyticsPage() {
   const [growthMonths, setGrowthMonths] = useState('12')
-  const [deviceDays, setDeviceDays] = useState('30')
 
   const fleetQ = useQuery({
     queryKey: ['analytics-fleet'],
@@ -55,8 +56,8 @@ export default function AnalyticsPage() {
   })
 
   const deviceQ = useQuery({
-    queryKey: ['analytics-device', deviceDays],
-    queryFn: () => getDeviceHealthMetrics({ days: Number(deviceDays) }),
+    queryKey: ['analytics-device'],
+    queryFn: getDeviceHealthMetrics,
     staleTime: 60_000,
   })
 
@@ -66,7 +67,7 @@ export default function AnalyticsPage() {
     staleTime: 60_000,
   })
 
-  const fleet = fleetQ.data
+  const fleet  = fleetQ.data
   const device = deviceQ.data
   const growth = growthQ.data
 
@@ -127,75 +128,95 @@ export default function AnalyticsPage() {
 
       {/* Device Health */}
       <div>
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Device Health</h2>
-          <Select value={deviceDays} onValueChange={setDeviceDays}>
-            <SelectTrigger className="w-28 h-8 text-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="7">Last 7d</SelectItem>
-              <SelectItem value="14">Last 14d</SelectItem>
-              <SelectItem value="30">Last 30d</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+        <h2 className="mb-3 text-sm font-semibold text-muted-foreground uppercase tracking-wide">Device Health</h2>
 
-        <div className="grid gap-4 lg:grid-cols-3">
-          <KpiCard
-            label="Online Rate"
-            value={device?.online_rate != null ? `${device.online_rate}%` : '—'}
-            icon={Cpu}
-            iconClassName="bg-emerald-500/10"
-            isLoading={deviceQ.isLoading}
-          />
-          <KpiCard
-            label="Devices Offline >24h"
-            value={device?.offline_over_24h ?? '—'}
-            icon={AlertTriangle}
-            iconClassName="bg-red-500/10"
-            isLoading={deviceQ.isLoading}
-          />
-          <KpiCard
-            label="Firmware Versions"
-            value={device?.firmware_versions_count ?? '—'}
-            icon={Cpu}
-            iconClassName="bg-violet-500/10"
-            isLoading={deviceQ.isLoading}
-          />
+        {/* Summary KPIs */}
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <KpiCard label="Total Devices"  value={device?.summary.total}      icon={Cpu}           iconClassName="bg-primary/10"      isLoading={deviceQ.isLoading} />
+          <KpiCard label="Online"         value={device?.summary.online}     icon={Wifi}          iconClassName="bg-emerald-500/10"  isLoading={deviceQ.isLoading} />
+          <KpiCard label="Offline"        value={device?.summary.offline}    icon={WifiOff}       iconClassName="bg-red-500/10"      isLoading={deviceQ.isLoading} />
+          <KpiCard label="Unassigned"     value={device?.summary.unassigned} icon={CircleDashed}  iconClassName="bg-blue-500/10"     isLoading={deviceQ.isLoading} />
         </div>
 
         <div className="mt-4 grid gap-4 lg:grid-cols-2">
-          <ChartCard title="Online vs Offline Over Time" isLoading={deviceQ.isLoading}>
-            {device?.timeline && (
+          {/* Last Seen Buckets */}
+          <ChartCard title="Last Seen Distribution" isLoading={deviceQ.isLoading}>
+            {device?.last_seen_buckets && (
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={device.timeline}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis dataKey="date" tick={{ fontSize: 10 }} />
-                  <YAxis tick={{ fontSize: 10 }} />
+                <BarChart data={device.last_seen_buckets} layout="vertical" margin={{ left: 8, right: 16 }}>
+                  <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="hsl(var(--border))" />
+                  <XAxis type="number" tick={{ fontSize: 10 }} allowDecimals={false} />
+                  <YAxis type="category" dataKey="bucket" width={72} tick={{ fontSize: 10 }} />
                   <Tooltip contentStyle={{ fontSize: 12 }} />
-                  <Legend wrapperStyle={{ fontSize: 11 }} />
-                  <Area type="monotone" dataKey="online" fill={CHART_COLORS.emerald} stroke={CHART_COLORS.emerald} fillOpacity={0.2} name="Online" />
-                  <Area type="monotone" dataKey="offline" fill={CHART_COLORS.red} stroke={CHART_COLORS.red} fillOpacity={0.2} name="Offline" />
-                </AreaChart>
-              </ResponsiveContainer>
-            )}
-          </ChartCard>
-
-          <ChartCard title="Firmware Version Distribution" isLoading={deviceQ.isLoading}>
-            {device?.firmware_distribution && (
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={device.firmware_distribution}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis dataKey="version" tick={{ fontSize: 10 }} />
-                  <YAxis tick={{ fontSize: 10 }} />
-                  <Tooltip contentStyle={{ fontSize: 12 }} />
-                  <Bar dataKey="count" fill={CHART_COLORS.violet} name="Devices" radius={[3, 3, 0, 0]} />
+                  <Bar dataKey="count" name="Devices" radius={[0, 3, 3, 0]}>
+                    {device.last_seen_buckets.map((_, i) => (
+                      <Cell key={i} fill={i === 0 ? CHART_COLORS.emerald : i <= 2 ? CHART_COLORS.amber : CHART_COLORS.red} />
+                    ))}
+                  </Bar>
                 </BarChart>
               </ResponsiveContainer>
             )}
           </ChartCard>
+
+          {/* Signal Distribution */}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-semibold">Signal Quality</CardTitle>
+              <CardDescription className="text-xs">Distribution of device signal strength</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {deviceQ.isLoading ? (
+                Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-8 w-full" />)
+              ) : (device?.signal_distribution ?? []).map((s) => {
+                const total   = device!.summary.total || 1
+                const pct     = Math.round((s.count / total) * 100)
+                const color   = s.quality === 'excellent' ? 'bg-emerald-500' : s.quality === 'good' ? 'bg-blue-500' : s.quality === 'fair' ? 'bg-amber-500' : 'bg-red-500'
+                return (
+                  <div key={s.quality} className="space-y-1">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="capitalize font-medium">{s.quality}</span>
+                      <span className="text-muted-foreground">{s.count} devices · {s.range}</span>
+                    </div>
+                    <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
+                      <div className={`h-full rounded-full transition-all ${color}`} style={{ width: `${pct}%` }} />
+                    </div>
+                  </div>
+                )
+              })}
+            </CardContent>
+          </Card>
         </div>
+
+        {/* Stale Devices */}
+        {!deviceQ.isLoading && (device?.stale_devices.count ?? 0) > 0 && (
+          <Card className="mt-4 border-amber-200 bg-amber-50/50 dark:border-amber-900 dark:bg-amber-950/20">
+            <CardHeader className="pb-2">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4 text-amber-600" />
+                <CardTitle className="text-sm font-semibold text-amber-700 dark:text-amber-400">
+                  Stale Devices ({device!.stale_devices.count})
+                </CardTitle>
+              </div>
+              <CardDescription className="text-xs">
+                Not seen in over {device!.stale_devices.threshold_days} days
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-wrap gap-2">
+                {device!.stale_devices.devices.slice(0, 20).map((d) => (
+                  <Badge key={d.id} variant="outline" className="font-mono text-xs border-amber-300 text-amber-700 dark:text-amber-400">
+                    {d.device_id ?? d.id}
+                  </Badge>
+                ))}
+                {device!.stale_devices.count > 20 && (
+                  <Badge variant="outline" className="text-xs text-muted-foreground">
+                    +{device!.stale_devices.count - 20} more
+                  </Badge>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       {/* Growth Metrics */}
