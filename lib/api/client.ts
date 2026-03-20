@@ -34,7 +34,7 @@ api.interceptors.response.use(
   async (error) => {
     if (axios.isAxiosError(error) && error.response?.status === 401) {
       const url = error.config?.url ?? ''
-      const isAuthEndpoint = url.includes('/auth/admin/login') || url.includes('/auth/admin/logout')
+      const isAuthEndpoint = url.includes('/auth/admin/login') || url.includes('/auth/admin/logout') || url.includes('/auth/admin/me')
       const hasSession = !!useAuthStore.getState().token
 
       if (!isAuthEndpoint && hasSession && typeof window !== 'undefined') {
