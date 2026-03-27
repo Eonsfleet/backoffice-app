@@ -296,7 +296,11 @@ export const exportTransactions = async (): Promise<void> => {
 export const getSubscriptionSummary = async (): Promise<SubscriptionSummary> => {
   const { data } = await api.get('/admins/subscriptions/analytics/summary')
   // Stats live in `message`, not `data`
-  return data.message as SubscriptionSummary
+  const msg = data.message
+  if (!msg || typeof msg !== 'object') {
+    throw new Error('Unexpected response shape from subscription summary endpoint.')
+  }
+  return msg as SubscriptionSummary
 }
 
 export interface StatusDistributionItem {
@@ -315,7 +319,7 @@ const STATUS_LABEL_MAP: Record<string, string> = {
 
 export const getSubscriptionStatusDistribution = async (): Promise<StatusDistributionItem[]> => {
   const { data } = await api.get('/admins/subscriptions/analytics/status-distribution')
-  const raw: StatusDistributionItem[] = data.message ?? []
+  const raw: StatusDistributionItem[] = Array.isArray(data.message) ? data.message : []
   return raw.map((item) => ({
     status: STATUS_LABEL_MAP[item.status] ?? item.status,
     count:  item.count,
@@ -341,5 +345,9 @@ export interface MrrAnalytics {
 
 export const getMrrAnalytics = async (): Promise<MrrAnalytics> => {
   const { data } = await api.get('/admins/subscriptions/analytics/mrr')
-  return data.message as MrrAnalytics
+  const msg = data.message
+  if (!msg || typeof msg !== 'object') {
+    throw new Error('Unexpected response shape from MRR analytics endpoint.')
+  }
+  return msg as MrrAnalytics
 }

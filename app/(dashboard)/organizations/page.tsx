@@ -29,6 +29,7 @@ import {
   deleteOrganization,
 } from '@/features/organizations/api'
 import type { Organization } from '@/types/api'
+import { DEFAULT_PAGE_SIZE } from '@/lib/constants'
 
 const STATUS_OPTIONS = [
   { value: 'all',        label: 'All Statuses' },
@@ -46,7 +47,7 @@ export default function OrganizationsPage() {
   const [search, setSearch]   = useState('')
   const [status, setStatus]   = useState('all')
   const [page, setPage]       = useState(1)
-  const perPage               = 15
+  const perPage               = DEFAULT_PAGE_SIZE
 
   // UI state
   const [formOpen, setFormOpen]         = useState(false)
@@ -54,7 +55,7 @@ export default function OrganizationsPage() {
   const [suspendTarget, setSuspendTarget] = useState<Organization | null>(null)
   const [deleteTarget, setDeleteTarget]   = useState<Organization | null>(null)
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isFetching } = useQuery({
     queryKey: ['organizations', { search, status, page, perPage }],
     queryFn: () => listOrganizations({
       q: search || undefined,
@@ -250,6 +251,7 @@ export default function OrganizationsPage() {
         data={orgs}
         columns={columns}
         isLoading={isLoading}
+        isFetching={isFetching}
         toolbar={toolbar}
         pagination={{ pageIndex: page - 1, pageSize: perPage }}
         pageCount={pageCount}

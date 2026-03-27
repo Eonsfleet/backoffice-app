@@ -27,20 +27,22 @@ export function usePusherChannel<T = unknown>(
     if (!enabled || !token || !channelName) return
 
     const pusher = getPusherClient(token)
-    let channel: Channel
+    let channel: Channel | null = null
 
     try {
       channel = pusher.subscribe(channelName)
       channel.bind(eventName, (data: T) => {
         callbackRef.current(data)
       })
-    } catch {
-      // Silently ignore subscription errors (e.g. during SSR)
+    } catch (err) {
+      console.error(`[Pusher] Failed to subscribe to "${channelName}":`, err)
       return
     }
 
     return () => {
-      channel?.unbind(eventName)
+      if (channel) {
+        channel.unbind(eventName)
+      }
       pusher.unsubscribe(channelName)
     }
   }, [channelName, eventName, token, enabled])

@@ -1,30 +1,34 @@
 import { create } from 'zustand'
+import { getAuthCookie } from '@/lib/auth-cookie'
+import { setMonitoringUser } from '@/lib/monitoring'
 import type { AdminUser } from '@/types/api'
 
 interface AuthState {
   token: string | null
   user: AdminUser | null
+  /** True while the bootstrap effect is resolving the profile from the server. */
+  isBootstrapping: boolean
   setAuth: (token: string, user: AdminUser | null) => void
+  setBootstrapped: () => void
   clearAuth: () => void
   isAuthenticated: () => boolean
 }
 
-const COOKIE_NAME = 'eonsfleet-token'
-
-// Read the auth cookie synchronously so the token is available
-// before any React effects (including TanStack Query) fire.
-function readTokenFromCookie(): string | null {
-  if (typeof document === 'undefined') return null
-  const match = document.cookie
-    .split(';')
-    .find((c) => c.trim().startsWith(`${COOKIE_NAME}=`))
-  return match ? match.trim().split('=').slice(1).join('=') : null
-}
-
 export const useAuthStore = create<AuthState>((set, get) => ({
-  token: readTokenFromCookie(),
+  // Read synchronously so the token is available before React effects fire.
+  token: getAuthCookie(),
   user: null,
-  setAuth: (token, user) => set({ token, user }),
-  clearAuth: () => set({ token: null, user: null }),
+  // Bootstrapping starts as true only when a token exists — otherwise there's
+  // nothing to resolve and pages can render immediately.
+  isBootstrapping: getAuthCookie() !== null,
+  setAuth: (token, user) => {
+    set({ token, user })
+    if (user) setMonitoringUser({ id: user.id, email: user.email, name: user.name })
+  },
+  setBootstrapped: () => set({ isBootstrapping: false }),
+  clearAuth: () => {
+    set({ token: null, user: null, isBootstrapping: false })
+    setMonitoringUser(null)
+  },
   isAuthenticated: () => get().token !== null,
 }))

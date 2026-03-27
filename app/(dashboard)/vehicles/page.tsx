@@ -34,6 +34,7 @@ import { listOrganizations } from '@/features/organizations/api'
 import { VehicleFormFields } from '@/features/vehicles/components/VehicleFormFields'
 import { AssignDeviceForm } from '@/features/vehicles/components/AssignDeviceForm'
 import type { Vehicle } from '@/types/api'
+import { DEFAULT_PAGE_SIZE } from '@/lib/constants'
 
 // ─── Device status icon ───────────────────────────────────────────────────────
 
@@ -60,7 +61,7 @@ export default function VehiclesPage() {
   const [status, setStatus]     = useState('all')
   const [orgFilter, setOrgFilter] = useState('all')
   const [page, setPage]         = useState(1)
-  const perPage                 = 15
+  const perPage                 = DEFAULT_PAGE_SIZE
 
   const [createOpen, setCreateOpen]     = useState(false)
   const [editVehicle, setEditVehicle]   = useState<Vehicle | null>(null)

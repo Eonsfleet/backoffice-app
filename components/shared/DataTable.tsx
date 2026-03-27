@@ -31,6 +31,8 @@ interface DataTableProps<T> {
   pageCount?: number
   onPaginationChange?: (state: PaginationState) => void
   isLoading?: boolean
+  /** True while a background refetch is in progress (filter/page change). Shows a progress bar. */
+  isFetching?: boolean
   skeletonRows?: number
   toolbar?: React.ReactNode
 }
@@ -42,6 +44,7 @@ export function DataTable<T>({
   pageCount,
   onPaginationChange,
   isLoading,
+  isFetching,
   skeletonRows = 8,
   toolbar,
 }: DataTableProps<T>) {
@@ -97,7 +100,13 @@ export function DataTable<T>({
       </div>
 
       {/* Table */}
-      <div className="overflow-hidden rounded-lg border border-border bg-card">
+      <div className="relative overflow-hidden rounded-lg border border-border bg-card">
+        {/* Refetch progress bar — shown while background data refresh is in flight */}
+        {isFetching && !isLoading && (
+          <div className="absolute inset-x-0 top-0 z-10 h-0.5 bg-primary/20 overflow-hidden">
+            <div className="h-full w-1/3 animate-pulse bg-primary rounded-full" />
+          </div>
+        )}
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((hg) => (

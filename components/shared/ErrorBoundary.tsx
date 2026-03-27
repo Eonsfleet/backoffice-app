@@ -3,6 +3,7 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react'
 import { AlertTriangle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { captureError } from '@/lib/monitoring'
 
 interface Props {
   children: ReactNode
@@ -26,6 +27,7 @@ export class ErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, info: ErrorInfo) {
     console.error('[ErrorBoundary]', error, info)
+    captureError(error, { componentStack: info.componentStack ?? undefined })
   }
 
   handleRetry = () => this.setState({ hasError: false, error: undefined })

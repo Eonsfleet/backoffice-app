@@ -3,6 +3,7 @@
 import { format, formatDistanceToNow } from 'date-fns'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { StatusBadge } from '@/components/shared/StatusBadge'
+import { getInitials } from '@/lib/string-utils'
 import type { TenantUser } from '@/types/api'
 
 function Row({ label, value }: { label: string; value: string }) {
@@ -15,7 +16,7 @@ function Row({ label, value }: { label: string; value: string }) {
 }
 
 export function UserDetail({ user }: { user: TenantUser }) {
-  const initials = user.name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2)
+  const initials = getInitials(user.name)
   return (
     <div className="space-y-5">
       <div className="flex items-center gap-4">

@@ -47,6 +47,7 @@ import { AdminUserForm, type AdminUserFormValues } from '@/features/admin-users/
 import type { Role } from '@/features/roles/api'
 
 import type { TenantUser, AdminUser } from '@/types/api'
+import { getInitials } from '@/lib/string-utils'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -73,7 +74,7 @@ function TenantUsersTab() {
   const [editUser, setEditUser]     = useState<TenantUser | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<TenantUser | null>(null)
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isFetching } = useQuery({
     queryKey: ['users', { search, status, orgFilter, page }],
     queryFn: () => listUsers({
       q:               search || undefined,
@@ -125,7 +126,7 @@ function TenantUsersTab() {
       header: 'User',
       cell: ({ row }) => {
         const u = row.original
-        const initials = u.name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2)
+        const initials = getInitials(u.name)
         return (
           <div className="flex items-center gap-3">
             <Avatar className="h-8 w-8 shrink-0">
@@ -269,6 +270,7 @@ function TenantUsersTab() {
         data={data?.data ?? []}
         columns={columns}
         isLoading={isLoading}
+        isFetching={isFetching}
         toolbar={toolbar}
         pagination={{ pageIndex: page - 1, pageSize: PER_PAGE }}
         pageCount={data?.meta?.last_page ?? 1}
@@ -321,7 +323,7 @@ function AdminUsersTab() {
   const [deactivateTarget, setDeactivateTarget] = useState<AdminUser | null>(null)
   const [deleteTarget, setDeleteTarget]     = useState<AdminUser | null>(null)
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isFetching } = useQuery({
     queryKey: ['admin-users', { page, search }],
     queryFn: () => listAdminUsers({ page, per_page: PER_PAGE, q: search || undefined }),
     staleTime: 30_000,
@@ -374,7 +376,7 @@ function AdminUsersTab() {
       header: 'Administrator',
       cell: ({ row }) => {
         const u = row.original
-        const initials = u.name?.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2) ?? '?'
+        const initials = getInitials(u.name)
         return (
           <div className="flex items-center gap-3">
             <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-violet-500/10 text-xs font-bold text-violet-600 uppercase">
@@ -480,6 +482,7 @@ function AdminUsersTab() {
         data={data?.data ?? []}
         columns={columns}
         isLoading={isLoading}
+        isFetching={isFetching}
         toolbar={toolbar}
         pagination={{ pageIndex: page - 1, pageSize: PER_PAGE }}
         pageCount={data?.meta?.last_page ?? 1}

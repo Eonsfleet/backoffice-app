@@ -1,16 +1,17 @@
 import Pusher from 'pusher-js'
+import { env } from '@/lib/env'
 
 let pusherInstance: Pusher | null = null
 
 export function getPusherClient(token: string): Pusher {
   if (pusherInstance) return pusherInstance
 
-  pusherInstance = new Pusher(process.env.NEXT_PUBLIC_PUSHER_KEY!, {
-    wsHost: process.env.NEXT_PUBLIC_REVERB_HOST,
+  pusherInstance = new Pusher(env.pusherKey, {
+    wsHost: env.reverbHost,
     wsPort: 443,
     forceTLS: true,
-    cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER ?? 'mt1',
-    authEndpoint: `${process.env.NEXT_PUBLIC_API_URL}/broadcasting/auth`,
+    cluster: env.pusherCluster,
+    authEndpoint: `${env.apiUrl}/broadcasting/auth`,
     auth: {
       headers: {
         Authorization: `Bearer ${token}`,

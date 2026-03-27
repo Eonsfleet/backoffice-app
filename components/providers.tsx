@@ -21,6 +21,7 @@ function makeQueryClient() {
 function AuthBootstrap({ children }: { children: React.ReactNode }) {
   const setAuth = useAuthStore((s) => s.setAuth)
   const clearAuth = useAuthStore((s) => s.clearAuth)
+  const setBootstrapped = useAuthStore((s) => s.setBootstrapped)
   const bootstrapped = useRef(false)
 
   useEffect(() => {
@@ -30,13 +31,15 @@ function AuthBootstrap({ children }: { children: React.ReactNode }) {
     const token = getAuthCookie()
     if (token) {
       // Set token immediately so the Axios interceptor has it before any queries fire.
-      // User profile is filled in asynchronously after.
+      // User profile is filled in asynchronously; isBootstrapping stays true until resolved.
       setAuth(token, null)
       getAdminProfile()
         .then((user) => setAuth(token, user))
         .catch(() => clearAuth())
+        .finally(() => setBootstrapped())
     }
-  }, [setAuth, clearAuth])
+    // No token — nothing to bootstrap, isBootstrapping is already false.
+  }, [setAuth, clearAuth, setBootstrapped])
 
   return <>{children}</>
 }

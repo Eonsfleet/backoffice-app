@@ -12,7 +12,17 @@ import type { PaginatedResponse } from '@/types/api'
  * Both may arrive already unwrapped (inner payload) OR still inside the
  * outer API envelope { message, data: <inner>, status, meta }.
  */
+const EMPTY_PAGE: PaginatedResponse<never> = {
+  data: [],
+  meta: { current_page: 1, last_page: 1, per_page: 0, total: 0 },
+}
+
 export function normalizePaginated<T>(axiosData: unknown): PaginatedResponse<T> {
+  if (axiosData === null || axiosData === undefined || typeof axiosData !== 'object') {
+    console.warn('normalizePaginated: received non-object response', axiosData)
+    return EMPTY_PAGE as PaginatedResponse<T>
+  }
+
   const body = axiosData as Record<string, unknown>
 
   // Unwrap outer envelope if present

@@ -21,33 +21,39 @@ interface CommandResult {
   group: string
 }
 
+const CMD_LIMIT = 5
+
 function useCommandResults(query: string) {
   const enabled = query.trim().length >= 2
 
   const orgsQ = useQuery({
     queryKey: ['cmd-orgs', query],
-    queryFn: () => listOrganizations({ q: query, per_page: 5 }),
+    queryFn: () => listOrganizations({ q: query, per_page: CMD_LIMIT }),
     enabled,
     staleTime: 10_000,
   })
 
   const devicesQ = useQuery({
     queryKey: ['cmd-devices', query],
-    queryFn: () => listDevices({ q: query, per_page: 5 }),
+    queryFn: () => listDevices({ q: query, per_page: CMD_LIMIT }),
     enabled,
     staleTime: 10_000,
   })
 
   const usersQ = useQuery({
     queryKey: ['cmd-users', query],
-    queryFn: () => listAdminUsers({ q: query, per_page: 5 }),
+    queryFn: () => listAdminUsers({ q: query, per_page: CMD_LIMIT }),
     enabled,
     staleTime: 10_000,
   })
 
   const results: CommandResult[] = []
+  // Track which groups have more results than the display limit
+  const truncated: Record<string, boolean> = {}
 
-  orgsQ.data?.data?.forEach((org) => {
+  const orgData = orgsQ.data?.data ?? []
+  truncated['Organizations'] = (orgsQ.data?.meta?.total ?? 0) > CMD_LIMIT
+  orgData.forEach((org) => {
     results.push({
       id: `org-${org.id}`,
       label: org.name,
@@ -58,7 +64,9 @@ function useCommandResults(query: string) {
     })
   })
 
-  devicesQ.data?.data?.forEach((device) => {
+  const deviceData = devicesQ.data?.data ?? []
+  truncated['Devices'] = (devicesQ.data?.meta?.total ?? 0) > CMD_LIMIT
+  deviceData.forEach((device) => {
     results.push({
       id: `dev-${device.id}`,
       label: device.device_id,
@@ -69,7 +77,9 @@ function useCommandResults(query: string) {
     })
   })
 
-  usersQ.data?.data?.forEach((user) => {
+  const userData = usersQ.data?.data ?? []
+  truncated['Admin Users'] = (usersQ.data?.meta?.total ?? 0) > CMD_LIMIT
+  userData.forEach((user) => {
     results.push({
       id: `user-${user.id}`,
       label: user.name,
@@ -82,7 +92,7 @@ function useCommandResults(query: string) {
 
   const isLoading = enabled && (orgsQ.isLoading || devicesQ.isLoading || usersQ.isLoading)
 
-  return { results, isLoading }
+  return { results, isLoading, truncated }
 }
 
 const QUICK_LINKS: CommandResult[] = [
@@ -102,7 +112,7 @@ export function CommandPalette() {
   const inputRef = useRef<HTMLInputElement>(null)
   const debouncedQuery = useDebounce(query, 300)
 
-  const { results, isLoading } = useCommandResults(debouncedQuery)
+  const { results, isLoading, truncated } = useCommandResults(debouncedQuery)
   const items = query.trim().length >= 2 ? results : QUICK_LINKS
 
   // Cmd/Ctrl+K to open
@@ -207,6 +217,7 @@ export function CommandPalette() {
                     {group}
                   </p>
                   {groupItems.map((item) => {
+
                     const idx = flatIndex++
                     const Icon = item.icon
                     return (
@@ -234,6 +245,11 @@ export function CommandPalette() {
                       </button>
                     )
                   })}
+                  {truncated[group] && (
+                    <p className="px-4 py-1.5 text-[11px] text-muted-foreground/50 italic">
+                      Showing top {CMD_LIMIT} — refine your search to see more
+                    </p>
+                  )}
                 </div>
               ))
             )}

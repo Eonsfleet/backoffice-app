@@ -18,6 +18,7 @@ import {
   UserCircle,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { getInitials } from '@/lib/string-utils'
 import { useUIStore } from '@/stores/ui.store'
 import { useAuthStore } from '@/stores/auth.store'
 import { logoutAdmin, clearAuthCookie } from '@/features/auth/api'
@@ -95,14 +96,6 @@ function NavItem({
   return item
 }
 
-function getInitials(name: string) {
-  return name
-    .split(' ')
-    .map((n) => n[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2)
-}
 
 export function Sidebar() {
   const pathname = usePathname()

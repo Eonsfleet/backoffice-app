@@ -7,6 +7,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { uploadFile } from '@/lib/api/client'
 import { cn } from '@/lib/utils'
+import { getInitials } from '@/lib/string-utils'
 
 interface AvatarUploadProps {
   value?: string | null
@@ -28,15 +29,6 @@ const ICON_SIZE_MAP = {
   lg: 'h-5 w-5',
 }
 
-function getInitials(name?: string) {
-  if (!name) return '?'
-  return name
-    .split(' ')
-    .map((n) => n[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2)
-}
 
 export function AvatarUpload({
   value,

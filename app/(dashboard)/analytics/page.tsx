@@ -1,7 +1,5 @@
 'use client'
 
-'use client'
-
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { BarChart3, Activity, Cpu, TrendingUp, AlertTriangle, CheckCircle2, Wifi, WifiOff, CircleDashed, ArrowUpRight, ArrowDownRight } from 'lucide-react'

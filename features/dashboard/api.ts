@@ -3,7 +3,7 @@ import type { DashboardMetrics, Organization } from '@/types/api'
 
 export const getDashboardMetrics = async (): Promise<DashboardMetrics> => {
   const { data } = await api.get('/admin/dashboard-metrics')
-  const d = data.data
+  const d = data.data ?? {}
   // API returns nested { total_organization: { count: N }, ... }
   return {
     total_organizations:  d.total_organization?.count  ?? d.total_organizations  ?? 0,
