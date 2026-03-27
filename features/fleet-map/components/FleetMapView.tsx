@@ -54,6 +54,33 @@ const STATUS_BG: Record<'moving' | 'idle' | 'offline', string> = {
   offline: 'bg-slate-500/10',
 }
 
+// ─── Status strip pill ────────────────────────────────────────────────────────
+
+function Pill({
+  filter, label, count, colorClass, activeClass, statusFilter, setStatusFilter, isLoading,
+}: {
+  filter: StatusFilter
+  label: string
+  count: number | string
+  colorClass: string
+  activeClass: string
+  statusFilter: StatusFilter
+  setStatusFilter: (f: StatusFilter) => void
+  isLoading: boolean
+}) {
+  const active = statusFilter === filter
+  return (
+    <button
+      onClick={() => setStatusFilter(active ? 'all' : filter)}
+      className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-all ${
+        active ? activeClass : `${colorClass} hover:opacity-80`
+      }`}
+    >
+      {isLoading ? '…' : count} {label}
+    </button>
+  )
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function FleetMapView() {
@@ -119,30 +146,6 @@ export function FleetMapView() {
 
   const handleVehicleSelect = (v: Vehicle) => setSelectedVehicle(v)
 
-  // ─── Status strip pill ──────────────────────────────────────────────────────
-
-  function Pill({
-    filter, label, count, colorClass, activeClass,
-  }: {
-    filter: StatusFilter
-    label: string
-    count: number | string
-    colorClass: string
-    activeClass: string
-  }) {
-    const active = statusFilter === filter
-    return (
-      <button
-        onClick={() => setStatusFilter(active ? 'all' : filter)}
-        className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-all ${
-          active ? activeClass : `${colorClass} hover:opacity-80`
-        }`}
-      >
-        {isLoading ? '…' : count} {label}
-      </button>
-    )
-  }
-
   return (
     <div className="flex flex-col flex-1 gap-3" style={{ minHeight: 0 }}>
 
@@ -154,25 +157,19 @@ export function FleetMapView() {
         </div>
 
         <Pill
-          filter="moving"
-          label="moving"
-          count={stats.moving}
-          colorClass="bg-emerald-500/10 text-emerald-700"
-          activeClass="bg-emerald-600 text-white"
+          filter="moving" label="moving" count={stats.moving}
+          colorClass="bg-emerald-500/10 text-emerald-700" activeClass="bg-emerald-600 text-white"
+          statusFilter={statusFilter} setStatusFilter={setStatusFilter} isLoading={isLoading}
         />
         <Pill
-          filter="idle"
-          label="idle"
-          count={stats.idle}
-          colorClass="bg-amber-500/10 text-amber-700"
-          activeClass="bg-amber-500 text-white"
+          filter="idle" label="idle" count={stats.idle}
+          colorClass="bg-amber-500/10 text-amber-700" activeClass="bg-amber-500 text-white"
+          statusFilter={statusFilter} setStatusFilter={setStatusFilter} isLoading={isLoading}
         />
         <Pill
-          filter="offline"
-          label="offline"
-          count={stats.offline}
-          colorClass="bg-slate-500/10 text-slate-600"
-          activeClass="bg-slate-600 text-white"
+          filter="offline" label="offline" count={stats.offline}
+          colorClass="bg-slate-500/10 text-slate-600" activeClass="bg-slate-600 text-white"
+          statusFilter={statusFilter} setStatusFilter={setStatusFilter} isLoading={isLoading}
         />
 
         <div className="ml-auto flex items-center gap-2">

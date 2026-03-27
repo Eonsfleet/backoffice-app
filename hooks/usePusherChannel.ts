@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { useEffect, useLayoutEffect, useRef } from 'react'
 import type { Channel } from 'pusher-js'
 import { getPusherClient } from '@/lib/pusher'
 import { useAuthStore } from '@/stores/auth.store'
@@ -21,7 +21,7 @@ export function usePusherChannel<T = unknown>(
 ) {
   const token = useAuthStore((s) => s.token)
   const callbackRef = useRef(onEvent)
-  callbackRef.current = onEvent
+  useLayoutEffect(() => { callbackRef.current = onEvent })
 
   useEffect(() => {
     if (!enabled || !token || !channelName) return

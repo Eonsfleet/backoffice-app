@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { useAuthStore } from '@/stores/auth.store'
 import { setAuthCookie, clearAuthCookie, getAuthCookie } from '@/lib/auth-cookie'
 
