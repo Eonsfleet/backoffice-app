@@ -58,7 +58,7 @@ export const getDevice = async (id: string | number): Promise<Device> => {
 }
 
 export interface DevicePayload {
-  device_id: string
+  imei: string
   hardware_id?: string | number
   phone_number?: string
   country?: string

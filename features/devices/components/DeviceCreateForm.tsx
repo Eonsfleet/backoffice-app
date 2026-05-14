@@ -46,7 +46,7 @@ export function DeviceCreateForm({ onSuccess, onCancel }: { onSuccess: () => voi
   const mutation = useMutation({
     mutationFn: (values: CreateDeviceForm) =>
       createDevice({
-        device_id:       values.device_id,
+        imei:       values.device_id,
         hardware_id:     values.hardware_id || undefined,
         phone_number:    values.phone_number || undefined,
         country:         values.country || undefined,
