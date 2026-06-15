@@ -1,6 +1,6 @@
 import { api } from '@/lib/api/client'
 import { normalizePaginated } from '@/lib/api/utils'
-import type { SubscriptionPlan, Subscription, Feature, Addon, PaginatedResponse, SubscriptionSummary, Transaction, Invoice } from '@/types/api'
+import type { SubscriptionPlan, Subscription, Feature, Addon, PaginatedResponse, SubscriptionSummary, Transaction, Invoice, AssetSubscription, AssetSubscriptionSummary } from '@/types/api'
 
 // ─── Normalizers ─────────────────────────────────────────────────────────────
 
@@ -350,4 +350,22 @@ export const getMrrAnalytics = async (): Promise<MrrAnalytics> => {
     throw new Error('Unexpected response shape from MRR analytics endpoint.')
   }
   return msg as MrrAnalytics
+}
+
+// ─── Per-asset Subscriptions ──────────────────────────────────────────────────
+
+export const listAssetSubscriptions = async (params?: {
+  org_id?:   string | number
+  status?:   string
+  type?:     'Vehicle' | 'Device'
+  page?:     number
+  per_page?: number
+}): Promise<PaginatedResponse<AssetSubscription>> => {
+  const { data } = await api.get('/admins/subscriptions/assets', { params })
+  return normalizePaginated<AssetSubscription>(data)
+}
+
+export const getAssetSubscription = async (id: string | number): Promise<AssetSubscription> => {
+  const { data } = await api.get(`/admins/subscriptions/assets/${id}`)
+  return data.data as AssetSubscription
 }

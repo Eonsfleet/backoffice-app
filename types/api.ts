@@ -143,6 +143,13 @@ export interface SubscriptionPlan {
   description?: string
   price_monthly: number
   price_yearly: number
+  // Per-asset pricing (kobo)
+  vehicle_price_monthly_kobo?: number
+  vehicle_price_yearly_kobo?: number
+  device_price_monthly_kobo?: number
+  device_price_yearly_kobo?: number
+  trial_vehicle_limit?: number
+  trial_device_limit?: number
   has_custom_pricing: boolean
   features: Feature[]
   addons: Addon[]
@@ -165,6 +172,46 @@ export interface Subscription {
   next_billing_date?: string | null
   vehicle_count?: number
   mrr?: number
+}
+
+// ─── Per-asset Subscriptions ──────────────────────────────────────────────────
+
+export type AssetSubscriptionStatus = 'trialing' | 'active' | 'past_due' | 'cancelled' | 'expired'
+export type AssetDunningStage = 'grace' | 'restricted' | 'suspended' | null
+
+export interface AssetSubscription {
+  id: number
+  subscribable_type: 'Vehicle' | 'Device' | string
+  subscribable_id: number
+  billing_cycle: BillingCycle
+  price_kobo: number
+  price_naira: number
+  currency: string
+  status: AssetSubscriptionStatus
+  status_label: string
+  dunning_stage: AssetDunningStage
+  started_at: string | null
+  current_period_start: string | null
+  current_period_end: string | null
+  next_billing_at: string | null
+  dunning_started_at: string | null
+  cancelled_at: string | null
+  expires_at: string | null
+  last_billed_at: string | null
+  plan: Pick<SubscriptionPlan, 'id' | 'name'> | null
+  // loaded when admin fetches with subscribable relation
+  organization?: Pick<Organization, 'id' | 'name'> | null
+}
+
+export interface AssetSubscriptionSummary {
+  total: number
+  active: number
+  trialing: number
+  past_due: number
+  cancelled: number
+  expired: number
+  monthly_arr_kobo: number
+  monthly_arr_naira: number
 }
 
 // ─── Billing ──────────────────────────────────────────────────────────────────
