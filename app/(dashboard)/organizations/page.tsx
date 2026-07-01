@@ -34,9 +34,12 @@ import { DEFAULT_PAGE_SIZE } from '@/lib/constants'
 const STATUS_OPTIONS = [
   { value: 'all',        label: 'All Statuses' },
   { value: 'active',     label: 'Active' },
+  { value: 'trial',      label: 'Trial' },
   { value: 'grace',      label: 'Grace' },
   { value: 'restricted', label: 'Restricted' },
   { value: 'suspended',  label: 'Suspended' },
+  { value: 'expired',    label: 'Expired' },
+  { value: 'inactive',   label: 'Inactive' },
 ]
 
 export default function OrganizationsPage() {

@@ -52,9 +52,13 @@ import { getInitials } from '@/lib/string-utils'
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const STATUS_OPTIONS = [
-  { value: 'all',      label: 'All Statuses' },
-  { value: 'active',   label: 'Active' },
-  { value: 'inactive', label: 'Inactive' },
+  { value: 'all',                label: 'All Statuses' },
+  { value: 'active',             label: 'Active' },
+  { value: 'inactive',           label: 'Inactive' },
+  { value: 'pending_activation', label: 'Pending Activation' },
+  { value: 'suspended',          label: 'Suspended' },
+  { value: 'blocked',            label: 'Blocked' },
+  { value: 'invite_sent',        label: 'Invite Sent' },
 ]
 
 const PER_PAGE = 15

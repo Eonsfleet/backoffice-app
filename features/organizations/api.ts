@@ -43,11 +43,11 @@ export const updateOrganization = async (
 }
 
 export const suspendOrganization = async (id: string | number): Promise<void> => {
-  await api.post(`/organizations/${id}/suspend`)
+  await api.post(`/admin/organizations/${id}/suspend`)
 }
 
 export const unsuspendOrganization = async (id: string | number): Promise<void> => {
-  await api.post(`organizations/${id}/unsuspend`)
+  await api.post(`/admin/organizations/${id}/unsuspend`)
 }
 
 export const deleteOrganization = async (id: string | number): Promise<void> => {

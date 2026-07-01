@@ -42,7 +42,10 @@ export interface AuthResponse {
 
 // ─── Organizations ────────────────────────────────────────────────────────────
 
-export type OrgStatus = 'active' | 'grace' | 'restricted' | 'suspended'
+export type OrgStatus =
+  | 'active' | 'inactive' | 'trial'
+  | 'grace' | 'restricted' | 'suspended' | 'expired'
+  | string
 
 export interface Organization {
   id: string | number
@@ -303,7 +306,10 @@ export interface DashboardMetrics {
 
 // ─── Users (Tenant) ───────────────────────────────────────────────────────────
 
-export type UserStatus = 'active' | 'inactive' | 'suspended'
+export type UserStatus =
+  | 'active' | 'inactive' | 'suspended' | 'blocked'
+  | 'pending_activation' | 'invite_sent' | 'email_verified' | 'exit'
+  | string
 
 export interface TenantUser {
   id: string | number
