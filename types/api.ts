@@ -321,7 +321,12 @@ export interface TenantUser {
 
 // ─── Vehicles ─────────────────────────────────────────────────────────────────
 
-export type VehicleStatus = 'active' | 'inactive' | 'maintenance' | 'in_transit' | string
+export type VehicleStatus =
+  | 'active' | 'inactive'
+  | 'in_transit' | 'in_use' | 'available' | 'stopped'
+  | 'under_maintenance' | 'maintenance' | 'needs_inspection'
+  | 'out_of_service' | 'decommissioned' | 'gps_disconnected'
+  | string
 
 export interface VehicleLocation {
   latitude: number
@@ -345,6 +350,8 @@ export interface Vehicle {
   color?: string | null
   body_type?: string | null
   fuel_type?: string | null
+  fuel_capacity?: number | null
+  fuel_capacity_unit?: string | null
   chasis_number?: string | null
   image?: string | null
   // device
@@ -356,9 +363,9 @@ export interface Vehicle {
   last_odometer_value?: string | null
   // status
   status: VehicleStatus
-  updated_at?: string
+  created_at?: string
   // relations
-  organization: Pick<Organization, 'id' | 'name'> | null
+  organization: Pick<Organization, 'id' | 'name' | 'identifier'> | null
   driver?: { id: string | number; name: string; avatar?: string | null; assigned_date?: string } | null
   current_location?: VehicleLocation | null
 }

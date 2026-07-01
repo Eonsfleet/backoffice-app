@@ -9,11 +9,21 @@ import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { SearchableSelect } from '@/components/ui/searchable-select'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { listOrganizations } from '@/features/organizations/api'
 import type { Vehicle } from '@/types/api'
 
 const FUEL_TYPES = ['Petrol', 'Diesel', 'Electric', 'Hybrid', 'CNG', 'LPG']
-const VEHICLE_STATUSES = ['active', 'inactive', 'maintenance', 'in_transit']
+const VEHICLE_STATUSES = ['active', 'inactive', 'under_maintenance', 'in_transit']
+const BODY_TYPES = [
+  'Sedan', 'Hatchback', 'SUV', 'Pickup', 'Van', 'Minibus', 'Panel Van',
+  'Light Truck', 'Medium Truck', 'Heavy Truck', 'Articulated Truck', 'Bus', 'Motorcycle',
+]
+const FUEL_CAPACITY_UNITS = [
+  { value: 'L', label: 'Liters (L)' },
+  { value: 'gal', label: 'Gallons (gal)' },
+  { value: 'gallons', label: 'Gallons (US)' },
+]
 const CURRENT_YEAR = new Date().getFullYear()
 
 export const vehicleSchema = z.object({
@@ -25,6 +35,8 @@ export const vehicleSchema = z.object({
   color:               z.string().optional(),
   body_type:           z.string().optional(),
   fuel_type:           z.string().optional(),
+  fuel_capacity:       z.number({ error: 'Fuel tank capacity is required' }).min(1, 'Fuel tank capacity must be greater than 0'),
+  fuel_capacity_unit:  z.string().min(1),
   chasis_number:       z.string().optional(),
   status:              z.string().min(1),
 })
@@ -48,21 +60,24 @@ export function VehicleFormFields({
     staleTime: 30_000,
   })
 
-  const orgOptions = (orgsData?.data ?? []).map((o) => ({ value: String(o.id), label: o.name }))
+  const orgOptions = (orgsData?.data ?? []).map((o) => ({ value: String(o.identifier ?? o.id), label: o.name }))
   const fuelOptions = FUEL_TYPES.map((f) => ({ value: f, label: f }))
+  const bodyTypeOptions = BODY_TYPES.map((b) => ({ value: b, label: b }))
   const statusOptions = VEHICLE_STATUSES.map((s) => ({ value: s, label: s.replace('_', ' ') }))
 
   const { register, handleSubmit, formState: { errors }, setValue, watch } = useForm<VehicleForm>({
     resolver: zodResolver(vehicleSchema),
     defaultValues: {
       registration_number: vehicle?.plate_number ?? '',
-      organization_id:     vehicle?.organization ? String(vehicle.organization.id) : '',
+      organization_id:     vehicle?.organization ? String(vehicle.organization.identifier ?? vehicle.organization.id) : '',
       make:                vehicle?.make ?? '',
       model:               vehicle?.model ?? '',
       year:                vehicle?.year ?? undefined,
       color:               vehicle?.color ?? '',
       body_type:           vehicle?.body_type ?? '',
       fuel_type:           vehicle?.fuel_type ?? '',
+      fuel_capacity:       vehicle?.fuel_capacity ?? undefined,
+      fuel_capacity_unit:  vehicle?.fuel_capacity_unit ?? 'L',
       chasis_number:       vehicle?.chasis_number ?? '',
       status:              vehicle?.status ?? 'active',
     },
@@ -115,17 +130,49 @@ export function VehicleFormFields({
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-1.5">
           <Label>Body Type</Label>
-          <Input {...register('body_type')} placeholder="e.g. Truck, SUV, Sedan" />
+          <SearchableSelect
+            options={bodyTypeOptions}
+            value={watch('body_type') ?? ''}
+            onValueChange={(v) => setValue('body_type', v)}
+            placeholder="Select body type…"
+            searchPlaceholder="Search…"
+          />
         </div>
         <div className="space-y-1.5">
           <Label>Fuel Type</Label>
-          <SearchableSelect
-            options={fuelOptions}
-            value={watch('fuel_type') ?? ''}
-            onValueChange={(v) => setValue('fuel_type', v)}
-            placeholder="Select fuel type…"
-            searchPlaceholder="Search…"
+          <Select value={watch('fuel_type')} onValueChange={(v) => setValue('fuel_type', v)}>
+            <SelectTrigger className="w-full"><SelectValue placeholder="Select fuel type…" /></SelectTrigger>
+            <SelectContent>
+              {fuelOptions.map((o) => (
+                <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-1.5">
+          <Label>Fuel Tank Capacity *</Label>
+          <Input
+            {...register('fuel_capacity', { valueAsNumber: true })}
+            type="number"
+            min={1}
+            step="any"
+            placeholder="e.g. 80"
           />
+          {errors.fuel_capacity && <p className="text-xs text-destructive">{errors.fuel_capacity.message}</p>}
+        </div>
+        <div className="space-y-1.5">
+          <Label>Capacity Unit</Label>
+          <Select value={watch('fuel_capacity_unit')} onValueChange={(v) => setValue('fuel_capacity_unit', v)}>
+            <SelectTrigger className="w-full"><SelectValue placeholder="Select unit…" /></SelectTrigger>
+            <SelectContent>
+              {FUEL_CAPACITY_UNITS.map((u) => (
+                <SelectItem key={u.value} value={u.value}>{u.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
@@ -136,13 +183,14 @@ export function VehicleFormFields({
         </div>
         <div className="space-y-1.5">
           <Label>Status</Label>
-          <SearchableSelect
-            options={statusOptions}
-            value={watch('status')}
-            onValueChange={(v) => setValue('status', v)}
-            placeholder="Select status…"
-            searchPlaceholder="Search…"
-          />
+          <Select value={watch('status')} onValueChange={(v) => setValue('status', v)}>
+            <SelectTrigger className="w-full"><SelectValue placeholder="Select status…" /></SelectTrigger>
+            <SelectContent>
+              {statusOptions.map((o) => (
+                <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </div>
 

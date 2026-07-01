@@ -18,6 +18,8 @@ export interface VehiclePayload {
   color?: string
   vin?: string
   fuel_type?: string
+  fuel_capacity?: number
+  fuel_capacity_unit?: string
   body_type?: string
   status?: string
   organization_id: string | number
@@ -87,7 +89,11 @@ function normalizeVehicle(raw: RawVehicle): Vehicle {
   const rel = raw.relationships ?? {}
 
   const org = rel.organization
-    ? { id: rel.organization.id, name: rel.organization.attributes.name as string }
+    ? {
+        id:         rel.organization.id,
+        name:       rel.organization.attributes.name as string,
+        identifier: (rel.organization.attributes.identifier as string | number | undefined)?.toString(),
+      }
     : null
 
   return {
@@ -100,6 +106,8 @@ function normalizeVehicle(raw: RawVehicle): Vehicle {
     color:               (a.color as string) ?? null,
     body_type:           (a.body_type as string) ?? null,
     fuel_type:           (a.fuel_type as string) ?? null,
+    fuel_capacity:       (a.fuel_capacity as number) ?? null,
+    fuel_capacity_unit:  (a.fuel_capacity_unit as string) ?? null,
     chasis_number:       (a.chasis_number as string) ?? null,
     image:               (a.image as string) ?? null,
     device_id:           (a.device_id as string) ?? null,
@@ -108,7 +116,7 @@ function normalizeVehicle(raw: RawVehicle): Vehicle {
     total_odometer:      (a.total_odometer as number) ?? null,
     last_odometer_value: (a.last_odometer_value as string) ?? null,
     status:              (a.status as string) ?? 'active',
-    updated_at:          (a.updated_at as string) ?? undefined,
+    created_at:          (a.created_at as string) ?? undefined,
     organization:        org,
     driver:              normalizeDriver(rel.current_driver as RawDriver),
     current_location:    normalizeLocation(rel.current_location as RawLocation),
@@ -192,4 +200,49 @@ export const getVehicleMetrics = async (): Promise<VehicleMetrics> => {
     inactive:       extractCount(d.inactive),
     maintenance:    extractCount(d.maintenance),
   }
+}
+
+// ─── Import / Export ──────────────────────────────────────────────────────────
+
+function downloadBlob(data: BlobPart, filename: string, type: string) {
+  const blob = new Blob([data], { type })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(url)
+}
+
+export const downloadVehicleImportTemplate = async (): Promise<void> => {
+  const response = await api.get('/vehicles/export/template', { responseType: 'blob' })
+  downloadBlob(
+    response.data,
+    'vehicles_import_template.xlsx',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+  )
+}
+
+export const exportVehicles = async (filters?: VehicleFilters): Promise<void> => {
+  const response = await api.get('/vehicles/export', {
+    params: { ...filters, format: 'csv' },
+    responseType: 'blob',
+  })
+  downloadBlob(response.data, `vehicles-${Date.now()}.csv`, 'text/csv')
+}
+
+export const importVehicles = async (
+  file: File,
+  organizationId: string | number
+): Promise<{ batch_id: string }> => {
+  const form = new FormData()
+  form.append('file', file)
+  form.append('model', 'vehicle')
+  form.append('organization_id', String(organizationId))
+  const { data } = await api.post('/file/import', form, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  })
+  return data.data
 }

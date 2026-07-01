@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useCallback, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { type ColumnDef } from '@tanstack/react-table'
@@ -8,7 +8,7 @@ import { format } from 'date-fns'
 import {
   Truck, Search, MoreHorizontal, Pencil, Trash2,
   Plus, Cpu, Link2Off, Wifi, WifiOff, CircleDashed,
-  Car, ShieldCheck, TrendingUp,
+  Car, ShieldCheck, TrendingUp, Download, Upload,
 } from 'lucide-react'
 
 import { PageHeader } from '@/components/shared/PageHeader'
@@ -28,11 +28,12 @@ import {
 } from '@/components/ui/select'
 import {
   listVehicles, getVehicleMetrics, createVehicle, updateVehicle,
-  deleteVehicle, unassignDeviceFromVehicle,
+  deleteVehicle, unassignDeviceFromVehicle, exportVehicles,
 } from '@/features/vehicles/api'
 import { listOrganizations } from '@/features/organizations/api'
 import { VehicleFormFields } from '@/features/vehicles/components/VehicleFormFields'
 import { AssignDeviceForm } from '@/features/vehicles/components/AssignDeviceForm'
+import { VehicleImportForm } from '@/features/vehicles/components/VehicleImportForm'
 import type { Vehicle } from '@/types/api'
 import { DEFAULT_PAGE_SIZE } from '@/lib/constants'
 
@@ -48,10 +49,10 @@ function DeviceStatusIcon({ status }: { status?: string | null }) {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 const STATUS_OPTIONS = [
-  { value: 'all',         label: 'All Statuses' },
-  { value: 'active',      label: 'Active' },
-  { value: 'inactive',    label: 'Inactive' },
-  { value: 'maintenance', label: 'Maintenance' },
+  { value: 'all',               label: 'All Statuses' },
+  { value: 'active',            label: 'Active' },
+  { value: 'inactive',          label: 'Inactive' },
+  { value: 'under_maintenance', label: 'Under Maintenance' },
 ]
 
 export default function VehiclesPage() {
@@ -64,6 +65,8 @@ export default function VehiclesPage() {
   const perPage                 = DEFAULT_PAGE_SIZE
 
   const [createOpen, setCreateOpen]     = useState(false)
+  const [importOpen, setImportOpen]     = useState(false)
+  const [exporting, setExporting]       = useState(false)
   const [editVehicle, setEditVehicle]   = useState<Vehicle | null>(null)
   const [assignTarget, setAssignTarget] = useState<Vehicle | null>(null)
   const [unassignTarget, setUnassignTarget] = useState<Vehicle | null>(null)
@@ -137,6 +140,22 @@ export default function VehiclesPage() {
     onError: () => toast.error('Failed to unassign device'),
   })
 
+  const handleExport = useCallback(async () => {
+    setExporting(true)
+    try {
+      await exportVehicles({
+        q:               search || undefined,
+        status:          status !== 'all' ? status : undefined,
+        organization_id: orgFilter !== 'all' ? orgFilter : undefined,
+      })
+      toast.success('Export started — file will download shortly')
+    } catch {
+      toast.error('Export failed')
+    } finally {
+      setExporting(false)
+    }
+  }, [search, status, orgFilter])
+
   const columns: ColumnDef<Vehicle, unknown>[] = [
     {
       id: 'vehicle',
@@ -194,11 +213,11 @@ export default function VehiclesPage() {
       cell: ({ row }) => <StatusBadge status={row.original.status} />,
     },
     {
-      id: 'updated_at',
-      header: 'Updated',
+      id: 'created_at',
+      header: 'Created',
       cell: ({ row }) => (
         <span className="text-xs text-muted-foreground">
-          {row.original.updated_at ? format(new Date(row.original.updated_at), 'MMM d, yyyy') : '—'}
+          {row.original.created_at ? format(new Date(row.original.created_at), 'MMM d, yyyy') : '—'}
         </span>
       ),
     },
@@ -265,7 +284,7 @@ export default function VehiclesPage() {
         <SelectContent>
           <SelectItem value="all">All Organizations</SelectItem>
           {orgsData?.data?.map((org) => (
-            <SelectItem key={org.id} value={String(org.id)}>{org.name}</SelectItem>
+            <SelectItem key={org.id} value={String(org.identifier ?? org.id)}>{org.name}</SelectItem>
           ))}
         </SelectContent>
       </Select>
@@ -279,9 +298,18 @@ export default function VehiclesPage() {
         description={data?.meta?.total != null ? `${data.meta.total} vehicles across all organizations` : 'Platform-wide vehicle fleet'}
         icon={Truck}
         actions={
-          <Button onClick={() => setCreateOpen(true)}>
-            <Plus className="mr-2 h-4 w-4" /> Add Vehicle
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={handleExport} disabled={exporting}>
+              <Download className="mr-2 h-4 w-4" />
+              {exporting ? 'Exporting…' : 'Export CSV'}
+            </Button>
+            <Button variant="outline" onClick={() => setImportOpen(true)}>
+              <Upload className="mr-2 h-4 w-4" /> Import
+            </Button>
+            <Button onClick={() => setCreateOpen(true)}>
+              <Plus className="mr-2 h-4 w-4" /> Add Vehicle
+            </Button>
+          </div>
         }
       />
 
@@ -312,6 +340,16 @@ export default function VehiclesPage() {
           isPending={createMutation.isPending}
           onCancel={() => setCreateOpen(false)}
         />
+      </SlideOver>
+
+      {/* Import vehicles */}
+      <SlideOver
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        title="Import Vehicles"
+        description="Upload a CSV or Excel file to bulk-add vehicles. Select the organization first, then upload."
+      >
+        <VehicleImportForm onSuccess={() => setImportOpen(false)} onCancel={() => setImportOpen(false)} />
       </SlideOver>
 
       {/* Edit vehicle */}
