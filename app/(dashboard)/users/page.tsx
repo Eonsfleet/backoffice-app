@@ -8,7 +8,7 @@ import { format, formatDistanceToNow } from 'date-fns'
 import {
   Users, Search, MoreHorizontal, Eye, Pencil, Trash2,
   UserCheck, UserX, TrendingUp, Plus, ShieldCheck,
-  KeyRound, UserCog,
+  KeyRound, UserCog, Download, Upload, FileDown,
 } from 'lucide-react'
 
 import { PageHeader }   from '@/components/shared/PageHeader'
@@ -29,9 +29,15 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
+import {
+  Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
+} from '@/components/ui/dialog'
+import { Label } from '@/components/ui/label'
+import { SearchableSelect } from '@/components/ui/searchable-select'
 
 import {
   listUsers, getUserMetrics, deactivateUser, activateUser, deleteUser,
+  exportUsers, importUsers, downloadUserTemplate,
 } from '@/features/users/api'
 import { listOrganizations } from '@/features/organizations/api'
 import { UserCreateForm } from '@/features/users/components/UserCreateForm'
@@ -78,6 +84,47 @@ function TenantUsersTab() {
   const [editUser, setEditUser]     = useState<TenantUser | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<TenantUser | null>(null)
 
+  // Export
+  const [exportOpen, setExportOpen]       = useState(false)
+  const [exportOrgId, setExportOrgId]     = useState('')
+  const [exportFormat, setExportFormat]   = useState<'excel' | 'csv'>('excel')
+  const [exportLoading, setExportLoading] = useState(false)
+
+  // Import
+  const [importOpen, setImportOpen]       = useState(false)
+  const [importOrgId, setImportOrgId]     = useState('')
+  const [importFile, setImportFile]       = useState<File | null>(null)
+  const [importLoading, setImportLoading] = useState(false)
+
+  const handleExport = async () => {
+    if (!exportOrgId) return
+    setExportLoading(true)
+    try {
+      await exportUsers(exportOrgId, exportFormat)
+      setExportOpen(false)
+    } catch {
+      toast.error('Export failed. Please try again.')
+    } finally {
+      setExportLoading(false)
+    }
+  }
+
+  const handleImport = async () => {
+    if (!importOrgId || !importFile) return
+    setImportLoading(true)
+    try {
+      await importUsers(importOrgId, importFile)
+      toast.success('Import started. Users will be created in the background.')
+      setImportOpen(false)
+      setImportFile(null)
+      setImportOrgId('')
+    } catch {
+      toast.error('Import failed. Please check the file and try again.')
+    } finally {
+      setImportLoading(false)
+    }
+  }
+
   const { data, isLoading, isFetching } = useQuery({
     queryKey: ['users', { search, status, orgFilter, page }],
     queryFn: () => listUsers({
@@ -105,9 +152,11 @@ function TenantUsersTab() {
   const toggleStatusMutation = useMutation({
     mutationFn: (user: TenantUser) =>
       user.status === 'active' ? deactivateUser(user.id) : activateUser(user.id),
-    onSuccess: (_, user) => {
-      qc.invalidateQueries({ queryKey: ['users'] })
-      qc.invalidateQueries({ queryKey: ['user-metrics'] })
+    onSuccess: async (_, user) => {
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ['users'] }),
+        qc.invalidateQueries({ queryKey: ['user-metrics'] }),
+      ])
       toast.success(user.status === 'active' ? 'User deactivated' : 'User activated')
     },
     onError: () => toast.error('Action failed'),
@@ -115,9 +164,11 @@ function TenantUsersTab() {
 
   const deleteMutation = useMutation({
     mutationFn: (id: string | number) => deleteUser(id),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['users'] })
-      qc.invalidateQueries({ queryKey: ['user-metrics'] })
+    onSuccess: async () => {
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ['users'] }),
+        qc.invalidateQueries({ queryKey: ['user-metrics'] }),
+      ])
       toast.success('User deleted')
       setDeleteTarget(null)
     },
@@ -254,9 +305,17 @@ function TenantUsersTab() {
           </SelectContent>
         </Select>
       </div>
-      <Button onClick={() => setCreateOpen(true)}>
-        <Plus className="mr-2 h-4 w-4" /> Add User
-      </Button>
+      <div className="flex items-center gap-2">
+        <Button variant="outline" size="sm" onClick={() => setExportOpen(true)}>
+          <Download className="mr-2 h-4 w-4" /> Export
+        </Button>
+        <Button variant="outline" size="sm" onClick={() => setImportOpen(true)}>
+          <Upload className="mr-2 h-4 w-4" /> Import
+        </Button>
+        <Button onClick={() => setCreateOpen(true)}>
+          <Plus className="mr-2 h-4 w-4" /> Add User
+        </Button>
+      </div>
     </div>
   )
 
@@ -287,7 +346,7 @@ function TenantUsersTab() {
       </SlideOver>
 
       {/* View */}
-      <SlideOver open={!!viewUser} onOpenChange={(o) => !o && setViewUser(null)} title="User Details" description={viewUser?.email}>
+      <SlideOver open={!!viewUser} onOpenChange={(o) => !o && setViewUser(null)} title="User Details" description={viewUser?.email} width="lg">
         {viewUser && <UserDetail user={viewUser} />}
       </SlideOver>
 
@@ -310,6 +369,85 @@ function TenantUsersTab() {
           onConfirm={() => deleteMutation.mutateAsync(deleteTarget.id)}
         />
       )}
+
+      {/* Export */}
+      <Dialog open={exportOpen} onOpenChange={setExportOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader><DialogTitle>Export Users</DialogTitle></DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label>Organization <span className="text-destructive">*</span></Label>
+              <SearchableSelect
+                options={(orgsData?.data ?? []).map((o) => ({ value: String(o.id), label: o.name }))}
+                value={exportOrgId}
+                onValueChange={setExportOrgId}
+                placeholder="Select organization…"
+                searchPlaceholder="Search organizations…"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Format</Label>
+              <Select value={exportFormat} onValueChange={(v) => setExportFormat(v as 'excel' | 'csv')}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="excel">Excel (.xlsx)</SelectItem>
+                  <SelectItem value="csv">CSV (.csv)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setExportOpen(false)}>Cancel</Button>
+            <Button onClick={handleExport} disabled={!exportOrgId || exportLoading}>
+              <Download className="mr-2 h-4 w-4" />
+              {exportLoading ? 'Exporting…' : 'Download'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Import */}
+      <Dialog open={importOpen} onOpenChange={(o) => { setImportOpen(o); if (!o) { setImportFile(null); setImportOrgId('') } }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader><DialogTitle>Import Users</DialogTitle></DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label>Organization <span className="text-destructive">*</span></Label>
+              <SearchableSelect
+                options={(orgsData?.data ?? []).map((o) => ({ value: String(o.identifier ?? o.id), label: o.name }))}
+                value={importOrgId}
+                onValueChange={setImportOrgId}
+                placeholder="Select organization…"
+                searchPlaceholder="Search organizations…"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>File <span className="text-destructive">*</span></Label>
+              <input
+                type="file"
+                accept=".xlsx,.xls,.csv"
+                className="block w-full text-sm text-muted-foreground file:mr-3 file:rounded-md file:border-0 file:bg-primary/10 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-primary hover:file:bg-primary/20"
+                onChange={(e) => setImportFile(e.target.files?.[0] ?? null)}
+              />
+            </div>
+            <button
+              type="button"
+              onClick={downloadUserTemplate}
+              className="flex items-center gap-1.5 text-xs text-primary hover:underline"
+            >
+              <FileDown className="h-3.5 w-3.5" />
+              Download import template
+            </button>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setImportOpen(false)}>Cancel</Button>
+            <Button onClick={handleImport} disabled={!importOrgId || !importFile || importLoading}>
+              <Upload className="mr-2 h-4 w-4" />
+              {importLoading ? 'Uploading…' : 'Import'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

@@ -26,6 +26,8 @@ type RawUser = {
     last_login?: string | null
     joined_date?: string
     email_verified_at?: string | null
+    employee_number?: string | null
+    date_of_birth?: string | null
   }
   relationships?: {
     organization?: {
@@ -51,6 +53,8 @@ function normalizeUser(raw: RawUser): TenantUser {
     avatar:           a.avatar ?? null,
     role,
     status:           (a.status as TenantUser['status']) ?? 'active',
+    employee_number:  a.employee_number ?? null,
+    date_of_birth:    a.date_of_birth ?? null,
     last_login:       a.last_login ?? null,
     email_verified_at: a.email_verified_at ?? null,
     created_at:       a.joined_date ?? '',
@@ -101,8 +105,8 @@ export const getUser = async (id: string | number): Promise<TenantUser> => {
 }
 
 export interface UserUpdatePayload {
-  first_name?: string
-  last_name?: string
+  f_name?: string
+  l_name?: string
   email?: string
   phone_number?: string
   role?: string
@@ -119,11 +123,94 @@ export const updateUser = async (
 }
 
 export const deactivateUser = async (id: string | number): Promise<void> => {
-  await api.post(`/users/${id}/deactivate`)
+  await api.patch(`/users/${id}`, { status: 'inactive' })
 }
 
 export const activateUser = async (id: string | number): Promise<void> => {
-  await api.post(`/users/${id}/activate`)
+  await api.patch(`/users/${id}`, { status: 'active' })
+}
+
+function triggerBlobDownload(blob: Blob, filename: string): void {
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(url)
+}
+
+export const exportUsers = async (
+  organizationId: string | number,
+  format: 'excel' | 'csv' = 'excel'
+): Promise<void> => {
+  const response = await api.get('/users/export', {
+    params: { organization_id: organizationId, format },
+    responseType: 'blob',
+  })
+  const ext = format === 'excel' ? 'xlsx' : 'csv'
+  triggerBlobDownload(response.data as Blob, `users_export_${Date.now()}.${ext}`)
+}
+
+export const downloadUserTemplate = async (): Promise<void> => {
+  const response = await api.get('/users/export/template', { responseType: 'blob' })
+  triggerBlobDownload(response.data as Blob, 'users_import_template.xlsx')
+}
+
+export const importUsers = async (
+  organizationId: string | number,
+  file: File
+): Promise<string> => {
+  const form = new FormData()
+  form.append('file', file)
+  form.append('model', 'User')
+  form.append('organization_id', String(organizationId))
+  const { data: res } = await api.post('/file/import', form, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  })
+  return res.data?.batch_id as string
+}
+
+// ─── Activity Log ─────────────────────────────────────────────────────────────
+
+export interface ActivityLogEntry {
+  id: string | number
+  description: string | null
+  resource_type: string
+  resource_id: string | number | null
+  action: string
+  changed_by: { id: string | number; name: string | null; email: string | null }
+  changed_at: string
+  changes: Record<string, { from: unknown; to: unknown }> | null
+}
+
+export interface ActivityLogFilters {
+  page?: number
+  per_page?: number
+  resource_type?: string
+  action?: string
+  from_date?: string
+  to_date?: string
+}
+
+export const getUserActivityLog = async (
+  userId: string | number,
+  params?: ActivityLogFilters
+): Promise<{ data: ActivityLogEntry[]; meta: { total: number; per_page: number; current_page: number; last_page: number } }> => {
+  const { data: res } = await api.get(`/users/${userId}/activity-log`, { params })
+  return res
+}
+
+export const exportUserActivityLog = async (
+  userId: string | number,
+  params?: Omit<ActivityLogFilters, 'page' | 'per_page'>
+): Promise<void> => {
+  const response = await api.get(`/users/${userId}/activity-log`, {
+    params: { ...params, format: 'csv' },
+    responseType: 'blob',
+  })
+  triggerBlobDownload(response.data as Blob, `activity_log_${userId}_${Date.now()}.csv`)
 }
 
 export const deleteUser = async (id: string | number): Promise<void> => {

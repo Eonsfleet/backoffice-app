@@ -28,11 +28,13 @@ export function SlideOver({
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className={`${WIDTH_MAP[width]} overflow-y-auto`} side="right">
-        <SheetHeader className="mb-6">
+        <SheetHeader className="px-6 pt-6 pb-4">
           <SheetTitle>{title}</SheetTitle>
           {description && <SheetDescription>{description}</SheetDescription>}
         </SheetHeader>
-        {children}
+        <div className="px-6 pb-8">
+          {children}
+        </div>
       </SheetContent>
     </Sheet>
   )

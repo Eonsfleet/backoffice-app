@@ -319,6 +319,8 @@ export interface TenantUser {
   avatar?: string | null
   role?: string
   status: UserStatus
+  employee_number?: string | null
+  date_of_birth?: string | null
   email_verified_at?: string | null
   last_login?: string | null
   created_at: string

@@ -69,16 +69,19 @@ export function UserEditForm({
 
   const mutation = useMutation({
     mutationFn: (values: EditForm) => updateUser(user.id, {
-      first_name:      values.first_name,
-      last_name:       values.last_name,
+      f_name:          values.first_name,
+      l_name:          values.last_name,
       email:           values.email,
       phone_number:    values.phone_number || undefined,
       role:            values.role || undefined,
       organization_id: values.organization_id || undefined,
     }),
-    onSuccess: () => {
+    onSuccess: async () => {
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ['users'] }),
+        qc.invalidateQueries({ queryKey: ['user-metrics'] }),
+      ])
       toast.success('User updated')
-      qc.invalidateQueries({ queryKey: ['users'] })
       onSuccess()
     },
     onError: () => toast.error('Failed to update user'),

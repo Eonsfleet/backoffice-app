@@ -50,10 +50,12 @@ export function UserCreateForm({ onSuccess, onCancel }: { onSuccess: () => void;
 
   const mutation = useMutation({
     mutationFn: (values: CreateForm) => createUser({ ...values, organization_id: values.organization_id }),
-    onSuccess: () => {
+    onSuccess: async () => {
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ['users'] }),
+        qc.invalidateQueries({ queryKey: ['user-metrics'] }),
+      ])
       toast.success('User created')
-      qc.invalidateQueries({ queryKey: ['users'] })
-      qc.invalidateQueries({ queryKey: ['user-metrics'] })
       onSuccess()
     },
     onError: () => toast.error('Failed to create user'),
