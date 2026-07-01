@@ -168,6 +168,14 @@ export const deleteVehicle = async (id: string | number): Promise<void> => {
   await api.delete(`/vehicles/${id}`)
 }
 
+export const assignDeviceToVehicle = async (
+  vehicleId: string | number,
+  deviceImei: string
+): Promise<Vehicle> => {
+  const { data: res } = await api.put(`/vehicles/${vehicleId}/assign-device`, { device_id: deviceImei })
+  return normalizeVehicle(res.data)
+}
+
 export const unassignDeviceFromVehicle = async (vehicleId: string | number): Promise<void> => {
   await api.post(`/vehicles/${vehicleId}/unassign-device`)
 }

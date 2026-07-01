@@ -84,14 +84,6 @@ export const createDevice = async (payload: DevicePayload): Promise<Device> => {
   return normalizeDevice(data.data)
 }
 
-export const assignDevice = async (
-  id: string | number,
-  payload: { vehicle_id: string | number; organization_id: string | number }
-): Promise<Device> => {
-  const { data } = await api.post(`/devices/${id}/assign`, payload)
-  return data.data
-}
-
 export const deactivateDevice = async (id: string | number): Promise<void> => {
   await api.post(`/devices/${id}/deactivate`)
 }

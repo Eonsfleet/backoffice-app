@@ -6,7 +6,8 @@ import { toast } from 'sonner'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { SearchableSelect } from '@/components/ui/searchable-select'
-import { listDevices, assignDevice } from '@/features/devices/api'
+import { listDevices } from '@/features/devices/api'
+import { assignDeviceToVehicle } from '@/features/vehicles/api'
 import type { Vehicle } from '@/types/api'
 
 export function AssignDeviceForm({
@@ -18,21 +19,17 @@ export function AssignDeviceForm({
   onSuccess: () => void
   onCancel: () => void
 }) {
-  const [deviceId, setDeviceId] = useState('')
+  const [deviceImei, setDeviceImei] = useState('')
   const qc = useQueryClient()
 
   const { data: devicesData, isLoading } = useQuery({
     queryKey: ['unassigned-devices'],
-    queryFn: () => listDevices({ status: 'unassigned', per_page: 100 }),
+    queryFn: () => listDevices({ per_page: 100 }),
     staleTime: 30_000,
   })
 
   const mutation = useMutation({
-    mutationFn: () =>
-      assignDevice(deviceId, {
-        vehicle_id: vehicle.id,
-        organization_id: vehicle.organization!.id,
-      }),
+    mutationFn: () => assignDeviceToVehicle(vehicle.id, deviceImei),
     onSuccess: () => {
       toast.success('Device assigned successfully')
       qc.invalidateQueries({ queryKey: ['vehicles'] })
@@ -42,7 +39,11 @@ export function AssignDeviceForm({
     onError: () => toast.error('Failed to assign device'),
   })
 
-  const devices = devicesData?.data ?? []
+  // The backend's device listing endpoint doesn't support filtering, so
+  // "unassigned" (and same-organization) is enforced here on the client.
+  const devices = (devicesData?.data ?? []).filter(
+    (d) => !d.vehicle && (!vehicle.organization || d.organization?.id === vehicle.organization.id)
+  )
 
   return (
     <div className="space-y-5">
@@ -64,11 +65,11 @@ export function AssignDeviceForm({
         ) : (
           <SearchableSelect
             options={devices.map((d) => ({
-              value: String(d.id),
+              value: d.device_id,
               label: d.hardware?.name ? `${d.device_id} · ${d.hardware.name}` : d.device_id,
             }))}
-            value={deviceId}
-            onValueChange={setDeviceId}
+            value={deviceImei}
+            onValueChange={setDeviceImei}
             placeholder="Choose a device…"
             searchPlaceholder="Search IMEI or hardware…"
           />
@@ -78,7 +79,7 @@ export function AssignDeviceForm({
       <div className="flex gap-2">
         <Button
           onClick={() => mutation.mutate()}
-          disabled={!deviceId || mutation.isPending}
+          disabled={!deviceImei || mutation.isPending}
           className="flex-1"
         >
           {mutation.isPending ? 'Assigning…' : 'Assign Device'}
