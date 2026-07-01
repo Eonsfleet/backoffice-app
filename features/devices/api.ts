@@ -65,6 +65,20 @@ export interface DevicePayload {
   organization_id?: string | number
 }
 
+export const importDevices = async (
+  file: File,
+  organizationId: string | number
+): Promise<{ batch_id: string }> => {
+  const form = new FormData()
+  form.append('file', file)
+  form.append('model', 'device')
+  form.append('organization_id', String(organizationId))
+  const { data } = await api.post('/file/import', form, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  })
+  return data.data
+}
+
 export const createDevice = async (payload: DevicePayload): Promise<Device> => {
   const { data } = await api.post('/devices', payload)
   return normalizeDevice(data.data)

@@ -7,7 +7,7 @@ import { type ColumnDef } from '@tanstack/react-table'
 import { toast } from 'sonner'
 import { format, formatDistanceToNow } from 'date-fns'
 import {
-  Cpu, Search, MoreHorizontal, Eye, PowerOff, Download,
+  Cpu, Search, MoreHorizontal, Eye, PowerOff, Download, Upload,
   Wifi, WifiOff, CircleDashed, Plus, Pencil, Trash2,
   CircuitBoard, CheckCircle2, XCircle, Signal,
 } from 'lucide-react'
@@ -30,11 +30,12 @@ import {
 } from '@/components/ui/select'
 
 import {
-  listDevices, deactivateDevice, exportDevices,
+  listDevices, deactivateDevice, exportDevices, importDevices,
   listHardware, createHardware, updateHardware, deleteHardware,
   listApns, createApn, updateApn, deleteApn,
 } from '@/features/devices/api'
 import { DeviceCreateForm } from '@/features/devices/components/DeviceCreateForm'
+import { DeviceImportForm } from '@/features/devices/components/DeviceImportForm'
 import { HardwareForm, type HardwareFormValues } from '@/features/devices/components/HardwareForm'
 import { ApnForm, type ApnFormValues } from '@/features/devices/components/ApnForm'
 import type { Apn, Device, Hardware } from '@/types/api'
@@ -73,6 +74,7 @@ function DevicesTab() {
   const [status, setStatus] = useState('all')
   const [page, setPage]     = useState(1)
   const [createOpen, setCreateOpen]             = useState(false)
+  const [importOpen, setImportOpen]             = useState(false)
   const [deactivateTarget, setDeactivateTarget] = useState<Device | null>(null)
   const [exporting, setExporting]               = useState(false)
 
@@ -139,6 +141,23 @@ function DevicesTab() {
       id: 'status',
       header: 'Status',
       cell: ({ row }) => <StatusBadge status={row.original.status} />,
+    },
+    {
+      id: 'connectivity',
+      header: 'Connectivity',
+      cell: ({ row }) => {
+        const online = row.original.is_online
+        if (online === undefined || online === null) return <span className="text-xs text-muted-foreground">—</span>
+        return online ? (
+          <Badge variant="outline" className="gap-1 text-emerald-600 border-emerald-200 bg-emerald-50">
+            <Wifi className="h-3 w-3" /> Online
+          </Badge>
+        ) : (
+          <Badge variant="outline" className="gap-1 text-muted-foreground">
+            <WifiOff className="h-3 w-3" /> Offline
+          </Badge>
+        )
+      },
     },
     {
       id: 'organization',
@@ -227,6 +246,9 @@ function DevicesTab() {
           <Download className="mr-2 h-4 w-4" />
           {exporting ? 'Exporting…' : 'Export CSV'}
         </Button>
+        <Button variant="outline" onClick={() => setImportOpen(true)}>
+          <Upload className="mr-2 h-4 w-4" /> Import
+        </Button>
         <Button onClick={() => setCreateOpen(true)}>
           <Plus className="mr-2 h-4 w-4" /> Add Device
         </Button>
@@ -248,6 +270,10 @@ function DevicesTab() {
 
       <SlideOver open={createOpen} onOpenChange={setCreateOpen} title="Add Device" description="Register a new GPS tracking device.">
         <DeviceCreateForm onSuccess={() => setCreateOpen(false)} onCancel={() => setCreateOpen(false)} />
+      </SlideOver>
+
+      <SlideOver open={importOpen} onOpenChange={setImportOpen} title="Import Devices" description="Upload a CSV or Excel file to bulk-add devices. Select the organization first, then upload.">
+        <DeviceImportForm onSuccess={() => setImportOpen(false)} onCancel={() => setImportOpen(false)} />
       </SlideOver>
 
       {deactivateTarget && (
