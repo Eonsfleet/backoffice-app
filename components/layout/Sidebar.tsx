@@ -106,9 +106,9 @@ export function Sidebar() {
   const clearAuth = useAuthStore((s) => s.clearAuth)
 
   const handleLogout = async () => {
+    await logoutAdmin()
     clearAuth()
     clearAuthCookie()
-    await logoutAdmin()
     router.replace('/login')
   }
 

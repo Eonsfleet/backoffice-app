@@ -68,21 +68,21 @@ export interface UserPayload {
   f_name: string
   l_name: string
   email: string
-  password: string
+  password?: string
   phone_number?: string
   role?: string
   organization_id: string | number
 }
 
 export const createUser = async (payload: UserPayload): Promise<TenantUser> => {
-  const { data: res } = await api.post('/users', payload)
+  const { data: res } = await api.post('/admin/users', payload)
   return normalizeUser(res.data)
 }
 
 export const listUsers = async (
   params?: UserFilters
 ): Promise<PaginatedResponse<TenantUser>> => {
-  const { data: res } = await api.get('/users', { params })
+  const { data: res } = await api.get('/admin/users', { params })
   const inner = res.data
   const raw: RawUser[] = inner?.users ?? inner?.data ?? []
   const pg = inner?.pagination
@@ -99,7 +99,7 @@ export const listUsers = async (
 }
 
 export const getUser = async (id: string | number): Promise<TenantUser> => {
-  const { data: res } = await api.get(`/users/${id}`)
+  const { data: res } = await api.get(`/admin/users/${id}`)
   const raw = res.data
   return normalizeUser(raw?.attributes ? raw : { id: String(id), attributes: raw, relationships: {} })
 }
@@ -118,16 +118,16 @@ export const updateUser = async (
   id: string | number,
   payload: UserUpdatePayload
 ): Promise<TenantUser> => {
-  const { data: res } = await api.patch(`/users/${id}`, payload)
+  const { data: res } = await api.patch(`/admin/users/${id}`, payload)
   return normalizeUser(res.data)
 }
 
 export const deactivateUser = async (id: string | number): Promise<void> => {
-  await api.patch(`/users/${id}`, { status: 'inactive' })
+  await api.patch(`/admin/users/${id}`, { status: 'inactive' })
 }
 
 export const activateUser = async (id: string | number): Promise<void> => {
-  await api.patch(`/users/${id}`, { status: 'active' })
+  await api.patch(`/admin/users/${id}`, { status: 'active' })
 }
 
 function triggerBlobDownload(blob: Blob, filename: string): void {
@@ -145,7 +145,7 @@ export const exportUsers = async (
   organizationId: string | number,
   format: 'excel' | 'csv' = 'excel'
 ): Promise<void> => {
-  const response = await api.get('/users/export', {
+  const response = await api.get('/admin/users/export', {
     params: { organization_id: organizationId, format },
     responseType: 'blob',
   })
@@ -154,7 +154,7 @@ export const exportUsers = async (
 }
 
 export const downloadUserTemplate = async (): Promise<void> => {
-  const response = await api.get('/users/export/template', { responseType: 'blob' })
+  const response = await api.get('/admin/users/export/template', { responseType: 'blob' })
   triggerBlobDownload(response.data as Blob, 'users_import_template.xlsx')
 }
 
@@ -166,7 +166,7 @@ export const importUsers = async (
   form.append('file', file)
   form.append('model', 'User')
   form.append('organization_id', String(organizationId))
-  const { data: res } = await api.post('/file/import', form, {
+  const { data: res } = await api.post('/admin/file/import', form, {
     headers: { 'Content-Type': 'multipart/form-data' },
   })
   return res.data?.batch_id as string
@@ -198,7 +198,7 @@ export const getUserActivityLog = async (
   userId: string | number,
   params?: ActivityLogFilters
 ): Promise<{ data: ActivityLogEntry[]; meta: { total: number; per_page: number; current_page: number; last_page: number } }> => {
-  const { data: res } = await api.get(`/users/${userId}/activity-log`, { params })
+  const { data: res } = await api.get(`/admin/users/${userId}/activity-log`, { params })
   return res
 }
 
@@ -206,7 +206,7 @@ export const exportUserActivityLog = async (
   userId: string | number,
   params?: Omit<ActivityLogFilters, 'page' | 'per_page'>
 ): Promise<void> => {
-  const response = await api.get(`/users/${userId}/activity-log`, {
+  const response = await api.get(`/admin/users/${userId}/activity-log`, {
     params: { ...params, format: 'csv' },
     responseType: 'blob',
   })
@@ -214,7 +214,7 @@ export const exportUserActivityLog = async (
 }
 
 export const deleteUser = async (id: string | number): Promise<void> => {
-  await api.delete(`/users/${id}`)
+  await api.delete(`/admin/users/${id}`)
 }
 
 export interface UserMetrics {

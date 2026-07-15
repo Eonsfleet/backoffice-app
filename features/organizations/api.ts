@@ -12,6 +12,22 @@ export interface OrgFilters {
   to_date?: string
 }
 
+export interface OrganizationPayload {
+  name?: string
+  email?: string
+  phone_number?: string
+  fleet_size?: number
+  industry?: string
+  street?: string
+  city?: string
+  state?: string
+  country?: string
+  billing_type?: 'poc' | 'trial' | 'direct_subscription'
+  plan_id?: number
+  billing_cycle?: 'monthly' | 'yearly'
+  evaluation_days?: number
+}
+
 export const listOrganizations = async (
   params?: OrgFilters
 ): Promise<PaginatedResponse<Organization>> => {
@@ -20,26 +36,26 @@ export const listOrganizations = async (
 }
 
 export const getOrganization = async (id: string | number): Promise<Organization> => {
-  const { data } = await api.get(`/organizations/${id}`)
+  const { data } = await api.get(`/admin/organizations/${id}`)
   const o = data.data
-  return o?.attributes ? { id: o.id, ...o.attributes } : o
+  return o?.attributes ? { id: o.id, ...o.attributes, ...(o.relationships ?? {}) } : o
 }
 
 export const createOrganization = async (
-  payload: Partial<Organization>
+  payload: OrganizationPayload
 ): Promise<Organization> => {
   const { data } = await api.post('/admin/organizations', payload)
   const o = data.data
-  return o?.attributes ? { id: o.id, ...o.attributes } : o
+  return o?.attributes ? { id: o.id, ...o.attributes, ...(o.relationships ?? {}) } : o
 }
 
 export const updateOrganization = async (
   id: string | number,
-  payload: Partial<Organization>
+  payload: OrganizationPayload
 ): Promise<Organization> => {
-  const { data } = await api.put(`/organizations/${id}`, payload)
+  const { data } = await api.put(`/admin/organizations/${id}`, payload)
   const o = data.data
-  return o?.attributes ? { id: o.id, ...o.attributes } : o
+  return o?.attributes ? { id: o.id, ...o.attributes, ...(o.relationships ?? {}) } : o
 }
 
 export const suspendOrganization = async (id: string | number): Promise<void> => {
@@ -143,7 +159,7 @@ export const getOrgActivityLog = async (
   identifier: string | number,
   params?: { page?: number; per_page?: number }
 ): Promise<{ data: OrgActivityEntry[]; meta: OrgActivityMeta }> => {
-  const { data } = await api.get(`/organizations/${identifier}/activity-log`, { params })
+  const { data } = await api.get(`/admin/organizations/${identifier}/activity-log`, { params })
 
   const raw: OrgActivityEntry[] = Array.isArray(data.data) ? data.data : []
 

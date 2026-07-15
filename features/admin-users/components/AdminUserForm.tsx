@@ -34,7 +34,7 @@ export function AdminUserForm({ user, roles, onSubmit, isPending, onCancel }: Ad
     defaultValues: {
       name:         user?.name  ?? '',
       email:        user?.email ?? '',
-      phone_number: '',
+      phone_number: user?.phone_number ?? '',
       role:         user?.role  ?? '',
     },
   })

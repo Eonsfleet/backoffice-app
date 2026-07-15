@@ -46,11 +46,10 @@ import { UserDetail }     from '@/features/users/components/UserDetail'
 
 import {
   listAdminUsers, createAdminUser, updateAdminUser,
-  deactivateAdminUser, deleteAdminUser,
+  deleteAdminUser,
 } from '@/features/admin-users/api'
 import { listRoles } from '@/features/roles/api'
 import { AdminUserForm, type AdminUserFormValues } from '@/features/admin-users/components/AdminUserForm'
-import type { Role } from '@/features/roles/api'
 
 import type { TenantUser, AdminUser } from '@/types/api'
 import { getInitials } from '@/lib/string-utils'
@@ -462,7 +461,6 @@ function AdminUsersTab() {
 
   const [formOpen, setFormOpen]             = useState(false)
   const [editUser, setEditUser]             = useState<AdminUser | null>(null)
-  const [deactivateTarget, setDeactivateTarget] = useState<AdminUser | null>(null)
   const [deleteTarget, setDeleteTarget]     = useState<AdminUser | null>(null)
 
   const { data, isLoading, isFetching } = useQuery({
@@ -487,16 +485,6 @@ function AdminUsersTab() {
       setEditUser(null)
     },
     onError: () => toast.error('Failed to save admin user'),
-  })
-
-  const deactivateMutation = useMutation({
-    mutationFn: (id: string | number) => deactivateAdminUser(id),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['admin-users'] })
-      toast.success('Admin deactivated')
-      setDeactivateTarget(null)
-    },
-    onError: () => toast.error('Failed to deactivate admin'),
   })
 
   const deleteMutation = useMutation({
@@ -584,10 +572,6 @@ function AdminUsersTab() {
               <DropdownMenuItem onClick={() => openEdit(u)}>
                 <Pencil className="mr-2 h-4 w-4" /> Edit
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setDeactivateTarget(u)}>
-                <UserX className="mr-2 h-4 w-4" /> Deactivate
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
               <DropdownMenuItem
                 className="text-destructive focus:text-destructive"
                 onClick={() => setDeleteTarget(u)}
@@ -646,19 +630,6 @@ function AdminUsersTab() {
           onCancel={() => setFormOpen(false)}
         />
       </SlideOver>
-
-      {/* Deactivate */}
-      {deactivateTarget && (
-        <ConfirmDialog
-          open={!!deactivateTarget}
-          onOpenChange={(o) => !o && setDeactivateTarget(null)}
-          title="Deactivate Admin"
-          description={`Deactivate "${deactivateTarget.name}"? They will lose access immediately.`}
-          confirmLabel="Deactivate"
-          variant="destructive"
-          onConfirm={() => deactivateMutation.mutateAsync(deactivateTarget.id)}
-        />
-      )}
 
       {/* Delete */}
       {deleteTarget && (

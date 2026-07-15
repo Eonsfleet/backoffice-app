@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { SearchableSelect } from '@/components/ui/searchable-select'
-import { listUsers, createUser } from '@/features/users/api'
+import { createUser } from '@/features/users/api'
 import { listOrganizations } from '@/features/organizations/api'
 import { listRoles } from '@/features/roles/api'
 
@@ -18,7 +18,6 @@ const createSchema = z.object({
   f_name:      z.string().min(1, 'Required'),
   l_name:       z.string().min(1, 'Required'),
   email:           z.string().email('Invalid email'),
-  password:        z.string().min(8, 'Min 8 characters'),
   phone_number:    z.string().optional(),
   role:            z.string().optional(),
   organization_id: z.string().min(1, 'Organization is required'),
@@ -79,11 +78,6 @@ export function UserCreateForm({ onSuccess, onCancel }: { onSuccess: () => void;
         <Label>Email *</Label>
         <Input type="email" {...register('email')} placeholder="john@example.com" />
         {errors.email && <p className="text-xs text-destructive">{errors.email.message}</p>}
-      </div>
-      <div className="space-y-1.5">
-        <Label>Password *</Label>
-        <Input type="password" {...register('password')} placeholder="Min 8 characters" />
-        {errors.password && <p className="text-xs text-destructive">{errors.password.message}</p>}
       </div>
       <div className="space-y-1.5">
         <Label>Phone</Label>

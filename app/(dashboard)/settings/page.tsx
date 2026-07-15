@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -25,6 +25,13 @@ import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { api } from '@/lib/api/client'
 import { useAuthStore } from '@/stores/auth.store'
+import {
+  getAdminSessions,
+  revokeAdminSession,
+  updateAdminPassword,
+  updateAdminProfile,
+  type AdminSession,
+} from '@/features/auth/api'
 
 // ─── Schemas ──────────────────────────────────────────────────────────────────
 
@@ -49,12 +56,11 @@ type PasswordForm = z.infer<typeof passwordSchema>
 // ─── API helpers ──────────────────────────────────────────────────────────────
 
 const getSessions = async () => {
-  const { data } = await api.get('/auth/admin/sessions')
-  return data.data as Array<{ id: string; ip: string; user_agent: string; last_active: string; is_current: boolean }>
+  return getAdminSessions()
 }
 
 const revokeSession = async (id: string) => {
-  await api.delete(`/auth/admin/sessions/${id}`)
+  await revokeAdminSession(id)
 }
 
 const getNotificationPrefs = async () => {
@@ -86,20 +92,26 @@ function ProfileTab() {
   const setAuth = useAuthStore((s) => s.setAuth)
   const token   = useAuthStore((s) => s.token)
 
-  const [avatar, setAvatar] = useState(user?.avatar ?? '')
+  const [avatar, setAvatar] = useState<string | null>(null)
+  const currentAvatar = avatar ?? user?.avatar ?? ''
 
-  const { register, handleSubmit, formState: { errors, isDirty } } = useForm<ProfileForm>({
+  const { register, handleSubmit, reset, formState: { errors, isDirty } } = useForm<ProfileForm>({
     resolver: zodResolver(profileSchema),
     defaultValues: { name: user?.name ?? '', email: user?.email ?? '', avatar: user?.avatar ?? '' },
   })
 
+  useEffect(() => {
+    reset({ name: user?.name ?? '', email: user?.email ?? '', avatar: user?.avatar ?? '' })
+  }, [reset, user])
+
   const profileMut = useMutation({
     mutationFn: async (values: ProfileForm) => {
-      const { data } = await api.patch('/auth/admin/profile', { ...values, avatar })
-      return data.data
+      return updateAdminProfile({ ...values, avatar: currentAvatar || null })
     },
     onSuccess: (updatedUser) => {
       setAuth(token!, updatedUser)
+      reset({ name: updatedUser.name, email: updatedUser.email, avatar: updatedUser.avatar ?? '' })
+      setAvatar(null)
       toast.success('Profile updated')
     },
     onError: () => toast.error('Failed to update profile'),
@@ -110,7 +122,7 @@ function ProfileTab() {
 
   const passwordMut = useMutation({
     mutationFn: async (values: PasswordForm) => {
-      await api.patch('/auth/admin/password', values)
+      await updateAdminPassword(values)
     },
     onSuccess: () => {
       toast.success('Password changed')
@@ -131,7 +143,7 @@ function ProfileTab() {
           <form onSubmit={handleSubmit((v) => profileMut.mutate(v))} className="space-y-5">
             <div className="flex items-center gap-5">
               <AvatarUpload
-                value={avatar}
+                value={currentAvatar}
                 name={user?.name}
                 onChange={(url) => setAvatar(url)}
                 size="lg"
@@ -156,7 +168,7 @@ function ProfileTab() {
               </div>
             </div>
 
-            <Button type="submit" disabled={profileMut.isPending || (!isDirty && avatar === user?.avatar)}>
+            <Button type="submit" disabled={profileMut.isPending || (!isDirty && currentAvatar === (user?.avatar ?? ''))}>
               {profileMut.isPending ? 'Saving…' : 'Save Changes'}
             </Button>
           </form>
@@ -206,7 +218,7 @@ function ProfileTab() {
 function SecurityTab() {
   const qc = useQueryClient()
 
-  const { data: sessions, isLoading } = useQuery({
+  const { data: sessions, isLoading } = useQuery<AdminSession[]>({
     queryKey: ['admin-sessions'],
     queryFn: getSessions,
     staleTime: 30_000,

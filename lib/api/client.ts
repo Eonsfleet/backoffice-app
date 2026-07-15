@@ -24,18 +24,19 @@ api.interceptors.request.use((config) => {
   return config
 })
 
-// 401 → only act if the user had an active session (token exists in store).
-// Skips auth endpoints to avoid redirect loops or spurious logout calls.
-// A single logout promise is shared across all concurrent 401s (thundering-herd guard).
+// Only the admin profile endpoint is authoritative for session validity.
+// Other endpoints can return 401 because of permission or route guard mismatches;
+// clearing the session there makes a recoverable API issue feel like a logout.
+// A single logout promise is shared across concurrent authoritative 401s.
 let logoutInFlight: Promise<void> | null = null
 
 function performLogout(): Promise<void> {
   if (logoutInFlight) return logoutInFlight
 
   logoutInFlight = (async () => {
+    await api.post('/auth/admin/logout').catch(() => null)
     useAuthStore.getState().clearAuth()
     clearAuthCookie()
-    await api.get('/auth/admin/logout').catch(() => null)
     window.location.replace('/login')
   })()
 
@@ -47,13 +48,10 @@ api.interceptors.response.use(
   async (error) => {
     if (axios.isAxiosError(error) && error.response?.status === 401) {
       const url = error.config?.url ?? ''
-      const isAuthEndpoint =
-        url.includes('/auth/admin/login') ||
-        url.includes('/auth/admin/logout') ||
-        url.includes('/auth/admin/me')
+      const shouldEndSession = url.includes('/auth/admin/me')
       const hasSession = !!useAuthStore.getState().token
 
-      if (!isAuthEndpoint && hasSession && typeof window !== 'undefined') {
+      if (shouldEndSession && hasSession && typeof window !== 'undefined') {
         await performLogout()
       }
     }

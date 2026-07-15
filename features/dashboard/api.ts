@@ -50,17 +50,18 @@ export type DeviceStatusBreakdown = {
 }
 
 export const getDashboardDevices = async (): Promise<DeviceStatusBreakdown> => {
-  const { data } = await api.get('/analytics/gps/device-status')
+  const { data } = await api.get('/admin/dashboard-device-metrics')
   const d = data.data ?? data
   const pick = (v: unknown): number => {
     if (typeof v === 'number') return v
     if (v && typeof v === 'object' && 'count' in v) return (v as { count: number }).count ?? 0
+    if (v && typeof v === 'object' && 'total' in v) return (v as { total: number }).total ?? 0
     return 0
   }
   return {
     online:     pick(d.online),
     offline:    pick(d.offline),
-    unassigned: pick(d.unassigned),
+    unassigned: pick(d.unassigned) || pick(d.disconnected),
   }
 }
 

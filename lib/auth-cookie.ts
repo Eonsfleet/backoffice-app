@@ -17,7 +17,7 @@ export function getAuthCookie(): string | null {
   const match = document.cookie
     .split(';')
     .find((c) => c.trim().startsWith(`${COOKIE_NAME}=`))
-  return match ? match.trim().split('=').slice(1).join('=') : null
+  return match ? decodeURIComponent(match.trim().split('=').slice(1).join('=')) : null
 }
 
 export function setAuthCookie(token: string): void {
@@ -26,7 +26,7 @@ export function setAuthCookie(token: string): void {
   // set an HttpOnly cookie. This cookie is a client-side fallback so the Axios
   // interceptor can read the token before React hydrates.
   const secure = location.protocol === 'https:' ? '; Secure' : ''
-  document.cookie = `${COOKIE_NAME}=${token}; path=/; SameSite=Strict; max-age=${COOKIE_MAX_AGE}${secure}`
+  document.cookie = `${COOKIE_NAME}=${encodeURIComponent(token)}; path=/; SameSite=Strict; max-age=${COOKIE_MAX_AGE}${secure}`
 }
 
 export function clearAuthCookie(): void {

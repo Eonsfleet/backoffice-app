@@ -34,5 +34,6 @@ export function usePermission(permission: string): boolean {
   const user = useAuthStore((s) => s.user)
   if (!user) return false
   if (user.role === 'super_admin') return true
+  if (user.permissions?.includes(permission)) return true
   return ROLE_PERMISSIONS[user.role]?.includes(permission) ?? false
 }

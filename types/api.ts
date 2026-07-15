@@ -31,6 +31,8 @@ export interface AdminUser {
   email: string
   avatar: string | null
   role: AdminRole
+  permissions?: string[]
+  phone_number?: string | null
   status?: 'active' | 'inactive'
   last_login: string | null
   created_at?: string

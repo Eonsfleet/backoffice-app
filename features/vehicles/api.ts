@@ -59,17 +59,19 @@ type RawVehicle = {
 function normalizeLocation(raw: RawLocation): VehicleLocation | null {
   if (!raw || Array.isArray(raw)) return null
   const loc = raw as { id: string; attributes: Record<string, unknown> }
-  const attrs = loc.attributes ?? {}
+  const attrs = loc.attributes ?? (raw as Record<string, unknown>)
   const coords = attrs.coordinates as { latitude: number; longitude: number } | undefined
-  if (!coords) return null
+  const latitude = coords?.latitude ?? attrs.latitude
+  const longitude = coords?.longitude ?? attrs.longitude
+  if (latitude == null || longitude == null) return null
   return {
-    latitude:  coords.latitude,
-    longitude: coords.longitude,
+    latitude:  Number(latitude),
+    longitude: Number(longitude),
     speed:     (attrs.speed as number) ?? null,
-    heading:   (attrs.heading as number) ?? null,
+    heading:   ((attrs.heading ?? attrs.angle) as number) ?? null,
     altitude:  (attrs.altitude as number) ?? null,
     accuracy:  (attrs.accuracy as number) ?? null,
-    timestamp: (attrs.timestamp as string) ?? null,
+    timestamp: ((attrs.timestamp ?? attrs.last_packet_received_at ?? attrs.created_at) as string) ?? null,
   }
 }
 
@@ -112,7 +114,7 @@ function normalizeVehicle(raw: RawVehicle): Vehicle {
     image:               (a.image as string) ?? null,
     device_id:           (a.device_id as string) ?? null,
     device_connected:    (a.device_connected as boolean) ?? false,
-    device_status:       (a.deviceStatus as string) ?? null,
+    device_status:       ((a.device_status ?? a.deviceStatus) as string) ?? null,
     total_odometer:      (a.total_odometer as number) ?? null,
     last_odometer_value: (a.last_odometer_value as string) ?? null,
     status:              (a.status as string) ?? 'active',
@@ -128,7 +130,7 @@ function normalizeVehicle(raw: RawVehicle): Vehicle {
 export const listVehicles = async (
   params?: VehicleFilters
 ): Promise<PaginatedResponse<Vehicle>> => {
-  const { data: res } = await api.get('/vehicles', { params })
+  const { data: res } = await api.get('/admin/vehicles', { params })
   const inner = res.data
   const raw: RawVehicle[] = inner?.vehicles ?? inner?.data ?? []
   const pg = inner?.pagination
@@ -145,39 +147,39 @@ export const listVehicles = async (
 }
 
 export const getVehicle = async (id: string | number): Promise<Vehicle> => {
-  const { data: res } = await api.get(`/vehicles/${id}`)
-  const raw = res.data
+  const { data: res } = await api.get(`/admin/vehicles/${id}`)
+  const raw = res.data?.vehicle ?? res.data
   // Single vehicle may be wrapped differently
   return normalizeVehicle(raw?.id ? raw : { id: String(id), attributes: raw, relationships: {} })
 }
 
 export const createVehicle = async (payload: VehiclePayload): Promise<Vehicle> => {
-  const { data: res } = await api.post('/vehicles', payload)
-  return normalizeVehicle(res.data)
+  const { data: res } = await api.post('/admin/vehicles', payload)
+  return normalizeVehicle(res.data?.vehicle ?? res.data)
 }
 
 export const updateVehicle = async (
   id: string | number,
   payload: Partial<VehiclePayload>
 ): Promise<Vehicle> => {
-  const { data: res } = await api.patch(`/vehicles/${id}`, payload)
-  return normalizeVehicle(res.data)
+  const { data: res } = await api.patch(`/admin/vehicles/${id}`, payload)
+  return normalizeVehicle(res.data?.vehicle ?? res.data)
 }
 
 export const deleteVehicle = async (id: string | number): Promise<void> => {
-  await api.delete(`/vehicles/${id}`)
+  await api.delete(`/admin/vehicles/${id}`)
 }
 
 export const assignDeviceToVehicle = async (
   vehicleId: string | number,
   deviceImei: string
 ): Promise<Vehicle> => {
-  const { data: res } = await api.put(`/vehicles/${vehicleId}/assign-device`, { device_id: deviceImei })
-  return normalizeVehicle(res.data)
+  const { data: res } = await api.put(`/admin/vehicles/${vehicleId}/assign-device`, { device_id: deviceImei })
+  return normalizeVehicle(res.data?.vehicle ?? res.data)
 }
 
 export const unassignDeviceFromVehicle = async (vehicleId: string | number): Promise<void> => {
-  await api.post(`/vehicles/${vehicleId}/unassign-device`)
+  await api.post(`/admin/vehicles/${vehicleId}/unassign-device`)
 }
 
 export interface VehicleMetrics {
@@ -198,7 +200,7 @@ function extractCount(v: MetricValue): number {
 }
 
 export const getVehicleMetrics = async (): Promise<VehicleMetrics> => {
-  const { data: res } = await api.get('/vehicles/stats')
+  const { data: res } = await api.get('/admin/vehicles/stats')
   const d = res.data ?? res
   return {
     total:          extractCount(d.total),
@@ -206,7 +208,7 @@ export const getVehicleMetrics = async (): Promise<VehicleMetrics> => {
     without_device: extractCount(d.without_device),
     active:         extractCount(d.active),
     inactive:       extractCount(d.inactive),
-    maintenance:    extractCount(d.maintenance),
+    maintenance:    extractCount(d.maintenance ?? d.under_maintenance),
   }
 }
 
@@ -225,7 +227,7 @@ function downloadBlob(data: BlobPart, filename: string, type: string) {
 }
 
 export const downloadVehicleImportTemplate = async (): Promise<void> => {
-  const response = await api.get('/vehicles/export/template', { responseType: 'blob' })
+  const response = await api.get('/admin/vehicles/export/template', { responseType: 'blob' })
   downloadBlob(
     response.data,
     'vehicles_import_template.xlsx',
@@ -234,7 +236,7 @@ export const downloadVehicleImportTemplate = async (): Promise<void> => {
 }
 
 export const exportVehicles = async (filters?: VehicleFilters): Promise<void> => {
-  const response = await api.get('/vehicles/export', {
+  const response = await api.get('/admin/vehicles/export', {
     params: { ...filters, format: 'csv' },
     responseType: 'blob',
   })
@@ -247,9 +249,9 @@ export const importVehicles = async (
 ): Promise<{ batch_id: string }> => {
   const form = new FormData()
   form.append('file', file)
-  form.append('model', 'vehicle')
+  form.append('model', 'Vehicle')
   form.append('organization_id', String(organizationId))
-  const { data } = await api.post('/file/import', form, {
+  const { data } = await api.post('/admin/file/import', form, {
     headers: { 'Content-Type': 'multipart/form-data' },
   })
   return data.data
