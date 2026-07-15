@@ -5,9 +5,8 @@ import { useQuery } from '@tanstack/react-query'
 import { type ColumnDef } from '@tanstack/react-table'
 import { format } from 'date-fns'
 import { toast } from 'sonner'
-import { Receipt, Search, Download, CheckCircle2, XCircle, Clock } from 'lucide-react'
+import { Search, Download, CheckCircle2, XCircle, Clock } from 'lucide-react'
 
-import { PageHeader }  from '@/components/shared/PageHeader'
 import { DataTable }   from '@/components/shared/DataTable'
 import { Button }      from '@/components/ui/button'
 import { Input }       from '@/components/ui/input'
@@ -15,6 +14,7 @@ import { Badge }       from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 import { listTransactions, exportTransactions } from '@/features/subscriptions/api'
+import { SubscriptionWorkspace } from '@/features/subscriptions/components/SubscriptionWorkspace'
 import type { Transaction } from '@/types/api'
 
 const STATUS_OPTIONS = [
@@ -190,12 +190,10 @@ export default function TransactionsPage() {
   )
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Transactions"
-        description={data?.meta?.total != null ? `${data.meta.total} transactions` : 'Payment transaction history'}
-        icon={Receipt}
-      />
+    <SubscriptionWorkspace
+      title="Transactions"
+      description={data?.meta?.total != null ? `${data.meta.total} payment records with filters and export` : 'Payment transaction history with filters and export.'}
+    >
       <DataTable
         data={transactions}
         columns={columns}
@@ -205,6 +203,6 @@ export default function TransactionsPage() {
         pageCount={data?.meta?.last_page ?? 1}
         onPaginationChange={(s) => setPage(s.pageIndex + 1)}
       />
-    </div>
+    </SubscriptionWorkspace>
   )
 }

@@ -10,14 +10,13 @@ import {
   CheckCircle2, XCircle, Clock, Car, CreditCard,
 } from 'lucide-react'
 
-import { PageHeader }    from '@/components/shared/PageHeader'
 import { DataTable }     from '@/components/shared/DataTable'
 import { StatusBadge }   from '@/components/shared/StatusBadge'
 import { SlideOver }     from '@/components/shared/SlideOver'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { Button }        from '@/components/ui/button'
 import { Input }         from '@/components/ui/input'
-import { Badge }         from '@/components/ui/badge'
+import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton }      from '@/components/ui/skeleton'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import {
@@ -28,6 +27,7 @@ import {
 import {
   listSubscribers, getSubscription, getSubscriptionTransactions, retryPayment,
 } from '@/features/subscriptions/api'
+import { SubscriptionWorkspace } from '@/features/subscriptions/components/SubscriptionWorkspace'
 import type { Subscription, Transaction } from '@/types/api'
 
 const STATUS_OPTIONS = [
@@ -59,7 +59,7 @@ function TxStatusIcon({ status }: { status: Transaction['status'] }) {
 // ─── Detail drawer ────────────────────────────────────────────────────────────
 
 function SubscriberDetail({ subscription }: { subscription: Subscription }) {
-  const { data: detail, isLoading: loadingDetail } = useQuery({
+  const { data: detail } = useQuery({
     queryKey: ['subscription', subscription.id],
     queryFn:  () => getSubscription(subscription.id),
     staleTime: 60_000,
@@ -189,8 +189,9 @@ export default function SubscribersPage() {
   const [retryTarget, setRetryTarget] = useState<Subscription | null>(null)
 
   const { data, isLoading } = useQuery({
-    queryKey: ['subscribers', { status, cycle, page }],
+    queryKey: ['subscribers', { status, cycle, search, page }],
     queryFn:  () => listSubscribers({
+      q:             search || undefined,
       status:        status !== 'all' ? status : undefined,
       billing_cycle: cycle  !== 'all' ? cycle  : undefined,
       page,
@@ -209,9 +210,10 @@ export default function SubscribersPage() {
     onError: () => toast.error('Retry failed'),
   })
 
-  const subscribers = (data?.data ?? []).filter((s) =>
-    !search || s.organization?.name?.toLowerCase().includes(search.toLowerCase())
-  )
+  const subscribers = data?.data ?? []
+  const totalMrr = subscribers.reduce((sum, sub) => sum + (sub.mrr ?? 0), 0)
+  const activeCount = subscribers.filter((sub) => sub.status === 'active').length
+  const attentionCount = subscribers.filter((sub) => ['grace', 'restricted', 'suspended', 'expired'].includes(sub.status)).length
 
   const columns: ColumnDef<Subscription, unknown>[] = [
     {
@@ -328,12 +330,46 @@ export default function SubscribersPage() {
   )
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Subscribers"
-        description={data?.meta?.total != null ? `${data.meta.total} subscribers` : 'All subscriptions'}
-        icon={Users}
-      />
+    <SubscriptionWorkspace
+      title="Subscribers"
+      description={data?.meta?.total != null ? `${data.meta.total} subscriptions across organizations` : 'Track organization subscriptions, renewals, and recovery actions.'}
+    >
+      <div className="grid gap-3 md:grid-cols-3">
+        <Card>
+          <CardContent className="flex items-center gap-3 pt-5">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+              <Users className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <p className="text-xs font-medium uppercase text-muted-foreground">Page Subscribers</p>
+              <p className="text-2xl font-bold">{subscribers.length}</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="flex items-center gap-3 pt-5">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-500/10">
+              <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+            </div>
+            <div>
+              <p className="text-xs font-medium uppercase text-muted-foreground">Active On Page</p>
+              <p className="text-2xl font-bold">{activeCount}</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="flex items-center gap-3 pt-5">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-500/10">
+              <RefreshCw className="h-5 w-5 text-amber-700" />
+            </div>
+            <div>
+              <p className="text-xs font-medium uppercase text-muted-foreground">Page MRR</p>
+              <p className="text-2xl font-bold">{fmt(totalMrr)}</p>
+              {attentionCount > 0 && <p className="text-xs text-amber-700">{attentionCount} need attention</p>}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
 
       <DataTable
         data={subscribers}
@@ -366,6 +402,6 @@ export default function SubscribersPage() {
           onConfirm={() => retryMutation.mutateAsync(retryTarget)}
         />
       )}
-    </div>
+    </SubscriptionWorkspace>
   )
 }

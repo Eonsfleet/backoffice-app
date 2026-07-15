@@ -1,6 +1,6 @@
 import { api } from '@/lib/api/client'
 import { normalizePaginated } from '@/lib/api/utils'
-import type { SubscriptionPlan, Subscription, Feature, Addon, PaginatedResponse, SubscriptionSummary, Transaction, Invoice, AssetSubscription, AssetSubscriptionSummary } from '@/types/api'
+import type { SubscriptionPlan, Subscription, Feature, Addon, PaginatedResponse, SubscriptionSummary, Transaction, Invoice, AssetSubscription } from '@/types/api'
 
 // ─── Normalizers ─────────────────────────────────────────────────────────────
 

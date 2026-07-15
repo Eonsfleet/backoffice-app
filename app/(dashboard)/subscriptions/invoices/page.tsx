@@ -5,9 +5,8 @@ import { useQuery } from '@tanstack/react-query'
 import { type ColumnDef } from '@tanstack/react-table'
 import { format } from 'date-fns'
 import { toast } from 'sonner'
-import { FileText, Search, Download, CheckCircle2, XCircle, AlertCircle } from 'lucide-react'
+import { Search, Download, CheckCircle2, XCircle, AlertCircle } from 'lucide-react'
 
-import { PageHeader }  from '@/components/shared/PageHeader'
 import { DataTable }   from '@/components/shared/DataTable'
 import { Button }      from '@/components/ui/button'
 import { Input }       from '@/components/ui/input'
@@ -15,6 +14,7 @@ import { Badge }       from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 import { listInvoices, downloadInvoice } from '@/features/subscriptions/api'
+import { SubscriptionWorkspace } from '@/features/subscriptions/components/SubscriptionWorkspace'
 import type { Invoice } from '@/types/api'
 
 const STATUS_OPTIONS = [
@@ -180,12 +180,10 @@ export default function InvoicesPage() {
   )
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Invoices"
-        description={data?.meta?.total != null ? `${data.meta.total} invoices` : 'Billing invoices'}
-        icon={FileText}
-      />
+    <SubscriptionWorkspace
+      title="Invoices"
+      description={data?.meta?.total != null ? `${data.meta.total} billing documents available` : 'Billing documents with status filters and PDF downloads.'}
+    >
       <DataTable
         data={invoices}
         columns={columns}
@@ -195,6 +193,6 @@ export default function InvoicesPage() {
         pageCount={data?.meta?.last_page ?? 1}
         onPaginationChange={(s) => setPage(s.pageIndex + 1)}
       />
-    </div>
+    </SubscriptionWorkspace>
   )
 }

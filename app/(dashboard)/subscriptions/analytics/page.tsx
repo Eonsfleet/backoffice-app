@@ -9,10 +9,10 @@ import {
   PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend,
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
 } from 'recharts'
-import { PageHeader }  from '@/components/shared/PageHeader'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Skeleton }    from '@/components/ui/skeleton'
 import { Badge }       from '@/components/ui/badge'
+import { SubscriptionWorkspace } from '@/features/subscriptions/components/SubscriptionWorkspace'
 import {
   getSubscriptionSummary, getSubscriptionStatusDistribution, getMrrAnalytics,
 } from '@/features/subscriptions/api'
@@ -118,13 +118,10 @@ export default function SubscriptionAnalyticsPage() {
   }))
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Subscription Analytics"
-        description="MRR, churn, and subscriber breakdown"
-        icon={TrendingUp}
-      />
-
+    <SubscriptionWorkspace
+      title="Analytics"
+      description="MRR, churn, subscriber health, and plan revenue contribution."
+    >
       {/* MRR KPIs */}
       {loadingMrr ? (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -285,6 +282,6 @@ export default function SubscriptionAnalyticsPage() {
           </CardContent>
         </Card>
       )}
-    </div>
+    </SubscriptionWorkspace>
   )
 }

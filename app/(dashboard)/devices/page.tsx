@@ -30,7 +30,7 @@ import {
 } from '@/components/ui/select'
 
 import {
-  listDevices, deactivateDevice, exportDevices, importDevices,
+  listDevices, deactivateDevice, exportDevices,
   listHardware, createHardware, updateHardware, deleteHardware,
   listApns, createApn, updateApn, deleteApn,
 } from '@/features/devices/api'
@@ -50,13 +50,6 @@ const STATUS_OPTIONS = [
 const PER_PAGE = 15
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function SignalBar({ strength }: { strength?: number | null }) {
-  if (strength == null) return <span className="text-muted-foreground">—</span>
-  const pct = Math.min(100, Math.max(0, strength))
-  const color = pct >= 70 ? 'text-emerald-500' : pct >= 40 ? 'text-yellow-500' : 'text-destructive'
-  return <span className={`text-xs font-medium tabular-nums ${color}`}>{pct}%</span>
-}
 
 function StatusIcon({ status }: { status: Device['status'] }) {
   if (status === 'online')  return <Wifi className="h-3.5 w-3.5 text-emerald-500" />

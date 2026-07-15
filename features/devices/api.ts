@@ -15,7 +15,7 @@ type RawDevice = {
   attributes: Record<string, unknown>
   relationships: {
     hardware?: Hardware | null
-    vehicle?: { id: string | number; plate_number: string } | null
+    vehicle?: { id: string | number; plate_number?: string; registration_number?: string } | null
     organization?: {
       id: string
       attributes: { name: string; [key: string]: unknown }
@@ -25,19 +25,26 @@ type RawDevice = {
 
 function normalizeDevice(raw: RawDevice): Device {
   const org = raw.relationships?.organization
+  const vehicle = raw.relationships?.vehicle
   return {
     id:                      raw.id,
     ...(raw.attributes as Omit<Device, 'id' | 'hardware' | 'organization' | 'vehicle'>),
     hardware:                raw.relationships?.hardware ?? null,
-    vehicle:                 raw.relationships?.vehicle ?? null,
-    organization:            org ? { id: org.id, name: org.attributes.name } : null,
+    vehicle:                 vehicle ? {
+      id:           vehicle.id,
+      plate_number: vehicle.plate_number ?? vehicle.registration_number ?? '—',
+    } : null,
+    organization:            org ? {
+      id:   String(org.attributes.identifier ?? org.id),
+      name: org.attributes.name,
+    } : null,
   }
 }
 
 export const listDevices = async (
   params?: DeviceFilters
 ): Promise<PaginatedResponse<Device>> => {
-  const { data } = await api.get('/devices', { params })
+  const { data } = await api.get('/admin/devices', { params })
   const inner = data.data
   const raw: RawDevice[] = inner?.devices ?? inner?.data ?? []
   const pg = inner?.pagination
@@ -53,8 +60,8 @@ export const listDevices = async (
 }
 
 export const getDevice = async (id: string | number): Promise<Device> => {
-  const { data } = await api.get(`/devices/${id}`)
-  return data.data
+  const { data } = await api.get(`/admin/devices/${id}`)
+  return normalizeDevice(data.data)
 }
 
 export interface DevicePayload {
@@ -73,19 +80,19 @@ export const importDevices = async (
   form.append('file', file)
   form.append('model', 'device')
   form.append('organization_id', String(organizationId))
-  const { data } = await api.post('/file/import', form, {
+  const { data } = await api.post('/admin/file/import', form, {
     headers: { 'Content-Type': 'multipart/form-data' },
   })
   return data.data
 }
 
 export const createDevice = async (payload: DevicePayload): Promise<Device> => {
-  const { data } = await api.post('/devices', payload)
+  const { data } = await api.post('/admin/devices', payload)
   return normalizeDevice(data.data)
 }
 
 export const deactivateDevice = async (id: string | number): Promise<void> => {
-  await api.post(`/devices/${id}/deactivate`)
+  await api.post(`/admin/devices/${id}/deactivate`)
 }
 
 export interface HardwarePayload {
@@ -124,7 +131,7 @@ export const listHardware = async (params?: {
   per_page?: number
   page?: number
 }): Promise<PaginatedResponse<Hardware>> => {
-  const { data } = await api.get('/hardwares', { params })
+  const { data } = await api.get('/admin/hardwares', { params })
   const inner = data.data
   const raw: RawHardware[] = inner?.apns ?? inner?.hardwares ?? (Array.isArray(inner) ? inner : [])
   const pg = inner?.pagination
@@ -219,7 +226,7 @@ export const deleteApn = async (id: string | number): Promise<void> => {
 }
 
 export const exportDevices = async (filters?: DeviceFilters): Promise<void> => {
-  const response = await api.get('/devices/export', {
+  const response = await api.get('/admin/devices/export', {
     params: filters,
     responseType: 'blob',
   })

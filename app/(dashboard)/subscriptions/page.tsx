@@ -1,119 +1,213 @@
 'use client'
 
+import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
-import { useRouter } from 'next/navigation'
 import { format } from 'date-fns'
 import {
-  CreditCard, Users, XCircle, Ban,
-  Layers, Receipt, FileText, BarChart3, ChevronRight,
+  AlertTriangle,
+  ArrowRight,
+  Ban,
+  BarChart3,
+  CheckCircle2,
+  CreditCard,
+  FileText,
+  Layers,
+  Receipt,
+  RefreshCw,
+  Users,
 } from 'lucide-react'
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts'
+import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts'
 
-import { PageHeader }  from '@/components/shared/PageHeader'
 import { StatusBadge } from '@/components/shared/StatusBadge'
-import { KpiCard }     from '@/components/shared/KpiCard'
+import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
-import { Skeleton }    from '@/components/ui/skeleton'
-import { Button }      from '@/components/ui/button'
-
+import { Skeleton } from '@/components/ui/skeleton'
+import { SubscriptionWorkspace } from '@/features/subscriptions/components/SubscriptionWorkspace'
 import {
-  getSubscriptionSummary, getSubscriptionStatusDistribution, listSubscribers,
+  getMrrAnalytics,
+  getSubscriptionStatusDistribution,
+  getSubscriptionSummary,
+  listSubscribers,
 } from '@/features/subscriptions/api'
 
 const STATUS_COLORS: Record<string, string> = {
-  active:     '#10b981',
-  trial:      '#3b82f6',
-  grace:      '#f59e0b',
-  restricted: '#f97316',
-  suspended:  '#ef4444',
-  expired:    '#6b7280',
-  inactive:   '#94a3b8',
-  canceled:   '#dc2626',
+  active: '#16a34a',
+  trial: '#2563eb',
+  grace: '#d97706',
+  restricted: '#ea580c',
+  suspended: '#dc2626',
+  expired: '#64748b',
+  inactive: '#94a3b8',
+  canceled: '#991b1b',
 }
 
-const QUICK_LINKS = [
-  { label: 'Plans',        href: '/subscriptions/plans',        icon: Layers,    desc: 'Manage pricing tiers' },
-  { label: 'Subscribers',  href: '/subscriptions/subscribers',  icon: Users,     desc: 'All active subscriptions' },
-  { label: 'Transactions', href: '/subscriptions/transactions', icon: Receipt,   desc: 'Payment history' },
-  { label: 'Invoices',     href: '/subscriptions/invoices',     icon: FileText,  desc: 'Download invoices' },
-  { label: 'Analytics',    href: '/subscriptions/analytics',    icon: BarChart3, desc: 'MRR, churn & plan breakdown' },
+const QUICK_ACTIONS = [
+  { label: 'Manage Plans', href: '/subscriptions/plans', icon: Layers, description: 'Pricing, limits, features' },
+  { label: 'Review Subscribers', href: '/subscriptions/subscribers', icon: Users, description: 'Renewals and payment retry' },
+  { label: 'Open Transactions', href: '/subscriptions/transactions', icon: Receipt, description: 'Payment trail and exports' },
+  { label: 'View Invoices', href: '/subscriptions/invoices', icon: FileText, description: 'Download billing documents' },
 ]
 
-export default function SubscriptionsOverviewPage() {
-  const router = useRouter()
+function money(value?: number | null) {
+  if (value == null) return '—'
+  return new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', maximumFractionDigits: 0 }).format(value)
+}
 
-  const { data: summary, isLoading: loadingKpi } = useQuery({
+function compactMoney(value?: number | null) {
+  if (value == null) return '—'
+  if (value >= 1_000_000) return `₦${(value / 1_000_000).toFixed(1)}M`
+  if (value >= 1_000) return `₦${(value / 1_000).toFixed(1)}K`
+  return `₦${value}`
+}
+
+function MetricTile({
+  label,
+  value,
+  detail,
+  icon: Icon,
+  tone = 'primary',
+  loading,
+}: {
+  label: string
+  value?: string | number
+  detail?: string
+  icon: React.ElementType
+  tone?: 'primary' | 'green' | 'amber' | 'red' | 'blue'
+  loading?: boolean
+}) {
+  const tones = {
+    primary: 'bg-primary/10 text-primary',
+    green: 'bg-emerald-500/10 text-emerald-600',
+    amber: 'bg-amber-500/10 text-amber-700',
+    red: 'bg-red-500/10 text-red-600',
+    blue: 'bg-blue-500/10 text-blue-600',
+  }
+
+  return (
+    <Card>
+      <CardContent className="pt-5">
+        {loading ? (
+          <div className="space-y-2">
+            <Skeleton className="h-3 w-24" />
+            <Skeleton className="h-8 w-20" />
+            <Skeleton className="h-3 w-28" />
+          </div>
+        ) : (
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0 space-y-1">
+              <p className="text-xs font-medium uppercase text-muted-foreground">{label}</p>
+              <p className="truncate text-2xl font-bold tracking-tight text-foreground">{value ?? '—'}</p>
+              {detail && <p className="text-xs text-muted-foreground">{detail}</p>}
+            </div>
+            <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${tones[tone]}`}>
+              <Icon className="h-5 w-5" />
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
+export default function SubscriptionsOverviewPage() {
+  const { data: summary, isLoading: loadingSummary } = useQuery({
     queryKey: ['subscription-summary'],
-    queryFn:  getSubscriptionSummary,
+    queryFn: getSubscriptionSummary,
     staleTime: 60_000,
   })
 
   const { data: distribution, isLoading: loadingDist } = useQuery({
     queryKey: ['subscription-status-distribution'],
-    queryFn:  getSubscriptionStatusDistribution,
+    queryFn: getSubscriptionStatusDistribution,
+    staleTime: 60_000,
+  })
+
+  const { data: mrr, isLoading: loadingMrr } = useQuery({
+    queryKey: ['subscription-mrr'],
+    queryFn: getMrrAnalytics,
     staleTime: 60_000,
   })
 
   const { data: recentData, isLoading: loadingRecent } = useQuery({
-    queryKey: ['subscribers', { page: 1, per_page: 6 }],
-    queryFn:  () => listSubscribers({ page: 1, per_page: 6 }),
+    queryKey: ['subscribers', { page: 1, per_page: 7 }],
+    queryFn: () => listSubscribers({ page: 1, per_page: 7 }),
     staleTime: 30_000,
   })
 
   const chartData = (distribution ?? [])
-    .filter((d) => d.count > 0)
-    .map((d) => ({
-      name:  d.status.charAt(0).toUpperCase() + d.status.slice(1),
-      value: d.count,
-      color: STATUS_COLORS[d.status] ?? '#94a3b8',
+    .filter((item) => item.count > 0)
+    .map((item) => ({
+      name: item.status,
+      value: item.count,
+      color: STATUS_COLORS[item.status] ?? '#94a3b8',
     }))
 
+  const attentionCount = (distribution ?? [])
+    .filter((item) => ['grace', 'restricted', 'suspended', 'expired', 'canceled'].includes(item.status))
+    .reduce((sum, item) => sum + item.count, 0)
+
+  const activeTotal = summary?.active ?? mrr?.active_subscriptions ?? 0
   const recent = recentData?.data ?? []
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Subscriptions"
-        description="Revenue, subscribers, and billing overview"
-        icon={CreditCard}
-      />
-
-      {/* KPIs */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <KpiCard label="Total"    value={summary?.total}    icon={CreditCard} isLoading={loadingKpi} iconClassName="bg-primary/10" />
-        <KpiCard label="Active"   value={summary?.active}   icon={Users}      isLoading={loadingKpi} iconClassName="bg-emerald-500/10" />
-        <KpiCard label="Inactive" value={summary?.inactive} icon={XCircle}    isLoading={loadingKpi} iconClassName="bg-yellow-500/10" />
-        <KpiCard label="Canceled" value={summary?.canceled} icon={Ban}        isLoading={loadingKpi} iconClassName="bg-red-500/10" />
+    <SubscriptionWorkspace
+      title="Billing Command Center"
+      description="A structured view of subscription revenue, renewal health, payment attention, and the admin flows that keep billing moving."
+      actions={
+        <>
+          <Button variant="outline" asChild>
+            <Link href="/subscriptions/analytics">
+              <BarChart3 className="mr-2 h-4 w-4" /> Analytics
+            </Link>
+          </Button>
+          <Button asChild>
+            <Link href="/subscriptions/plans">
+              <Layers className="mr-2 h-4 w-4" /> Plans
+            </Link>
+          </Button>
+        </>
+      }
+    >
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <MetricTile
+          label="Current MRR"
+          value={compactMoney(mrr?.current_mrr)}
+          detail={money(mrr?.current_mrr)}
+          icon={CreditCard}
+          tone="green"
+          loading={loadingMrr}
+        />
+        <MetricTile
+          label="Active Subscribers"
+          value={activeTotal}
+          detail={`${summary?.total ?? 0} total subscriptions`}
+          icon={Users}
+          tone="blue"
+          loading={loadingSummary || loadingMrr}
+        />
+        <MetricTile
+          label="Net MRR Movement"
+          value={compactMoney(mrr?.net_mrr_movement)}
+          detail={`New ${compactMoney(mrr?.new_mrr_this_month)} · churned ${compactMoney(mrr?.churned_mrr_this_month)}`}
+          icon={mrr && mrr.net_mrr_movement < 0 ? Ban : CheckCircle2}
+          tone={mrr && mrr.net_mrr_movement < 0 ? 'red' : 'green'}
+          loading={loadingMrr}
+        />
+        <MetricTile
+          label="Needs Attention"
+          value={attentionCount}
+          detail="Grace, restricted, suspended or expired"
+          icon={AlertTriangle}
+          tone={attentionCount > 0 ? 'amber' : 'green'}
+          loading={loadingDist}
+        />
       </div>
 
-      {/* Quick nav */}
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        {QUICK_LINKS.map(({ label, href, icon: Icon, desc }) => (
-          <button
-            key={href}
-            onClick={() => router.push(href)}
-            className="flex items-center gap-3 rounded-xl border bg-card px-4 py-3.5 text-left transition-colors hover:bg-muted/40 hover:border-primary/30"
-          >
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10">
-              <Icon className="h-4 w-4 text-primary" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-semibold text-foreground">{label}</p>
-              <p className="text-xs text-muted-foreground">{desc}</p>
-            </div>
-            <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground/40" />
-          </button>
-        ))}
-      </div>
-
-      {/* Chart + Recent */}
-      <div className="grid gap-4 lg:grid-cols-5">
-
-        {/* Status distribution */}
-        <Card className="lg:col-span-2">
+      <div className="grid gap-4 xl:grid-cols-12">
+        <Card className="xl:col-span-4">
           <CardHeader>
-            <CardTitle className="text-sm font-semibold">Status Distribution</CardTitle>
-            <CardDescription className="text-xs">Subscriptions by current status</CardDescription>
+            <CardTitle className="text-base">Subscription Health</CardTitle>
+            <CardDescription>Status mix across all organizations</CardDescription>
           </CardHeader>
           <CardContent>
             {loadingDist ? (
@@ -121,80 +215,112 @@ export default function SubscriptionsOverviewPage() {
                 <Skeleton className="h-44 w-44 rounded-full" />
               </div>
             ) : chartData.length === 0 ? (
-              <p className="py-10 text-center text-sm text-muted-foreground">No data available</p>
+              <p className="py-12 text-center text-sm text-muted-foreground">No status data yet</p>
             ) : (
-              <ResponsiveContainer width="100%" height={220}>
-                <PieChart>
-                  <Pie
-                    data={chartData}
-                    cx="50%" cy="50%"
-                    innerRadius={55} outerRadius={85}
-                    paddingAngle={3}
-                    dataKey="value"
-                  >
-                    {chartData.map((entry, i) => (
-                      <Cell key={i} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip formatter={(v) => [v, '']} />
-                  <Legend
-                    iconType="circle"
-                    iconSize={8}
-                    formatter={(v) => <span className="text-xs text-muted-foreground">{v}</span>}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
+              <div className="grid gap-4 sm:grid-cols-[180px_1fr] xl:grid-cols-1 2xl:grid-cols-[180px_1fr]">
+                <ResponsiveContainer width="100%" height={180}>
+                  <PieChart>
+                    <Pie data={chartData} innerRadius={52} outerRadius={78} paddingAngle={3} dataKey="value">
+                      {chartData.map((entry) => <Cell key={entry.name} fill={entry.color} />)}
+                    </Pie>
+                    <Tooltip formatter={(value) => [value, 'Subscriptions']} />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="space-y-2">
+                  {chartData.map((item) => (
+                    <div key={item.name} className="flex items-center justify-between gap-3 text-sm">
+                      <div className="flex items-center gap-2">
+                        <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: item.color }} />
+                        <span className="capitalize text-muted-foreground">{item.name}</span>
+                      </div>
+                      <span className="font-medium tabular-nums">{item.value}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
             )}
           </CardContent>
         </Card>
 
-        {/* Recent subscribers */}
-        <Card className="lg:col-span-3">
+        <Card className="xl:col-span-3">
+          <CardHeader>
+            <CardTitle className="text-base">Plan Revenue</CardTitle>
+            <CardDescription>Top plans by monthly recurring revenue</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {loadingMrr ? (
+              Array.from({ length: 4 }).map((_, index) => <Skeleton key={index} className="h-10 w-full" />)
+            ) : (mrr?.mrr_by_plan ?? []).length === 0 ? (
+              <p className="py-10 text-center text-sm text-muted-foreground">No plan revenue yet</p>
+            ) : (
+              (mrr?.mrr_by_plan ?? []).slice(0, 5).map((plan) => {
+                const pct = mrr?.current_mrr ? Math.round((plan.mrr / mrr.current_mrr) * 100) : 0
+                return (
+                  <div key={plan.plan} className="space-y-1">
+                    <div className="flex items-center justify-between gap-3 text-sm">
+                      <span className="truncate font-medium">{plan.plan}</span>
+                      <span className="shrink-0 tabular-nums text-muted-foreground">{compactMoney(plan.mrr)}</span>
+                    </div>
+                    <div className="h-2 overflow-hidden rounded-full bg-muted">
+                      <div className="h-full rounded-full bg-primary" style={{ width: `${Math.max(4, pct)}%` }} />
+                    </div>
+                    <div className="flex justify-between text-[11px] text-muted-foreground">
+                      <span>{plan.subscribers} subscribers</span>
+                      <span>{pct}%</span>
+                    </div>
+                  </div>
+                )
+              })
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="xl:col-span-5">
           <CardHeader className="flex flex-row items-center justify-between">
             <div>
-              <CardTitle className="text-sm font-semibold">Recent Subscribers</CardTitle>
-              <CardDescription className="text-xs">Latest subscription activity</CardDescription>
+              <CardTitle className="text-base">Recent Subscribers</CardTitle>
+              <CardDescription>Latest organizations on subscription records</CardDescription>
             </div>
-            <Button variant="ghost" size="sm" className="text-xs" onClick={() => router.push('/subscriptions/subscribers')}>
-              View all
+            <Button variant="ghost" size="sm" asChild>
+              <Link href="/subscriptions/subscribers">
+                View all <ArrowRight className="ml-2 h-4 w-4" />
+              </Link>
             </Button>
           </CardHeader>
           <CardContent className="p-0">
             {loadingRecent ? (
-              <div className="space-y-0">
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <div key={i} className="flex items-center gap-3 px-6 py-3 border-b last:border-0">
-                    <Skeleton className="h-7 w-7 rounded-lg" />
-                    <div className="flex-1 space-y-1.5">
-                      <Skeleton className="h-2.5 w-32" />
-                      <Skeleton className="h-2.5 w-20" />
+              <div className="divide-y">
+                {Array.from({ length: 5 }).map((_, index) => (
+                  <div key={index} className="flex items-center gap-3 px-6 py-3">
+                    <Skeleton className="h-8 w-8 rounded-lg" />
+                    <div className="flex-1 space-y-2">
+                      <Skeleton className="h-3 w-32" />
+                      <Skeleton className="h-3 w-20" />
                     </div>
-                    <Skeleton className="h-5 w-14 rounded-full" />
+                    <Skeleton className="h-6 w-16 rounded-full" />
                   </div>
                 ))}
               </div>
             ) : recent.length === 0 ? (
-              <p className="py-10 text-center text-sm text-muted-foreground">No subscribers yet</p>
+              <p className="py-12 text-center text-sm text-muted-foreground">No subscriber activity yet</p>
             ) : (
-              <ul className="divide-y divide-border">
+              <ul className="divide-y">
                 {recent.map((sub) => (
                   <li key={sub.id} className="flex items-center gap-3 px-6 py-3">
-                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-[11px] font-bold text-primary uppercase">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-xs font-bold text-primary uppercase">
                       {sub.organization?.name?.[0] ?? '?'}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium text-foreground">{sub.organization?.name}</p>
+                      <p className="truncate text-sm font-medium">{sub.organization?.name ?? 'Unknown organization'}</p>
                       <p className="text-xs text-muted-foreground">
-                        {sub.plan?.name} · {sub.billing_cycle ?? '—'}
+                        {sub.plan?.name ?? 'No plan'} · {sub.billing_cycle ?? '—'}
                       </p>
                     </div>
-                    <div className="flex flex-col items-end gap-1">
+                    <div className="flex shrink-0 flex-col items-end gap-1">
                       <StatusBadge status={sub.status} />
-                      {sub.started_at && (
-                        <span className="text-[10px] text-muted-foreground">
-                          {format(new Date(sub.started_at), 'MMM d, yyyy')}
-                        </span>
-                      )}
+                      <span className="text-[11px] text-muted-foreground">
+                        {sub.started_at ? format(new Date(sub.started_at), 'MMM d') : '—'}
+                      </span>
                     </div>
                   </li>
                 ))}
@@ -203,6 +329,49 @@ export default function SubscriptionsOverviewPage() {
           </CardContent>
         </Card>
       </div>
-    </div>
+
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {QUICK_ACTIONS.map(({ href, label, description, icon: Icon }) => (
+          <Link
+            key={href}
+            href={href}
+            className="flex items-center gap-3 rounded-lg border bg-card px-4 py-3 transition-colors hover:border-primary/40 hover:bg-muted/30"
+          >
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-muted">
+              <Icon className="h-4 w-4 text-muted-foreground" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-medium">{label}</p>
+              <p className="truncate text-xs text-muted-foreground">{description}</p>
+            </div>
+            <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+          </Link>
+        ))}
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Operational Rhythm</CardTitle>
+          <CardDescription>Recommended admin checks for this billing cycle</CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-3 md:grid-cols-3">
+          <div className="rounded-lg border p-4">
+            <RefreshCw className="mb-3 h-5 w-5 text-amber-600" />
+            <p className="text-sm font-medium">Recover failed renewals</p>
+            <p className="mt-1 text-xs text-muted-foreground">Review grace and restricted accounts before they become suspended.</p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <Layers className="mb-3 h-5 w-5 text-blue-600" />
+            <p className="text-sm font-medium">Keep plans current</p>
+            <p className="mt-1 text-xs text-muted-foreground">Check active plans, included features, and add-on pricing before new sales.</p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <Receipt className="mb-3 h-5 w-5 text-emerald-600" />
+            <p className="text-sm font-medium">Export payment records</p>
+            <p className="mt-1 text-xs text-muted-foreground">Use transaction exports for finance reconciliation and audit trails.</p>
+          </div>
+        </CardContent>
+      </Card>
+    </SubscriptionWorkspace>
   )
 }

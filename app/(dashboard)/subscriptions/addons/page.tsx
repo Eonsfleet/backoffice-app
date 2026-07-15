@@ -9,7 +9,6 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { Loader2 } from 'lucide-react'
 
-import { PageHeader } from '@/components/shared/PageHeader'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { SlideOver } from '@/components/shared/SlideOver'
 import { Button } from '@/components/ui/button'
@@ -22,6 +21,7 @@ import {
   DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { listAddons, createAddon, updateAddon, deleteAddon } from '@/features/subscriptions/api'
+import { SubscriptionWorkspace } from '@/features/subscriptions/components/SubscriptionWorkspace'
 import type { Addon } from '@/types/api'
 
 const schema = z.object({
@@ -126,13 +126,11 @@ export default function AddonsPage() {
   const openEdit   = (a: Addon) => { setEditAddon(a); setFormOpen(true) }
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Add-ons"
-        description={addons ? `${addons.length} add-ons` : 'Optional feature extensions'}
-        icon={PlusCircle}
-        actions={<Button onClick={openCreate}><Plus className="mr-2 h-4 w-4" /> New Add-on</Button>}
-      />
+    <SubscriptionWorkspace
+      title="Add-ons"
+      description={addons ? `${addons.length} optional feature extensions` : 'Optional feature extensions for subscription packaging.'}
+      actions={<Button onClick={openCreate}><Plus className="mr-2 h-4 w-4" /> New Add-on</Button>}
+    >
 
       {isLoading ? (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -207,6 +205,6 @@ export default function AddonsPage() {
           onConfirm={() => deleteMutation.mutateAsync(deleteTarget.id)}
         />
       )}
-    </div>
+    </SubscriptionWorkspace>
   )
 }
