@@ -119,6 +119,10 @@ export const togglePlanStatus = async (id: string | number): Promise<void> => {
   await api.post(`/admins/subscriptions/plans/${id}/toggle`)
 }
 
+export const deletePlan = async (id: string | number): Promise<void> => {
+  await api.delete(`/admins/subscriptions/plans/${id}`)
+}
+
 // ─── Add-ons ──────────────────────────────────────────────────────────────────
 
 export const listAddons = async (): Promise<Addon[]> => {

@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { BadgeCheck, Check, Layers, MoreHorizontal, Pencil, Plus, ToggleLeft, ToggleRight, Users } from 'lucide-react'
+import { BadgeCheck, Check, Layers, MoreHorizontal, Pencil, Plus, ToggleLeft, ToggleRight, Trash2, Users } from 'lucide-react'
 
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { SlideOver } from '@/components/shared/SlideOver'
@@ -19,7 +19,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { PlanForm } from '@/features/subscriptions/components/PlanForm'
 import { SubscriptionWorkspace } from '@/features/subscriptions/components/SubscriptionWorkspace'
-import { createPlan, listAddons, listFeatures, listPlans, togglePlanStatus, updatePlan } from '@/features/subscriptions/api'
+import { createPlan, deletePlan, listAddons, listFeatures, listPlans, togglePlanStatus, updatePlan } from '@/features/subscriptions/api'
 import type { SubscriptionPlan } from '@/types/api'
 
 function fmt(value: number) {
@@ -31,6 +31,7 @@ export default function PlansPage() {
   const [formOpen, setFormOpen] = useState(false)
   const [editPlan, setEditPlan] = useState<SubscriptionPlan | null>(null)
   const [toggleTarget, setToggleTarget] = useState<SubscriptionPlan | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<SubscriptionPlan | null>(null)
 
   const { data: plans, isLoading } = useQuery({
     queryKey: ['plans'],
@@ -88,6 +89,19 @@ export default function PlansPage() {
       setToggleTarget(null)
     },
     onError: () => toast.error('Failed to toggle plan status'),
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string | number) => deletePlan(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['plans'] })
+      toast.success('Plan deleted')
+      setDeleteTarget(null)
+    },
+    onError: (err: unknown) => {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
+      toast.error(msg ?? 'Failed to delete plan')
+    },
   })
 
   const openCreate = () => {
@@ -198,6 +212,12 @@ export default function PlansPage() {
                         : <><ToggleRight className="mr-2 h-4 w-4" /> Activate</>
                       }
                     </DropdownMenuItem>
+                    <DropdownMenuItem
+                      className="text-destructive focus:text-destructive"
+                      onClick={() => setDeleteTarget(plan)}
+                    >
+                      <Trash2 className="mr-2 h-4 w-4" /> Delete
+                    </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
               </CardHeader>
@@ -276,6 +296,18 @@ export default function PlansPage() {
           confirmLabel={toggleTarget.is_active ? 'Deactivate' : 'Activate'}
           variant={toggleTarget.is_active ? 'destructive' : 'default'}
           onConfirm={() => toggleMutation.mutateAsync(toggleTarget.id)}
+        />
+      )}
+
+      {deleteTarget && (
+        <ConfirmDialog
+          open={!!deleteTarget}
+          onOpenChange={(open) => !open && setDeleteTarget(null)}
+          title="Delete Plan"
+          description={`Delete the "${deleteTarget.name}" plan? Plans attached to subscriptions cannot be deleted.`}
+          confirmLabel="Delete"
+          variant="destructive"
+          onConfirm={() => deleteMutation.mutateAsync(deleteTarget.id)}
         />
       )}
     </SubscriptionWorkspace>
