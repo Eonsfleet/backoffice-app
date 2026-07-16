@@ -261,6 +261,9 @@ export type RiskLevel = 'low' | 'medium' | 'high' | 'critical'
 
 export interface AuditLog {
   id: string | number
+  source?: string
+  actor_type?: 'admin' | 'tenant_user' | 'system' | string
+  actor?: Pick<AdminUser, 'id' | 'name' | 'email'> | null
   action: string
   description?: string
   subject_type?: string
@@ -289,6 +292,8 @@ export interface AuditLogFilters {
   risk_level?: RiskLevel
   is_sensitive?: boolean
   method?: string
+  actor_type?: 'admin' | 'tenant_user'
+  q?: string
   from_date?: string
   to_date?: string
 }

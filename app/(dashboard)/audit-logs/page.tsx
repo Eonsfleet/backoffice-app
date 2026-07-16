@@ -14,7 +14,6 @@ import { JsonDiffViewer } from '@/components/shared/JsonDiffViewer'
 import { SlideOver } from '@/components/shared/SlideOver'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -39,6 +38,12 @@ const METHOD_OPTIONS = [
   { value: 'DELETE', label: 'DELETE' },
 ]
 
+const ACTOR_OPTIONS = [
+  { value: 'all',         label: 'All Actors' },
+  { value: 'admin',       label: 'Admins' },
+  { value: 'tenant_user', label: 'Tenant Users' },
+]
+
 const METHOD_STYLES: Record<string, string> = {
   GET:    'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400',
   POST:   'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
@@ -57,6 +62,8 @@ function MethodBadge({ method }: { method?: string }) {
 }
 
 function LogDetailView({ log }: { log: AuditLog }) {
+  const actor = log.actor ?? log.admin
+
   return (
     <div className="space-y-5 text-sm">
       {/* Header summary */}
@@ -77,7 +84,8 @@ function LogDetailView({ log }: { log: AuditLog }) {
         <Row label="IP Address"  value={log.ip_address} mono />
         {log.user_agent && <Row label="User Agent" value={log.user_agent} />}
         {log.subject_type && <Row label="Subject" value={`${log.subject_type}${log.subject_id ? ` #${log.subject_id}` : ''}`} />}
-        <Row label="Admin"       value={log.admin ? `${log.admin.name} (${log.admin.email})` : '—'} />
+        <Row label="Actor"       value={actor ? `${actor.name} (${actor.email})` : '—'} />
+        <Row label="Actor Type"  value={actorTypeLabel(log.actor_type)} />
         {log.organization && <Row label="Organization" value={log.organization.name} />}
         <Row label="Timestamp"   value={format(new Date(log.created_at), 'MMM d, yyyy HH:mm:ss')} />
       </div>
@@ -95,6 +103,13 @@ function LogDetailView({ log }: { log: AuditLog }) {
   )
 }
 
+function actorTypeLabel(value?: string) {
+  if (value === 'tenant_user') return 'Tenant User'
+  if (value === 'admin') return 'Admin'
+  if (value === 'system') return 'System'
+  return value ?? '—'
+}
+
 function Row({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
   return (
     <div className="flex gap-3">
@@ -108,6 +123,7 @@ export default function AuditLogsPage() {
   const [search, setSearch]       = useState('')
   const [riskLevel, setRiskLevel] = useState('all')
   const [method, setMethod]       = useState('all')
+  const [actorType, setActorType] = useState('all')
   const [page, setPage]           = useState(1)
   const perPage                   = 20
   const [selected, setSelected]   = useState<AuditLog | null>(null)
@@ -118,6 +134,7 @@ export default function AuditLogsPage() {
     per_page: perPage,
     risk_level: riskLevel !== 'all' ? (riskLevel as RiskLevel) : undefined,
     method:     method    !== 'all' ? method                   : undefined,
+    actor_type: actorType !== 'all' ? (actorType as 'admin' | 'tenant_user') : undefined,
     q:          search    || undefined,
   }
 
@@ -151,10 +168,13 @@ export default function AuditLogsPage() {
       ),
     },
     {
-      id: 'admin',
-      header: 'Admin',
+      id: 'actor',
+      header: 'Actor',
       cell: ({ row }) => (
-        <span className="text-sm">{row.original.admin?.name ?? '—'}</span>
+        <div>
+          <p className="text-sm font-medium">{row.original.actor?.name ?? row.original.admin?.name ?? '—'}</p>
+          <p className="text-xs text-muted-foreground">{actorTypeLabel(row.original.actor_type)}</p>
+        </div>
       ),
     },
     {
@@ -218,6 +238,12 @@ export default function AuditLogsPage() {
         <SelectTrigger className="w-36"><SelectValue /></SelectTrigger>
         <SelectContent>
           {METHOD_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+        </SelectContent>
+      </Select>
+      <Select value={actorType} onValueChange={(v) => { setActorType(v); setPage(1) }}>
+        <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
+        <SelectContent>
+          {ACTOR_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
         </SelectContent>
       </Select>
       <Button variant="outline" size="sm" onClick={handleExport} disabled={exporting}>

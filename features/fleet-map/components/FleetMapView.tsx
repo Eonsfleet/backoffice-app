@@ -2,16 +2,25 @@
 
 import dynamic from 'next/dynamic'
 import { useState, useMemo, useEffect } from 'react'
-import { useInfiniteQuery } from '@tanstack/react-query'
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 import { formatDistanceToNow } from 'date-fns'
 import {
-  Search, RefreshCw, Navigation, PauseCircle, WifiOff,
-  MapPin, Car, ChevronRight,
+  Search, RefreshCw, Navigation, WifiOff,
+  MapPin, Car, ChevronRight, ExternalLink, Route, UserRound,
+  Gauge, ShieldCheck,
 } from 'lucide-react'
+import Link from 'next/link'
 import { Input }    from '@/components/ui/input'
 import { Button }   from '@/components/ui/button'
+import { Badge }    from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
-import { listVehicles } from '@/features/vehicles/api'
+import {
+  getVehicle,
+  getVehicleCurrentDriver,
+  getVehicleCurrentTrip,
+  getVehicleSensorHealth,
+  listVehicles,
+} from '@/features/vehicles/api'
 import { getVehicleMapStatus } from '@/features/fleet-map/utils'
 import type { Vehicle } from '@/types/api'
 
@@ -81,6 +90,80 @@ function Pill({
   )
 }
 
+function SelectedVehiclePanel({
+  vehicle,
+  isLoading,
+  driverName,
+  activeTrip,
+  healthScore,
+}: {
+  vehicle: Vehicle
+  isLoading: boolean
+  driverName?: string
+  activeTrip?: boolean
+  healthScore?: number
+}) {
+  const loc = vehicle.current_location
+  const mapsHref = loc
+    ? `https://www.google.com/maps/search/?api=1&query=${loc.latitude},${loc.longitude}`
+    : null
+
+  return (
+    <div className="absolute right-3 top-3 z-[500] w-[min(360px,calc(100%-1.5rem))] rounded-lg border bg-background/95 p-4 shadow-lg backdrop-blur">
+      <div className="mb-3 flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <p className="truncate font-mono text-sm font-bold">{vehicle.plate_number}</p>
+            <Badge variant="secondary" className="rounded-md capitalize">{getVehicleMapStatus(vehicle)}</Badge>
+          </div>
+          <p className="mt-1 truncate text-xs text-muted-foreground">
+            {vehicle.organization?.name ?? 'No organization'} · {[vehicle.make, vehicle.model].filter(Boolean).join(' ') || 'Vehicle'}
+          </p>
+        </div>
+        {isLoading && <RefreshCw className="h-4 w-4 shrink-0 animate-spin text-muted-foreground" />}
+      </div>
+
+      <div className="grid grid-cols-2 gap-2 text-xs">
+        <div className="rounded-md border border-border p-2">
+          <div className="mb-1 flex items-center gap-1.5 text-muted-foreground"><Gauge className="h-3.5 w-3.5" /> Speed</div>
+          <p className="font-semibold tabular-nums">{loc?.speed != null ? `${loc.speed} km/h` : '-'}</p>
+        </div>
+        <div className="rounded-md border border-border p-2">
+          <div className="mb-1 flex items-center gap-1.5 text-muted-foreground"><ShieldCheck className="h-3.5 w-3.5" /> Sensors</div>
+          <p className="font-semibold tabular-nums">{healthScore != null ? `${healthScore}%` : '-'}</p>
+        </div>
+        <div className="rounded-md border border-border p-2">
+          <div className="mb-1 flex items-center gap-1.5 text-muted-foreground"><UserRound className="h-3.5 w-3.5" /> Driver</div>
+          <p className="truncate font-semibold">{driverName ?? vehicle.driver?.name ?? '-'}</p>
+        </div>
+        <div className="rounded-md border border-border p-2">
+          <div className="mb-1 flex items-center gap-1.5 text-muted-foreground"><Route className="h-3.5 w-3.5" /> Trip</div>
+          <p className="font-semibold">{activeTrip ? 'Active' : 'None'}</p>
+        </div>
+      </div>
+
+      <div className="mt-3 grid grid-cols-2 gap-2">
+        <Button asChild size="sm" variant="outline">
+          <Link href="/vehicles">
+            <Car className="mr-1.5 h-3.5 w-3.5" /> Manage
+          </Link>
+        </Button>
+        <Button asChild size="sm" variant="outline" disabled={!mapsHref}>
+          <a href={mapsHref ?? '#'} target="_blank" rel="noreferrer">
+            <ExternalLink className="mr-1.5 h-3.5 w-3.5" /> Maps
+          </a>
+        </Button>
+      </div>
+
+      {loc?.timestamp && (
+        <p className="mt-3 text-[11px] text-muted-foreground">
+          Last GPS update {formatDistanceToNow(new Date(loc.timestamp), { addSuffix: true })}
+        </p>
+      )}
+    </div>
+  )
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function FleetMapView() {
@@ -106,7 +189,36 @@ export function FleetMapView() {
     if (hasNextPage && !isFetchingNextPage) fetchNextPage()
   }, [hasNextPage, isFetchingNextPage, fetchNextPage])
 
-  const vehicles = data?.pages.flatMap((p) => p.data) ?? []
+  const vehicles = useMemo(() => data?.pages.flatMap((p) => p.data) ?? [], [data])
+  const selectedVehicleId = selectedVehicle?.id
+
+  const vehicleDetailQ = useQuery({
+    queryKey: ['fleet-map-vehicle-detail', selectedVehicleId],
+    queryFn: () => getVehicle(selectedVehicleId!),
+    enabled: !!selectedVehicleId,
+    staleTime: 30_000,
+  })
+
+  const currentDriverQ = useQuery({
+    queryKey: ['fleet-map-current-driver', selectedVehicleId],
+    queryFn: () => getVehicleCurrentDriver(selectedVehicleId!),
+    enabled: !!selectedVehicleId,
+    staleTime: 30_000,
+  })
+
+  const currentTripQ = useQuery({
+    queryKey: ['fleet-map-current-trip', selectedVehicleId],
+    queryFn: () => getVehicleCurrentTrip(selectedVehicleId!),
+    enabled: !!selectedVehicleId,
+    staleTime: 30_000,
+  })
+
+  const sensorHealthQ = useQuery({
+    queryKey: ['fleet-map-sensor-health', selectedVehicleId],
+    queryFn: () => getVehicleSensorHealth(selectedVehicleId!),
+    enabled: !!selectedVehicleId,
+    staleTime: 30_000,
+  })
 
   // Vehicles with a known GPS position
   const mappedVehicles = useMemo(
@@ -290,6 +402,16 @@ export function FleetMapView() {
 
         {/* Map canvas */}
         <div className="relative flex-1 overflow-hidden rounded-xl border">
+          {selectedVehicle && (
+            <SelectedVehiclePanel
+              vehicle={vehicleDetailQ.data ?? selectedVehicle}
+              isLoading={vehicleDetailQ.isFetching || currentDriverQ.isFetching || currentTripQ.isFetching || sensorHealthQ.isFetching}
+              driverName={currentDriverQ.data?.driver_name}
+              activeTrip={!!currentTripQ.data}
+              healthScore={sensorHealthQ.data?.health_score}
+            />
+          )}
+
           <VehicleMap
             vehicles={mappedVehicles}
             selectedVehicle={selectedVehicle}

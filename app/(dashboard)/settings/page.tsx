@@ -8,7 +8,8 @@ import { toast } from 'sonner'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   Settings, User, Shield, Bell, Sliders,
-  Monitor, Trash2, KeyRound, ToggleLeft, ToggleRight, Globe,
+  Monitor, Trash2, KeyRound, Globe, Mail, Smartphone, Lock,
+  Save, Plus, X, CheckCircle2, AlertTriangle, Loader2,
 } from 'lucide-react'
 import { format } from 'date-fns'
 
@@ -23,7 +24,9 @@ import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Switch } from '@/components/ui/switch'
 import { api } from '@/lib/api/client'
+import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/auth.store'
 import {
   getAdminSessions,
@@ -52,6 +55,42 @@ const passwordSchema = z.object({
 
 type ProfileForm = z.infer<typeof profileSchema>
 type PasswordForm = z.infer<typeof passwordSchema>
+
+function SettingCard({
+  icon: Icon,
+  title,
+  description,
+  children,
+  className,
+}: {
+  icon: React.ComponentType<{ className?: string }>
+  title: string
+  description?: string
+  children: React.ReactNode
+  className?: string
+}) {
+  return (
+    <Card className={cn('overflow-hidden', className)}>
+      <CardHeader className="border-b border-border/70 bg-muted/20 pb-4">
+        <div className="flex items-start gap-3">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+            <Icon className="h-4 w-4" />
+          </div>
+          <div className="min-w-0">
+            <CardTitle className="text-base">{title}</CardTitle>
+            {description && <CardDescription className="mt-1">{description}</CardDescription>}
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="pt-5">{children}</CardContent>
+    </Card>
+  )
+}
+
+function FieldError({ message }: { message?: string }) {
+  if (!message) return null
+  return <p className="text-xs text-destructive">{message}</p>
+}
 
 // ─── API helpers ──────────────────────────────────────────────────────────────
 
@@ -133,82 +172,99 @@ function ProfileTab() {
 
   return (
     <div className="space-y-6">
-      {/* Profile info */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Profile Information</CardTitle>
-          <CardDescription>Update your display name, email, and avatar.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit((v) => profileMut.mutate(v))} className="space-y-5">
-            <div className="flex items-center gap-5">
+      <div className="grid gap-4 lg:grid-cols-[0.8fr_1.2fr]">
+        <Card className="overflow-hidden">
+          <CardContent className="pt-5">
+            <div className="flex flex-col items-center text-center">
               <AvatarUpload
                 value={currentAvatar}
                 name={user?.name}
                 onChange={(url) => setAvatar(url)}
                 size="lg"
               />
-              <div className="text-sm text-muted-foreground">
-                <p className="font-medium text-foreground">{user?.name}</p>
-                <p>{user?.email}</p>
-                <p className="capitalize mt-0.5">{user?.role?.replace('_', ' ')}</p>
-              </div>
+              <h2 className="mt-4 text-lg font-semibold">{user?.name ?? 'Admin user'}</h2>
+              <p className="text-sm text-muted-foreground">{user?.email}</p>
+              <Badge variant="secondary" className="mt-3 rounded-md capitalize">
+                {user?.role?.replace('_', ' ') ?? 'admin'}
+              </Badge>
             </div>
 
+            <Separator className="my-5" />
+
+            <div className="space-y-3 text-sm">
+              <div className="flex items-center justify-between gap-3">
+                <span className="flex items-center gap-2 text-muted-foreground">
+                  <Mail className="h-4 w-4" /> Email
+                </span>
+                <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <span className="flex items-center gap-2 text-muted-foreground">
+                  <Shield className="h-4 w-4" /> Access level
+                </span>
+                <span className="font-medium capitalize">{user?.role?.replace('_', ' ') ?? 'admin'}</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <SettingCard
+          icon={User}
+          title="Profile Information"
+          description="Keep your backoffice identity and contact details up to date."
+        >
+          <form onSubmit={handleSubmit((v) => profileMut.mutate(v))} className="space-y-5">
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-1.5">
                 <Label htmlFor="name">Full Name</Label>
                 <Input id="name" {...register('name')} />
-                {errors.name && <p className="text-xs text-destructive">{errors.name.message}</p>}
+                <FieldError message={errors.name?.message} />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="email">Email Address</Label>
                 <Input id="email" type="email" {...register('email')} />
-                {errors.email && <p className="text-xs text-destructive">{errors.email.message}</p>}
+                <FieldError message={errors.email?.message} />
               </div>
             </div>
 
             <Button type="submit" disabled={profileMut.isPending || (!isDirty && currentAvatar === (user?.avatar ?? ''))}>
-              {profileMut.isPending ? 'Saving…' : 'Save Changes'}
+              {profileMut.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+              {profileMut.isPending ? 'Saving...' : 'Save Changes'}
             </Button>
           </form>
-        </CardContent>
-      </Card>
+        </SettingCard>
+      </div>
 
       {/* Password */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2">
-            <KeyRound className="h-4 w-4" /> Change Password
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
+      <SettingCard
+        icon={KeyRound}
+        title="Change Password"
+        description="Use a strong password that is unique to your Eonsfleet admin account."
+      >
           <form onSubmit={handlePwd((v) => passwordMut.mutate(v))} className="space-y-4">
             <div className="space-y-1.5">
               <Label htmlFor="current_password">Current Password</Label>
               <Input id="current_password" type="password" {...regPwd('current_password')} />
-              {pwdErrors.current_password && <p className="text-xs text-destructive">{pwdErrors.current_password.message}</p>}
+              <FieldError message={pwdErrors.current_password?.message} />
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-1.5">
                 <Label htmlFor="new_password">New Password</Label>
                 <Input id="new_password" type="password" {...regPwd('new_password')} />
-                {pwdErrors.new_password && <p className="text-xs text-destructive">{pwdErrors.new_password.message}</p>}
+                <FieldError message={pwdErrors.new_password?.message} />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="confirm_password">Confirm New Password</Label>
                 <Input id="confirm_password" type="password" {...regPwd('new_password_confirmation')} />
-                {pwdErrors.new_password_confirmation && (
-                  <p className="text-xs text-destructive">{pwdErrors.new_password_confirmation.message}</p>
-                )}
+                <FieldError message={pwdErrors.new_password_confirmation?.message} />
               </div>
             </div>
             <Button type="submit" disabled={passwordMut.isPending}>
-              {passwordMut.isPending ? 'Updating…' : 'Update Password'}
+              {passwordMut.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Lock className="mr-2 h-4 w-4" />}
+              {passwordMut.isPending ? 'Updating...' : 'Update Password'}
             </Button>
           </form>
-        </CardContent>
-      </Card>
+      </SettingCard>
     </div>
   )
 }
@@ -234,69 +290,69 @@ function SecurityTab() {
   })
 
   return (
-    <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2">
-            <Monitor className="h-4 w-4" /> Active Sessions
-          </CardTitle>
-          <CardDescription>Manage all active login sessions across devices.</CardDescription>
-        </CardHeader>
-        <CardContent>
+    <div className="grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
+      <SettingCard
+        icon={Monitor}
+        title="Active Sessions"
+        description="Review and revoke active admin sessions across devices."
+      >
           {isLoading ? (
             <div className="space-y-3">
-              {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-14 w-full" />)}
+              {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-20 w-full rounded-md" />)}
             </div>
           ) : sessions && sessions.length > 0 ? (
-            <ul className="divide-y divide-border">
+            <ul className="space-y-3">
               {sessions.map((session) => (
-                <li key={session.id} className="flex items-center justify-between gap-4 py-3">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <p className="truncate text-sm font-medium text-foreground">{session.user_agent}</p>
-                      {session.is_current && <Badge variant="secondary" className="text-[10px]">Current</Badge>}
+                <li key={session.id} className="rounded-md border border-border p-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <Smartphone className="h-4 w-4 shrink-0 text-muted-foreground" />
+                        <p className="truncate text-sm font-medium text-foreground">{session.user_agent}</p>
+                        {session.is_current && <Badge variant="secondary" className="rounded-md text-[10px]">Current</Badge>}
+                      </div>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {session.ip} · Last active {format(new Date(session.last_active), 'MMM d, yyyy HH:mm')}
+                      </p>
                     </div>
-                    <p className="text-xs text-muted-foreground">
-                      {session.ip} · Last active {format(new Date(session.last_active), 'MMM d, yyyy HH:mm')}
-                    </p>
+                    {!session.is_current && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="shrink-0 text-destructive hover:text-destructive"
+                        onClick={() => revokeMut.mutate(session.id)}
+                        disabled={revokeMut.isPending}
+                      >
+                        <Trash2 className="mr-1 h-4 w-4" /> Revoke
+                      </Button>
+                    )}
                   </div>
-                  {!session.is_current && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="text-destructive hover:text-destructive shrink-0"
-                      onClick={() => revokeMut.mutate(session.id)}
-                      disabled={revokeMut.isPending}
-                    >
-                      <Trash2 className="h-4 w-4 mr-1" /> Revoke
-                    </Button>
-                  )}
                 </li>
               ))}
             </ul>
           ) : (
             <p className="text-sm text-muted-foreground py-4 text-center">No active sessions found.</p>
           )}
-        </CardContent>
-      </Card>
+      </SettingCard>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2">
-            <Shield className="h-4 w-4" /> Two-Factor Authentication
-          </CardTitle>
-          <CardDescription>Add an extra layer of security to your account.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-between rounded-lg border border-border p-4">
+      <SettingCard
+        icon={Shield}
+        title="Two-Factor Authentication"
+        description="Protect high-privilege access with an extra verification step."
+      >
+          <div className="rounded-md border border-dashed border-border p-4">
+            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-md bg-amber-500/10 text-amber-600">
+              <AlertTriangle className="h-5 w-5" />
+            </div>
             <div>
               <p className="text-sm font-medium">Authenticator App</p>
-              <p className="text-xs text-muted-foreground mt-0.5">Use an authenticator app to generate one-time codes.</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                TOTP enrollment is not enabled yet. Once backend support lands, this section can host QR setup, recovery codes, and enforcement status.
+              </p>
             </div>
-            <Badge variant="outline" className="text-muted-foreground">Coming Soon</Badge>
+            <Badge variant="outline" className="mt-4 rounded-md text-muted-foreground">Coming Soon</Badge>
           </div>
-        </CardContent>
-      </Card>
+      </SettingCard>
     </div>
   )
 }
@@ -335,44 +391,35 @@ function NotificationsTab() {
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-base flex items-center gap-2">
-          <Bell className="h-4 w-4" /> Email Notifications
-        </CardTitle>
-        <CardDescription>Choose which platform events trigger email notifications.</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <ul className="divide-y divide-border">
+    <SettingCard
+      icon={Bell}
+      title="Email Notifications"
+      description="Choose which platform events trigger email notifications."
+    >
+        <ul className="grid gap-3 lg:grid-cols-2">
           {NOTIFICATION_PREFS.map((pref) => {
             const enabled = prefs?.[pref.key] ?? false
             return (
-              <li key={pref.key} className="flex items-center justify-between gap-4 py-4">
+              <li key={pref.key} className="flex items-center justify-between gap-4 rounded-md border border-border p-4">
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium text-foreground">{pref.label}</p>
-                  <p className="text-xs text-muted-foreground">{pref.description}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">{pref.description}</p>
                 </div>
                 {isLoading ? (
                   <Skeleton className="h-6 w-10" />
                 ) : (
-                  <button
-                    onClick={() => toggle(pref.key, enabled)}
+                  <Switch
+                    checked={enabled}
+                    onCheckedChange={() => toggle(pref.key, enabled)}
                     disabled={updateMut.isPending}
-                    className="shrink-0 transition-opacity disabled:opacity-50"
                     aria-label={`${enabled ? 'Disable' : 'Enable'} ${pref.label}`}
-                  >
-                    {enabled
-                      ? <ToggleRight className="h-6 w-6 text-primary" />
-                      : <ToggleLeft className="h-6 w-6 text-muted-foreground" />
-                    }
-                  </button>
+                  />
                 )}
               </li>
             )
           })}
         </ul>
-      </CardContent>
-    </Card>
+    </SettingCard>
   )
 }
 
@@ -424,77 +471,60 @@ function PlatformTab() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="grid gap-4 xl:grid-cols-[0.8fr_1.2fr]">
       {/* Maintenance mode */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2">
-            <Sliders className="h-4 w-4" /> Maintenance Mode
-          </CardTitle>
-          <CardDescription>When enabled, the platform shows a maintenance page to all tenants.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-between rounded-lg border border-border p-4">
+      <SettingCard
+        icon={Sliders}
+        title="Maintenance Mode"
+        description="Control whether tenants can access the platform."
+      >
+          <div className="flex items-center justify-between gap-4 rounded-md border border-border p-4">
             <div>
               <p className="text-sm font-medium">Maintenance Mode</p>
               <p className="text-xs text-muted-foreground mt-0.5">
                 {settings?.maintenance_mode ? 'Platform is in maintenance mode' : 'Platform is live'}
               </p>
             </div>
-            <button
-              onClick={toggleMaintenance}
+            <Switch
+              checked={!!settings?.maintenance_mode}
+              onCheckedChange={toggleMaintenance}
               disabled={updateMut.isPending}
               aria-label="Toggle maintenance mode"
-              className="disabled:opacity-50"
-            >
-              {settings?.maintenance_mode
-                ? <ToggleRight className="h-7 w-7 text-amber-500" />
-                : <ToggleLeft className="h-7 w-7 text-muted-foreground" />
-              }
-            </button>
+            />
           </div>
-        </CardContent>
-      </Card>
+      </SettingCard>
 
       {/* Feature flags */}
       {settings?.feature_flags && Object.keys(settings.feature_flags).length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Feature Flags</CardTitle>
-            <CardDescription>Enable or disable platform-level features for all tenants.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ul className="divide-y divide-border">
+        <SettingCard
+          icon={Sliders}
+          title="Feature Flags"
+          description="Enable or disable platform-level features for all tenants."
+        >
+            <ul className="space-y-3">
               {Object.entries(settings.feature_flags).map(([flag, enabled]) => (
-                <li key={flag} className="flex items-center justify-between py-3">
-                  <span className="text-sm font-mono text-foreground">{flag}</span>
-                  <button
-                    onClick={() => toggleFlag(flag, enabled)}
+                <li key={flag} className="flex items-center justify-between gap-4 rounded-md border border-border p-3">
+                  <span className="min-w-0 truncate font-mono text-sm text-foreground">{flag}</span>
+                  <Switch
+                    checked={enabled}
+                    onCheckedChange={() => toggleFlag(flag, enabled)}
                     disabled={updateMut.isPending}
                     aria-label={`Toggle ${flag}`}
-                    className="disabled:opacity-50"
-                  >
-                    {enabled
-                      ? <ToggleRight className="h-6 w-6 text-primary" />
-                      : <ToggleLeft className="h-6 w-6 text-muted-foreground" />
-                    }
-                  </button>
+                  />
                 </li>
               ))}
             </ul>
-          </CardContent>
-        </Card>
+        </SettingCard>
       )}
 
       {/* Allowed domains */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2">
-            <Globe className="h-4 w-4" /> Allowed Domains
-          </CardTitle>
-          <CardDescription>Restrict tenant sign-up to specific email domains.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
+      <SettingCard
+        icon={Globe}
+        title="Allowed Domains"
+        description="Restrict tenant sign-up to specific email domains."
+        className="xl:col-span-2"
+      >
+        <div className="space-y-4">
           <div className="flex gap-2">
             <Input
               placeholder="e.g. company.com"
@@ -503,7 +533,7 @@ function PlatformTab() {
               onKeyDown={(e) => e.key === 'Enter' && addDomain()}
             />
             <Button onClick={addDomain} disabled={!newDomain.trim() || updateMut.isPending}>
-              Add
+              <Plus className="mr-2 h-4 w-4" /> Add
             </Button>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -513,14 +543,14 @@ function PlatformTab() {
             {settings?.allowed_domains?.map((domain) => (
               <Badge key={domain} variant="secondary" className="gap-1.5 pr-1">
                 {domain}
-                <button onClick={() => removeDomain(domain)} className="ml-1 hover:text-destructive" aria-label={`Remove ${domain}`}>
-                  ×
+                <button onClick={() => removeDomain(domain)} className="ml-1 rounded-sm hover:text-destructive" aria-label={`Remove ${domain}`}>
+                  <X className="h-3 w-3" />
                 </button>
               </Badge>
             ))}
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </SettingCard>
     </div>
   )
 }
@@ -528,37 +558,73 @@ function PlatformTab() {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function SettingsPage() {
+  const user = useAuthStore((s) => s.user)
+
   return (
     <div className="space-y-6">
       <PageHeader
         title="Settings"
-        description="Manage your profile, security, notifications, and platform configuration."
+        description="Manage account preferences, security posture, notifications, and platform controls."
         icon={Settings}
       />
 
-      <Tabs defaultValue="profile">
-        <TabsList className="mb-2">
-          <TabsTrigger value="profile">
-            <User className="mr-1.5 h-3.5 w-3.5" /> Profile
+      <div className="grid gap-4 md:grid-cols-3">
+        <div className="rounded-lg border border-border bg-card p-4">
+          <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-md bg-blue-500/10 text-blue-600">
+            <User className="h-4 w-4" />
+          </div>
+          <p className="text-sm font-medium">Signed in as</p>
+          <p className="mt-1 truncate text-xs text-muted-foreground">{user?.email ?? 'Admin account'}</p>
+        </div>
+        <div className="rounded-lg border border-border bg-card p-4">
+          <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-md bg-emerald-500/10 text-emerald-600">
+            <Shield className="h-4 w-4" />
+          </div>
+          <p className="text-sm font-medium">Role</p>
+          <p className="mt-1 truncate text-xs capitalize text-muted-foreground">{user?.role?.replace('_', ' ') ?? 'Admin'}</p>
+        </div>
+        <div className="rounded-lg border border-border bg-card p-4">
+          <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-md bg-amber-500/10 text-amber-600">
+            <Bell className="h-4 w-4" />
+          </div>
+          <p className="text-sm font-medium">Preference Center</p>
+          <p className="mt-1 text-xs text-muted-foreground">Profile, security, alerts, and platform settings</p>
+        </div>
+      </div>
+
+      <Tabs defaultValue="profile" className="space-y-5">
+        <TabsList className="h-auto w-full justify-start overflow-x-auto rounded-none border-b bg-transparent p-0">
+          <TabsTrigger
+            value="profile"
+            className="rounded-none border-b-2 border-transparent px-4 py-3 data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+          >
+            <User className="mr-2 h-4 w-4" /> Profile
           </TabsTrigger>
-          <TabsTrigger value="security">
-            <Shield className="mr-1.5 h-3.5 w-3.5" /> Security
+          <TabsTrigger
+            value="security"
+            className="rounded-none border-b-2 border-transparent px-4 py-3 data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+          >
+            <Shield className="mr-2 h-4 w-4" /> Security
           </TabsTrigger>
-          <TabsTrigger value="notifications">
-            <Bell className="mr-1.5 h-3.5 w-3.5" /> Notifications
+          <TabsTrigger
+            value="notifications"
+            className="rounded-none border-b-2 border-transparent px-4 py-3 data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+          >
+            <Bell className="mr-2 h-4 w-4" /> Notifications
           </TabsTrigger>
           <PermissionGate permission="admin.platform.manage" fallback={null}>
-            <TabsTrigger value="platform">
-              <Sliders className="mr-1.5 h-3.5 w-3.5" /> Platform
+            <TabsTrigger
+              value="platform"
+              className="rounded-none border-b-2 border-transparent px-4 py-3 data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+            >
+              <Sliders className="mr-2 h-4 w-4" /> Platform
             </TabsTrigger>
           </PermissionGate>
         </TabsList>
 
-        <Separator className="mb-6" />
-
-        <TabsContent value="profile"><ProfileTab /></TabsContent>
-        <TabsContent value="security"><SecurityTab /></TabsContent>
-        <TabsContent value="notifications"><NotificationsTab /></TabsContent>
+        <TabsContent value="profile" className="mt-0"><ProfileTab /></TabsContent>
+        <TabsContent value="security" className="mt-0"><SecurityTab /></TabsContent>
+        <TabsContent value="notifications" className="mt-0"><NotificationsTab /></TabsContent>
         <TabsContent value="platform">
           <PermissionGate permission="admin.platform.manage">
             <PlatformTab />

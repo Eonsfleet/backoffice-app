@@ -182,6 +182,92 @@ export const unassignDeviceFromVehicle = async (vehicleId: string | number): Pro
   await api.post(`/admin/vehicles/${vehicleId}/unassign-device`)
 }
 
+export interface VehicleDriverAssignment {
+  id?: string | number
+  user_id?: string | number
+  vehicle_id?: string | number
+  driver_name?: string
+  driver_email?: string
+  assigned_date?: string | null
+  deassigned_date?: string | null
+}
+
+export interface VehicleTripContext {
+  id?: string | number
+  status?: string
+  start_location?: unknown
+  end_location?: unknown
+  actual_start_time?: string | null
+  actual_end_time?: string | null
+  [key: string]: unknown
+}
+
+export interface VehicleSensorHealth {
+  health_score?: number
+  anomaly_count?: number
+  status?: string
+  sensors?: Array<{
+    name: string
+    health_score?: number
+    status?: string
+    anomalies?: string[]
+    suggested_actions?: string[]
+  }>
+}
+
+export interface VehiclePlaybackResult {
+  data: Array<{
+    latitude: number
+    longitude: number
+    speed?: number | null
+    timestamp?: string
+    [key: string]: unknown
+  }>
+  meta?: {
+    total?: number
+    metrics?: Record<string, unknown>
+    [key: string]: unknown
+  }
+}
+
+export const getVehicleCurrentLocation = async (
+  vehicleId: string | number
+): Promise<Vehicle> => {
+  const { data: res } = await api.get(`/admin/vehicles/${vehicleId}/location/current`)
+  const raw = res.data
+  return normalizeVehicle(raw?.id ? raw : { id: String(vehicleId), attributes: raw, relationships: {} })
+}
+
+export const getVehicleCurrentDriver = async (
+  vehicleId: string | number
+): Promise<VehicleDriverAssignment | null> => {
+  const { data: res } = await api.get(`/admin/vehicles/${vehicleId}/current-driver`)
+  return res.data ?? null
+}
+
+export const getVehicleCurrentTrip = async (
+  vehicleId: string | number
+): Promise<VehicleTripContext | null> => {
+  const { data: res } = await api.get(`/admin/vehicles/${vehicleId}/current-trip`)
+  const raw = res.data
+  return raw?.attributes ? { id: raw.id, ...raw.attributes, ...(raw.relationships ?? {}) } : raw ?? null
+}
+
+export const getVehicleSensorHealth = async (
+  vehicleId: string | number
+): Promise<VehicleSensorHealth> => {
+  const { data: res } = await api.get(`/admin/vehicles/${vehicleId}/sensors/health`)
+  return res.data ?? {}
+}
+
+export const getVehiclePlayback = async (
+  vehicleId: string | number,
+  params: { start_date: string; end_date: string }
+): Promise<VehiclePlaybackResult> => {
+  const { data } = await api.get(`/admin/vehicles/${vehicleId}/playback`, { params })
+  return { data: data.data ?? [], meta: data.meta }
+}
+
 export interface VehicleMetrics {
   total: number
   with_device: number
