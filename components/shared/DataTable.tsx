@@ -51,6 +51,7 @@ export function DataTable<T>({
   const [sorting, setSorting] = useState<SortingState>([])
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
 
+  // eslint-disable-next-line react-hooks/incompatible-library -- TanStack Table returns APIs React Compiler cannot memoize safely.
   const table = useReactTable({
     data,
     columns,

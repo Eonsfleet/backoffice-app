@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useForm } from 'react-hook-form'
+import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { toast } from 'sonner'
@@ -55,7 +55,7 @@ export function UserEditForm({
   const [firstName, ...rest] = user.name.split(' ')
   const lastName = rest.join(' ')
 
-  const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<EditForm>({
+  const { register, handleSubmit, setValue, control, formState: { errors } } = useForm<EditForm>({
     resolver: zodResolver(editSchema),
     defaultValues: {
       first_name:      firstName ?? '',
@@ -66,6 +66,8 @@ export function UserEditForm({
       organization_id: user.organization ? String(user.organization.id) : '',
     },
   })
+  const role = useWatch({ control, name: 'role' }) ?? ''
+  const organizationId = useWatch({ control, name: 'organization_id' }) ?? ''
 
   const mutation = useMutation({
     mutationFn: (values: EditForm) => updateUser(user.id, {
@@ -114,7 +116,7 @@ export function UserEditForm({
         <Label>Role</Label>
         <SearchableSelect
           options={roleOptions}
-          value={watch('role') ?? ''}
+          value={role}
           onValueChange={(v) => setValue('role', v)}
           placeholder="Select role…"
           searchPlaceholder="Search roles…"
@@ -124,7 +126,7 @@ export function UserEditForm({
         <Label>Organization</Label>
         <SearchableSelect
           options={orgOptions}
-          value={watch('organization_id') ?? ''}
+          value={organizationId}
           onValueChange={(v) => setValue('organization_id', v)}
           placeholder="Select organization…"
           searchPlaceholder="Search organizations…"

@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useForm } from 'react-hook-form'
+import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { toast } from 'sonner'
@@ -43,9 +43,11 @@ export function UserCreateForm({ onSuccess, onCancel }: { onSuccess: () => void;
   const orgOptions = (orgsData?.data ?? []).map((o) => ({ value: String(o.id), label: o.name }))
   const roleOptions = (rolesData ?? []).map((r) => ({ value: r.name, label: r.name }))
 
-  const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<CreateForm>({
+  const { register, handleSubmit, setValue, control, formState: { errors } } = useForm<CreateForm>({
     resolver: zodResolver(createSchema),
   })
+  const role = useWatch({ control, name: 'role' }) ?? ''
+  const organizationId = useWatch({ control, name: 'organization_id' }) ?? ''
 
   const mutation = useMutation({
     mutationFn: (values: CreateForm) => createUser({ ...values, organization_id: values.organization_id }),
@@ -87,7 +89,7 @@ export function UserCreateForm({ onSuccess, onCancel }: { onSuccess: () => void;
         <Label>Role</Label>
         <SearchableSelect
           options={roleOptions}
-          value={watch('role') ?? ''}
+          value={role}
           onValueChange={(v) => setValue('role', v)}
           placeholder="Select role…"
           searchPlaceholder="Search roles…"
@@ -97,7 +99,7 @@ export function UserCreateForm({ onSuccess, onCancel }: { onSuccess: () => void;
         <Label>Organization *</Label>
         <SearchableSelect
           options={orgOptions}
-          value={watch('organization_id') ?? ''}
+          value={organizationId}
           onValueChange={(v) => setValue('organization_id', v)}
           placeholder="Select organization…"
           searchPlaceholder="Search organizations…"

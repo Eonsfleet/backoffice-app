@@ -47,12 +47,6 @@ function buildDiff(
   })
 }
 
-const LINE_STYLES: Record<LineType, string> = {
-  unchanged: '',
-  added: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400',
-  removed: 'bg-red-500/10 text-red-700 dark:text-red-400',
-}
-
 function DiffCell({ value, type }: { value: string | undefined; type: 'old' | 'new' | 'same' }) {
   if (value === undefined) {
     return <td className="px-3 py-1.5 text-xs text-muted-foreground/40 italic">—</td>

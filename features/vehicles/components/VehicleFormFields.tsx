@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { useForm } from 'react-hook-form'
+import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { Label } from '@/components/ui/label'
@@ -65,7 +65,7 @@ export function VehicleFormFields({
   const bodyTypeOptions = BODY_TYPES.map((b) => ({ value: b, label: b }))
   const statusOptions = VEHICLE_STATUSES.map((s) => ({ value: s, label: s.replace('_', ' ') }))
 
-  const { register, handleSubmit, formState: { errors }, setValue, watch } = useForm<VehicleForm>({
+  const { register, handleSubmit, formState: { errors }, setValue, control } = useForm<VehicleForm>({
     resolver: zodResolver(vehicleSchema),
     defaultValues: {
       registration_number: vehicle?.plate_number ?? '',
@@ -82,6 +82,11 @@ export function VehicleFormFields({
       status:              vehicle?.status ?? 'active',
     },
   })
+  const organizationId = useWatch({ control, name: 'organization_id' }) ?? ''
+  const bodyType = useWatch({ control, name: 'body_type' }) ?? ''
+  const fuelType = useWatch({ control, name: 'fuel_type' }) ?? ''
+  const fuelCapacityUnit = useWatch({ control, name: 'fuel_capacity_unit' }) ?? 'L'
+  const status = useWatch({ control, name: 'status' }) ?? 'active'
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 px-5">
@@ -95,7 +100,7 @@ export function VehicleFormFields({
         <Label>Organization *</Label>
         <SearchableSelect
           options={orgOptions}
-          value={watch('organization_id')}
+          value={organizationId}
           onValueChange={(v) => setValue('organization_id', v)}
           placeholder="Select organization…"
           searchPlaceholder="Search organizations…"
@@ -132,7 +137,7 @@ export function VehicleFormFields({
           <Label>Body Type</Label>
           <SearchableSelect
             options={bodyTypeOptions}
-            value={watch('body_type') ?? ''}
+            value={bodyType}
             onValueChange={(v) => setValue('body_type', v)}
             placeholder="Select body type…"
             searchPlaceholder="Search…"
@@ -140,7 +145,7 @@ export function VehicleFormFields({
         </div>
         <div className="space-y-1.5">
           <Label>Fuel Type</Label>
-          <Select value={watch('fuel_type')} onValueChange={(v) => setValue('fuel_type', v)}>
+          <Select value={fuelType} onValueChange={(v) => setValue('fuel_type', v)}>
             <SelectTrigger className="w-full"><SelectValue placeholder="Select fuel type…" /></SelectTrigger>
             <SelectContent>
               {fuelOptions.map((o) => (
@@ -165,7 +170,7 @@ export function VehicleFormFields({
         </div>
         <div className="space-y-1.5">
           <Label>Capacity Unit</Label>
-          <Select value={watch('fuel_capacity_unit')} onValueChange={(v) => setValue('fuel_capacity_unit', v)}>
+          <Select value={fuelCapacityUnit} onValueChange={(v) => setValue('fuel_capacity_unit', v)}>
             <SelectTrigger className="w-full"><SelectValue placeholder="Select unit…" /></SelectTrigger>
             <SelectContent>
               {FUEL_CAPACITY_UNITS.map((u) => (
@@ -183,7 +188,7 @@ export function VehicleFormFields({
         </div>
         <div className="space-y-1.5">
           <Label>Status</Label>
-          <Select value={watch('status')} onValueChange={(v) => setValue('status', v)}>
+          <Select value={status} onValueChange={(v) => setValue('status', v)}>
             <SelectTrigger className="w-full"><SelectValue placeholder="Select status…" /></SelectTrigger>
             <SelectContent>
               {statusOptions.map((o) => (

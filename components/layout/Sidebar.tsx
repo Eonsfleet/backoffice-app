@@ -11,6 +11,7 @@ import {
   ScrollText,
   BarChart3,
   Settings,
+  Bell,
   Truck,
   ChevronLeft,
   ChevronRight,
@@ -38,6 +39,7 @@ const NAV_ITEMS = [
   { href: '/subscriptions',          label: 'Subscriptions',    icon: CreditCard },
   { href: '/audit-logs',             label: 'Audit Logs',       icon: ScrollText },
   { href: '/analytics',              label: 'Analytics',        icon: BarChart3 },
+  { href: '/notifications',          label: 'Notifications',    icon: Bell },
   { href: '/settings',               label: 'Settings',         icon: Settings },
 ]
 

@@ -2,7 +2,7 @@
 
 import { useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useForm } from 'react-hook-form'
+import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { toast } from 'sonner'
@@ -111,9 +111,12 @@ export function DeviceCreateForm({ onSuccess, onCancel }: { onSuccess: () => voi
   const hardwareOptions = (hardwareList?.data ?? []).map((h) => ({ value: String(h.id), label: h.name }))
   const orgOptions      = (orgsData?.data   ?? []).map((o) => ({ value: String(o.identifier ?? o.id), label: o.name }))
 
-  const { register, handleSubmit, setValue, watch, getValues, formState: { errors } } = useForm<CreateDeviceForm>({
+  const { register, handleSubmit, setValue, getValues, control, formState: { errors } } = useForm<CreateDeviceForm>({
     resolver: zodResolver(createDeviceSchema),
   })
+  const selectedHardware = useWatch({ control, name: 'hardware_id' }) ?? ''
+  const selectedCountry = useWatch({ control, name: 'country' }) ?? ''
+  const selectedOrganization = useWatch({ control, name: 'organization_id' }) ?? ''
 
   const handleCountryChange = (code: string) => {
     setValue('country', code, { shouldValidate: true })
@@ -162,7 +165,7 @@ export function DeviceCreateForm({ onSuccess, onCancel }: { onSuccess: () => voi
         <Label>Hardware Model *</Label>
         <SearchableSelect
           options={hardwareOptions}
-          value={watch('hardware_id') ?? ''}
+          value={selectedHardware}
           onValueChange={(v) => setValue('hardware_id', v, { shouldValidate: true })}
           placeholder="Select hardware model"
           searchPlaceholder="Search hardware…"
@@ -174,7 +177,7 @@ export function DeviceCreateForm({ onSuccess, onCancel }: { onSuccess: () => voi
         <Label>Country *</Label>
         <SearchableSelect
           options={COUNTRY_OPTIONS}
-          value={watch('country') ?? ''}
+          value={selectedCountry}
           onValueChange={handleCountryChange}
           placeholder="Select country"
           searchPlaceholder="Search country…"
@@ -192,7 +195,7 @@ export function DeviceCreateForm({ onSuccess, onCancel }: { onSuccess: () => voi
         <Label>Organization *</Label>
         <SearchableSelect
           options={orgOptions}
-          value={watch('organization_id') ?? ''}
+          value={selectedOrganization}
           onValueChange={(v) => setValue('organization_id', v, { shouldValidate: true })}
           placeholder="Select organization"
           searchPlaceholder="Search organizations…"

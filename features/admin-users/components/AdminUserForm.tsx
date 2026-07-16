@@ -1,6 +1,6 @@
 'use client'
 
-import { useForm } from 'react-hook-form'
+import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { Loader2 } from 'lucide-react'
@@ -29,7 +29,7 @@ interface AdminUserFormProps {
 }
 
 export function AdminUserForm({ user, roles, onSubmit, isPending, onCancel }: AdminUserFormProps) {
-  const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<AdminUserFormValues>({
+  const { register, handleSubmit, setValue, control, formState: { errors } } = useForm<AdminUserFormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
       name:         user?.name  ?? '',
@@ -39,6 +39,7 @@ export function AdminUserForm({ user, roles, onSubmit, isPending, onCancel }: Ad
     },
   })
 
+  const selectedRole = useWatch({ control, name: 'role' }) ?? ''
   const roleOptions = roles.map((r) => ({ value: r.name, label: r.name }))
 
   return (
@@ -71,7 +72,7 @@ export function AdminUserForm({ user, roles, onSubmit, isPending, onCancel }: Ad
         <Label>Role *</Label>
         <SearchableSelect
           options={roleOptions}
-          value={watch('role')}
+          value={selectedRole}
           onValueChange={(v) => setValue('role', v, { shouldValidate: true })}
           placeholder="Select a role…"
           searchPlaceholder="Search roles…"

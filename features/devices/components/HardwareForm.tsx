@@ -1,6 +1,6 @@
 'use client'
 
-import { useForm, Controller } from 'react-hook-form'
+import { useForm, Controller, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { Loader2 } from 'lucide-react'
@@ -33,7 +33,7 @@ interface HardwareFormProps {
 }
 
 export function HardwareForm({ hardware, onSubmit, isPending, onCancel }: HardwareFormProps) {
-  const { register, handleSubmit, watch, setValue, control, formState: { errors } } =
+  const { register, handleSubmit, setValue, control, formState: { errors } } =
     useForm<HardwareFormValues>({
       resolver: zodResolver(schema),
       defaultValues: {
@@ -50,6 +50,7 @@ export function HardwareForm({ hardware, onSubmit, isPending, onCancel }: Hardwa
     staleTime: 60_000,
   })
   const apns = apnPage?.data ?? []
+  const isActive = useWatch({ control, name: 'status' }) ?? true
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-5 px-5">
@@ -96,7 +97,7 @@ export function HardwareForm({ hardware, onSubmit, isPending, onCancel }: Hardwa
           <p className="text-xs text-muted-foreground">Enable this hardware model for device assignment</p>
         </div>
         <Switch
-          checked={watch('status') ?? true}
+          checked={isActive}
           onCheckedChange={(v) => setValue('status', v)}
         />
       </div>
