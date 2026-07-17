@@ -20,11 +20,12 @@ export function AssignDeviceForm({
   onCancel: () => void
 }) {
   const [deviceImei, setDeviceImei] = useState('')
+  const [deviceSearch, setDeviceSearch] = useState('')
   const qc = useQueryClient()
 
-  const { data: devicesData, isLoading } = useQuery({
-    queryKey: ['unassigned-devices'],
-    queryFn: () => listDevices({ per_page: 100 }),
+  const { data: devicesData, isLoading, isFetching } = useQuery({
+    queryKey: ['assignable-devices', deviceSearch],
+    queryFn: () => listDevices({ per_page: 100, q: deviceSearch || undefined }),
     staleTime: 30_000,
   })
 
@@ -39,11 +40,7 @@ export function AssignDeviceForm({
     onError: () => toast.error('Failed to assign device'),
   })
 
-  // The backend's device listing endpoint doesn't support filtering, so
-  // "unassigned" (and same-organization) is enforced here on the client.
-  const devices = (devicesData?.data ?? []).filter(
-    (d) => !d.vehicle && (!vehicle.organization || d.organization?.id === vehicle.organization.id)
-  )
+  const devices = devicesData?.data ?? []
 
   return (
     <div className="space-y-5">
@@ -57,21 +54,26 @@ export function AssignDeviceForm({
       )}
 
       <div className="space-y-1.5">
-        <Label>Select Unassigned Device</Label>
+        <Label>Select Device</Label>
         {isLoading ? (
           <p className="text-sm text-muted-foreground">Loading devices…</p>
-        ) : devices.length === 0 ? (
-          <p className="text-sm text-muted-foreground py-4 text-center">No unassigned devices available.</p>
         ) : (
           <SearchableSelect
             options={devices.map((d) => ({
               value: d.device_id,
-              label: d.hardware?.name ? `${d.device_id} · ${d.hardware.name}` : d.device_id,
+              label: [
+                d.device_id,
+                d.hardware?.name,
+                d.organization?.name,
+                d.vehicle ? `assigned to ${d.vehicle.plate_number}` : 'unassigned',
+              ].filter(Boolean).join(' · '),
             }))}
             value={deviceImei}
             onValueChange={setDeviceImei}
             placeholder="Choose a device…"
             searchPlaceholder="Search IMEI or hardware…"
+            onSearch={setDeviceSearch}
+            isLoading={isFetching}
           />
         )}
       </div>
