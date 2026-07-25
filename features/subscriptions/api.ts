@@ -1,6 +1,18 @@
 import { api } from '@/lib/api/client'
 import { normalizePaginated } from '@/lib/api/utils'
-import type { SubscriptionPlan, Subscription, Feature, Addon, PaginatedResponse, SubscriptionSummary, Transaction, Invoice, AssetSubscription } from '@/types/api'
+import type {
+  Addon,
+  AssetSubscription,
+  BillingCycle,
+  Feature,
+  Invoice,
+  PaginatedResponse,
+  SubStatus,
+  Subscription,
+  SubscriptionPlan,
+  SubscriptionSummary,
+  Transaction,
+} from '@/types/api'
 
 // ─── Normalizers ─────────────────────────────────────────────────────────────
 
@@ -41,12 +53,14 @@ type RawSubscription = {
     status?:          string | null
     billing_cycle?:   string | null
     next_billing_date?: string | null
+    trial_ends_at?: string | null
+    price?:           number | null
     vehicle_count?:   number | null
     mrr?:             number | null
     [key: string]:    unknown
   }
   relationships?: {
-    organization?: { id: string | number; name?: string; attributes?: { name: string } } | null
+    organization?: { id: string | number; name?: string; attributes?: { name: string; identifier?: string | number } } | null
     plan?: { id: string | number; name: string } | null
   }
 }
@@ -72,6 +86,8 @@ function normalizeSubscription(raw: RawSubscription): Subscription {
     ends_at:          raw.attributes.ended_at   ?? null,
     billing_cycle:    raw.attributes.billing_cycle as Subscription['billing_cycle'] ?? undefined,
     next_billing_date: raw.attributes.next_billing_date ?? null,
+    trial_ends_at:    raw.attributes.trial_ends_at ?? null,
+    price:            raw.attributes.price ?? undefined,
     vehicle_count:    raw.attributes.vehicle_count ?? undefined,
     mrr:              raw.attributes.mrr ?? undefined,
     organization:     { id: orgId, name: orgName },
@@ -196,6 +212,23 @@ export const getSubscription = async (id: string | number): Promise<Subscription
 export const getSubscriptionTransactions = async (id: string | number) => {
   const { data } = await api.get(`/admins/subscriptions/${id}/transactions`)
   return data.data?.transactions ?? data.data ?? []
+}
+
+export interface UpdateSubscriptionPayload {
+  plan_id?: string | number
+  billing_cycle?: BillingCycle
+  ended_at?: string | null
+  trial_ends_at?: string | null
+  status?: SubStatus | 'canceled'
+  note?: string
+}
+
+export const updateSubscription = async (
+  id: string | number,
+  payload: UpdateSubscriptionPayload
+): Promise<Subscription> => {
+  const { data } = await api.patch(`/admins/subscriptions/${id}`, payload)
+  return normalizeSubscription(data.data)
 }
 
 // ─── Billing ──────────────────────────────────────────────────────────────────

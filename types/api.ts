@@ -125,7 +125,7 @@ export interface Device {
 // ─── Subscriptions ────────────────────────────────────────────────────────────
 
 export type BillingCycle = 'monthly' | 'annual' | 'yearly'
-export type SubStatus = 'active' | 'trial' | 'grace' | 'restricted' | 'suspended' | 'expired'
+export type SubStatus = 'active' | 'trial' | 'grace' | 'restricted' | 'suspended' | 'expired' | 'canceled'
 
 export interface Feature {
   id: string | number
@@ -175,6 +175,8 @@ export interface Subscription {
   started_at: string
   ends_at: string | null
   next_billing_date?: string | null
+  trial_ends_at?: string | null
+  price?: number
   vehicle_count?: number
   mrr?: number
 }

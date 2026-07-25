@@ -1,12 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { type ColumnDef } from '@tanstack/react-table'
 import { format } from 'date-fns'
 import { toast } from 'sonner'
 import {
-  Users, Search, MoreHorizontal, Eye, RefreshCw,
+  Users, Search, MoreHorizontal, Eye, RefreshCw, Pencil,
   CheckCircle2, XCircle, Clock, Car, CreditCard,
 } from 'lucide-react'
 
@@ -16,6 +16,7 @@ import { SlideOver }     from '@/components/shared/SlideOver'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { Button }        from '@/components/ui/button'
 import { Input }         from '@/components/ui/input'
+import { Label }         from '@/components/ui/label'
 import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton }      from '@/components/ui/skeleton'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -26,9 +27,10 @@ import {
 
 import {
   listSubscribers, getSubscription, getSubscriptionTransactions, retryPayment,
+  listPlans, updateSubscription,
 } from '@/features/subscriptions/api'
 import { SubscriptionWorkspace } from '@/features/subscriptions/components/SubscriptionWorkspace'
-import type { Subscription, Transaction } from '@/types/api'
+import type { BillingCycle, SubStatus, Subscription, SubscriptionPlan, Transaction } from '@/types/api'
 
 const STATUS_OPTIONS = [
   { value: 'all',        label: 'All Statuses' },
@@ -37,6 +39,16 @@ const STATUS_OPTIONS = [
   { value: 'grace',      label: 'Grace' },
   { value: 'suspended',  label: 'Suspended' },
   { value: 'expired',    label: 'Expired' },
+]
+
+const EDIT_STATUS_OPTIONS: Array<{ value: SubStatus; label: string }> = [
+  { value: 'active',     label: 'Active' },
+  { value: 'trial',      label: 'Trial' },
+  { value: 'grace',      label: 'Grace' },
+  { value: 'restricted', label: 'Restricted' },
+  { value: 'suspended',  label: 'Suspended' },
+  { value: 'expired',    label: 'Expired' },
+  { value: 'canceled',   label: 'Canceled' },
 ]
 
 const CYCLE_OPTIONS = [
@@ -54,6 +66,126 @@ function TxStatusIcon({ status }: { status: Transaction['status'] }) {
   if (status === 'successful') return <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
   if (status === 'failed')     return <XCircle      className="h-3.5 w-3.5 text-destructive shrink-0" />
   return <Clock className="h-3.5 w-3.5 text-amber-500 shrink-0" />
+}
+
+function toDateInput(value?: string | null) {
+  if (!value) return ''
+  const date = new Date(value)
+  return Number.isNaN(date.getTime()) ? '' : format(date, 'yyyy-MM-dd')
+}
+
+function SubscriptionEditForm({
+  subscription,
+  plans,
+  saving,
+  onSubmit,
+}: {
+  subscription: Subscription
+  plans: SubscriptionPlan[]
+  saving: boolean
+  onSubmit: (payload: {
+    plan_id: string | number
+    billing_cycle: BillingCycle
+    status: SubStatus
+    ended_at: string | null
+    trial_ends_at: string | null
+    note?: string
+  }) => void
+}) {
+  const [planId, setPlanId] = useState(String(subscription.plan?.id ?? ''))
+  const [cycle, setCycle] = useState<BillingCycle>(subscription.billing_cycle ?? 'monthly')
+  const [status, setStatus] = useState<SubStatus>(subscription.status)
+  const [endedAt, setEndedAt] = useState(toDateInput(subscription.ends_at ?? subscription.next_billing_date))
+  const [trialEndsAt, setTrialEndsAt] = useState(toDateInput(subscription.trial_ends_at))
+  const [note, setNote] = useState('')
+
+  useEffect(() => {
+    setPlanId(String(subscription.plan?.id ?? ''))
+    setCycle(subscription.billing_cycle ?? 'monthly')
+    setStatus(subscription.status)
+    setEndedAt(toDateInput(subscription.ends_at ?? subscription.next_billing_date))
+    setTrialEndsAt(toDateInput(subscription.trial_ends_at))
+    setNote('')
+  }, [subscription])
+
+  return (
+    <form
+      className="space-y-4 px-5"
+      onSubmit={(event) => {
+        event.preventDefault()
+        onSubmit({
+          plan_id: planId,
+          billing_cycle: cycle,
+          status,
+          ended_at: endedAt || null,
+          trial_ends_at: trialEndsAt || null,
+          note: note.trim() || undefined,
+        })
+      }}
+    >
+      <div className="rounded-lg border bg-muted/30 p-3">
+        <p className="text-sm font-medium">{subscription.organization?.name ?? 'Subscription'}</p>
+        <p className="text-xs text-muted-foreground">Current plan: {subscription.plan?.name ?? '—'}</p>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="space-y-2">
+          <Label>Plan</Label>
+          <Select value={planId} onValueChange={setPlanId}>
+            <SelectTrigger className="w-full"><SelectValue placeholder="Select plan" /></SelectTrigger>
+            <SelectContent>
+              {plans.map((plan) => (
+                <SelectItem key={plan.id} value={String(plan.id)}>{plan.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-2">
+          <Label>Billing Cycle</Label>
+          <Select value={cycle} onValueChange={(value) => setCycle(value as BillingCycle)}>
+            <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="monthly">Monthly</SelectItem>
+              <SelectItem value="yearly">Yearly</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-2">
+          <Label>Status</Label>
+          <Select value={status} onValueChange={(value) => setStatus(value as SubStatus)}>
+            <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {EDIT_STATUS_OPTIONS.map((option) => (
+                <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-2">
+          <Label>Expiry Date</Label>
+          <Input type="date" value={endedAt} onChange={(event) => setEndedAt(event.target.value)} />
+        </div>
+        <div className="space-y-2 sm:col-span-2">
+          <Label>Trial Expiry</Label>
+          <Input type="date" value={trialEndsAt} onChange={(event) => setTrialEndsAt(event.target.value)} />
+        </div>
+        <div className="space-y-2 sm:col-span-2">
+          <Label>Audit Note</Label>
+          <Input
+            value={note}
+            onChange={(event) => setNote(event.target.value)}
+            placeholder="Reason for this change"
+          />
+        </div>
+      </div>
+
+      <div className="flex justify-end gap-2 pt-2">
+        <Button type="submit" disabled={saving || !planId}>
+          {saving ? 'Saving...' : 'Save Changes'}
+        </Button>
+      </div>
+    </form>
+  )
 }
 
 // ─── Detail drawer ────────────────────────────────────────────────────────────
@@ -186,6 +318,7 @@ export default function SubscribersPage() {
   const [page, setPage]       = useState(1)
 
   const [viewSub, setViewSub]       = useState<Subscription | null>(null)
+  const [editSub, setEditSub]       = useState<Subscription | null>(null)
   const [retryTarget, setRetryTarget] = useState<Subscription | null>(null)
 
   const { data, isLoading } = useQuery({
@@ -208,6 +341,25 @@ export default function SubscribersPage() {
       setRetryTarget(null)
     },
     onError: () => toast.error('Retry failed'),
+  })
+
+  const { data: plans = [], isLoading: loadingPlans } = useQuery({
+    queryKey: ['subscription-plans'],
+    queryFn: listPlans,
+    staleTime: 60_000,
+  })
+
+  const updateMutation = useMutation({
+    mutationFn: ({ sub, payload }: { sub: Subscription; payload: Parameters<typeof updateSubscription>[1] }) =>
+      updateSubscription(sub.id, payload),
+    onSuccess: (updated) => {
+      qc.invalidateQueries({ queryKey: ['subscribers'] })
+      qc.invalidateQueries({ queryKey: ['subscription', updated.id] })
+      qc.invalidateQueries({ queryKey: ['audit-logs'] })
+      toast.success('Subscription updated')
+      setEditSub(null)
+    },
+    onError: () => toast.error('Update failed'),
   })
 
   const subscribers = data?.data ?? []
@@ -293,6 +445,9 @@ export default function SubscribersPage() {
                 <Eye className="mr-2 h-4 w-4" /> View Details
               </DropdownMenuItem>
               <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => setEditSub(sub)}>
+                <Pencil className="mr-2 h-4 w-4" /> Edit Subscription
+              </DropdownMenuItem>
               <DropdownMenuItem onClick={() => setRetryTarget(sub)}>
                 <RefreshCw className="mr-2 h-4 w-4" /> Retry Payment
               </DropdownMenuItem>
@@ -389,6 +544,31 @@ export default function SubscribersPage() {
         description={viewSub ? `${viewSub.plan?.name ?? 'Plan'} · ${viewSub.billing_cycle ?? ''}` : undefined}
       >
         {viewSub && <SubscriberDetail subscription={viewSub} />}
+      </SlideOver>
+
+      <SlideOver
+        open={!!editSub}
+        onOpenChange={(o) => !o && setEditSub(null)}
+        title="Edit Subscription"
+        description={editSub ? `${editSub.organization?.name ?? 'Organization'} · ${editSub.plan?.name ?? 'Plan'}` : undefined}
+        width="lg"
+      >
+        {editSub && (
+          loadingPlans ? (
+            <div className="space-y-3 px-5">
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+            </div>
+          ) : (
+            <SubscriptionEditForm
+              subscription={editSub}
+              plans={plans}
+              saving={updateMutation.isPending}
+              onSubmit={(payload) => updateMutation.mutate({ sub: editSub, payload })}
+            />
+          )
+        )}
       </SlideOver>
 
       {/* Retry payment confirm */}
