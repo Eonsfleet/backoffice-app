@@ -12,6 +12,7 @@ import {
   BarChart3,
   Settings,
   Bell,
+  ClipboardList,
   Truck,
   ChevronLeft,
   ChevronRight,
@@ -32,6 +33,7 @@ import { Badge } from '@/components/ui/badge'
 const NAV_ITEMS = [
   { href: '/dashboard',              label: 'Dashboard',        icon: LayoutDashboard },
   { href: '/organizations',          label: 'Organizations',    icon: Building2 },
+  { href: '/organization-requests',  label: 'Requests',         icon: ClipboardList },
   { href: '/users',                  label: 'Users',            icon: UserCircle },
   { href: '/vehicles',               label: 'Vehicles',         icon: Truck },
   { href: '/devices',                label: 'Devices',          icon: Cpu },

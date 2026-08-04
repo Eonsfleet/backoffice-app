@@ -31,6 +31,7 @@ import { Sidebar } from './Sidebar'
 const ROUTE_LABELS: Record<string, string> = {
   '/dashboard':               'Dashboard',
   '/organizations':           'Organizations',
+  '/organization-requests':   'Organization Requests',
   '/devices':                 'Devices',
   '/fleet-map':               'Fleet Map',
   '/subscriptions/plans':     'Plans',

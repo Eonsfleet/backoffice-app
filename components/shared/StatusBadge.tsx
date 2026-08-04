@@ -49,6 +49,9 @@ const STATUS_STYLES: Record<string, string> = {
   // Generic
   inactive:            'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400',
   pending:             'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400',
+  in_review:           'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+  approved:            'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
+  rejected:            'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
   completed:           'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
 }
 
