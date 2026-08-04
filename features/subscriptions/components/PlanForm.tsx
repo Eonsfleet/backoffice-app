@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Switch } from '@/components/ui/switch'
 import type { SubscriptionPlan, Feature, Addon } from '@/types/api'
 
 const schema = z.object({
@@ -17,7 +18,9 @@ const schema = z.object({
   price_monthly:      z.number().min(0, 'Monthly price must be ≥ 0'),
   price_yearly:       z.number().min(0, 'Yearly price must be ≥ 0'),
   has_custom_pricing: z.boolean(),
+  is_public:          z.boolean(),
   feature_ids:        z.array(z.string()),
+  feature_units:      z.record(z.string(), z.number().min(0).optional()),
   addon_ids:          z.array(z.string()),
 })
 
@@ -51,7 +54,8 @@ export function PlanForm({ plan, features, addons, loadingFeatures, loadingAddon
       name: '', description: '',
       price_monthly: 0, price_yearly: 0,
       has_custom_pricing: false,
-      feature_ids: [], addon_ids: [],
+      is_public: true,
+      feature_ids: [], feature_units: {}, addon_ids: [],
     },
   })
 
@@ -63,7 +67,9 @@ export function PlanForm({ plan, features, addons, loadingFeatures, loadingAddon
         price_monthly:      plan.price_monthly ?? 0,
         price_yearly:       plan.price_yearly ?? 0,
         has_custom_pricing: plan.has_custom_pricing ?? false,
+        is_public:          plan.is_public ?? true,
         feature_ids:        plan.features?.map((f) => String(f.id)) ?? [],
+        feature_units:      Object.fromEntries((plan.features ?? []).map((f) => [String(f.id), f.unit ?? undefined])),
         addon_ids:          plan.addons?.map((a) => String(a.id)) ?? [],
       })
     } else {
@@ -71,7 +77,8 @@ export function PlanForm({ plan, features, addons, loadingFeatures, loadingAddon
         name: '', description: '',
         price_monthly: 0, price_yearly: 0,
         has_custom_pricing: false,
-        feature_ids: [], addon_ids: [],
+        is_public: true,
+        feature_ids: [], feature_units: {}, addon_ids: [],
       })
     }
   }, [plan, reset])
@@ -104,24 +111,34 @@ export function PlanForm({ plan, features, addons, loadingFeatures, loadingAddon
         </Field>
       </div>
 
-      <Controller
-        control={control}
-        name="has_custom_pricing"
-        render={({ field }) => (
-          <label className="flex cursor-pointer items-center justify-between rounded-lg border border-border px-4 py-3">
-            <div>
-              <p className="text-sm font-medium">Custom Pricing</p>
-              <p className="text-xs text-muted-foreground">Allow negotiated pricing for this plan</p>
-            </div>
-            <input
-              type="checkbox"
-              className="h-4 w-4 accent-primary"
-              checked={field.value}
-              onChange={(e) => field.onChange(e.target.checked)}
-            />
-          </label>
-        )}
-      />
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Controller
+          control={control}
+          name="has_custom_pricing"
+          render={({ field }) => (
+            <label className="flex cursor-pointer items-center justify-between rounded-lg border border-border px-4 py-3">
+              <div>
+                <p className="text-sm font-medium">Custom Pricing</p>
+                <p className="text-xs text-muted-foreground">Requires sales-assisted checkout</p>
+              </div>
+              <Switch checked={field.value} onCheckedChange={field.onChange} />
+            </label>
+          )}
+        />
+        <Controller
+          control={control}
+          name="is_public"
+          render={({ field }) => (
+            <label className="flex cursor-pointer items-center justify-between rounded-lg border border-border px-4 py-3">
+              <div>
+                <p className="text-sm font-medium">Public Catalog</p>
+                <p className="text-xs text-muted-foreground">Visible to customer plan selection</p>
+              </div>
+              <Switch checked={field.value} onCheckedChange={field.onChange} />
+            </label>
+          )}
+        />
+      </div>
 
       {/* Features */}
       <div className="space-y-2">
@@ -140,20 +157,37 @@ export function PlanForm({ plan, features, addons, loadingFeatures, loadingAddon
                   const sid = String(f.id)
                   const checked = field.value.includes(sid)
                   return (
-                    <label
+                    <div
                       key={f.id}
-                      className={`flex cursor-pointer items-center gap-2.5 rounded-lg border px-3 py-2 text-sm transition-colors ${
+                      className={`flex items-center gap-2.5 rounded-lg border px-3 py-2 text-sm transition-colors ${
                         checked ? 'border-primary bg-primary/5' : 'border-border'
                       }`}
                     >
-                      <input
-                        type="checkbox"
-                        className="h-3.5 w-3.5 accent-primary"
-                        checked={checked}
-                        onChange={() => field.onChange(toggleId(field.value, sid))}
+                      <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-2.5">
+                        <input
+                          type="checkbox"
+                          className="h-3.5 w-3.5 accent-primary"
+                          checked={checked}
+                          onChange={() => field.onChange(toggleId(field.value, sid))}
+                        />
+                        <span className="truncate">{f.name}</span>
+                      </label>
+                      <Controller
+                        control={control}
+                        name={`feature_units.${sid}`}
+                        render={({ field: unitField }) => (
+                          <Input
+                            type="number"
+                            min={0}
+                            placeholder="Unit"
+                            disabled={!checked}
+                            value={unitField.value ?? ''}
+                            onChange={(event) => unitField.onChange(event.target.value === '' ? undefined : Number(event.target.value))}
+                            className="h-7 w-20 text-xs"
+                          />
+                        )}
                       />
-                      <span>{f.name}</span>
-                    </label>
+                    </div>
                   )
                 })}
               </div>

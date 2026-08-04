@@ -132,6 +132,7 @@ export interface Feature {
   name: string
   slug: string
   description?: string
+  unit?: number | null
 }
 
 export interface Addon {
@@ -159,6 +160,7 @@ export interface SubscriptionPlan {
   features: Feature[]
   addons: Addon[]
   is_active: boolean
+  is_public: boolean
   subscriber_count?: number
   // legacy / fallback fields from some API responses
   price?: number
@@ -171,14 +173,51 @@ export interface Subscription {
   organization: Pick<Organization, 'id' | 'name'>
   plan: Pick<SubscriptionPlan, 'id' | 'name'>
   status: SubStatus
+  subscription_type?: 'poc' | 'production' | string
+  payment_state?: 'current' | 'failed' | 'suspended' | string | null
+  is_payment_restricted?: boolean
   billing_cycle?: BillingCycle
   started_at: string
   ends_at: string | null
   next_billing_date?: string | null
   trial_ends_at?: string | null
+  poc_asset_limit?: number | null
+  scheduled_plan_id?: string | number | null
+  scheduled_plan_version_id?: string | number | null
+  plan_change_effective_at?: string | null
   price?: number
   vehicle_count?: number
   mrr?: number
+}
+
+export interface BillingLot {
+  id: string | number
+  name?: string | null
+  status?: string | null
+  vehicle_count?: number | null
+  rate_minor?: number | null
+  total_minor?: number | null
+  billing_cycle?: BillingCycle | string | null
+  current_period_start_at?: string | null
+  current_period_end_at?: string | null
+  next_renewal_at?: string | null
+}
+
+export interface ContractDiscount {
+  id: string | number
+  target: 'base' | 'lot' | 'all' | string
+  lot_id?: string | number | null
+  kind: 'percent_bps' | 'fixed_minor' | string
+  value: number
+  starts_at?: string | null
+  ends_at?: string | null
+}
+
+export interface OrganizationBillingHistory {
+  lots: BillingLot[]
+  transactions: Transaction[]
+  invoices: Invoice[]
+  discounts: ContractDiscount[]
 }
 
 // ─── Per-asset Subscriptions ──────────────────────────────────────────────────

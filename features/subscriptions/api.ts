@@ -3,9 +3,9 @@ import { normalizePaginated } from '@/lib/api/utils'
 import type {
   Addon,
   AssetSubscription,
-  BillingCycle,
   Feature,
   Invoice,
+  OrganizationBillingHistory,
   PaginatedResponse,
   SubStatus,
   Subscription,
@@ -39,6 +39,7 @@ function normalizePlan(raw: RawPlan): SubscriptionPlan {
   return {
     id: raw.id,
     ...(raw.attributes as Omit<SubscriptionPlan, 'id' | 'features' | 'addons'>),
+    is_public: (raw.attributes.is_public as boolean | undefined) ?? true,
     features: (raw.relationships?.features ?? []).map((f) => flattenNestedItem<Feature>(f)),
     addons:   (raw.relationships?.addons   ?? []).map((a) => flattenNestedItem<Addon>(a)),
   }
@@ -54,6 +55,13 @@ type RawSubscription = {
     billing_cycle?:   string | null
     next_billing_date?: string | null
     trial_ends_at?: string | null
+    subscription_type?: string | null
+    payment_state?: string | null
+    is_payment_restricted?: boolean
+    poc_asset_limit?: number | null
+    scheduled_plan_id?: string | number | null
+    scheduled_plan_version_id?: string | number | null
+    plan_change_effective_at?: string | null
     price?:           number | null
     vehicle_count?:   number | null
     mrr?:             number | null
@@ -82,11 +90,18 @@ function normalizeSubscription(raw: RawSubscription): Subscription {
   return {
     id:               raw.id,
     status:           resolveStatus(raw.attributes.status),
+    subscription_type: raw.attributes.subscription_type ?? undefined,
+    payment_state:    raw.attributes.payment_state ?? null,
+    is_payment_restricted: raw.attributes.is_payment_restricted ?? false,
     started_at:       raw.attributes.started_at ?? '',
     ends_at:          raw.attributes.ended_at   ?? null,
     billing_cycle:    raw.attributes.billing_cycle as Subscription['billing_cycle'] ?? undefined,
     next_billing_date: raw.attributes.next_billing_date ?? null,
     trial_ends_at:    raw.attributes.trial_ends_at ?? null,
+    poc_asset_limit:  raw.attributes.poc_asset_limit ?? null,
+    scheduled_plan_id: raw.attributes.scheduled_plan_id ?? null,
+    scheduled_plan_version_id: raw.attributes.scheduled_plan_version_id ?? null,
+    plan_change_effective_at: raw.attributes.plan_change_effective_at ?? null,
     price:            raw.attributes.price ?? undefined,
     vehicle_count:    raw.attributes.vehicle_count ?? undefined,
     mrr:              raw.attributes.mrr ?? undefined,
@@ -114,6 +129,7 @@ export interface CreatePlanPayload {
   price_monthly:      number
   price_yearly:       number
   has_custom_pricing: boolean
+  is_public?:         boolean
   features?:          Array<{ id: string | number; unit?: number }>
   addons?:            Array<string | number>
 }
@@ -188,6 +204,9 @@ export const listSubscribers = async (params?: {
   q?:        string
   status?:   string
   billing_cycle?: string
+  subscription_type?: string
+  payment_state?: string
+  plan_id?: string | number
 }): Promise<PaginatedResponse<Subscription>> => {
   const { data } = await api.get('/admins/subscriptions', { params })
   const inner = data.data
@@ -215,11 +234,10 @@ export const getSubscriptionTransactions = async (id: string | number) => {
 }
 
 export interface UpdateSubscriptionPayload {
-  plan_id?: string | number
-  billing_cycle?: BillingCycle
   ended_at?: string | null
   trial_ends_at?: string | null
   status?: SubStatus | 'canceled'
+  poc_asset_limit?: number | null
   note?: string
 }
 
@@ -312,8 +330,34 @@ export const downloadInvoice = async (id: string | number): Promise<void> => {
   URL.revokeObjectURL(url)
 }
 
-export const retryPayment = async (organizationId: string | number): Promise<void> => {
-  await api.post(`/admins/subscriptions/retry/${organizationId}`)
+export const changeOrganizationPlan = async (
+  organizationId: string | number,
+  subscriptionId: string | number,
+  planId: string | number
+): Promise<void> => {
+  await api.post(`/admins/billing/organizations/${organizationId}/subscriptions/${subscriptionId}/change-plan`, {
+    plan_id: planId,
+  })
+}
+
+export const extendPocSubscription = async (
+  organizationId: string | number,
+  extraDays: number
+): Promise<void> => {
+  await api.post(`/admins/billing/organizations/${organizationId}/poc/extend`, {
+    extra_days: extraDays,
+  })
+}
+
+export const retryLotRenewal = async (lotId: string | number): Promise<void> => {
+  await api.post(`/admins/billing/lots/${lotId}/retry-renewal`)
+}
+
+export const getOrganizationBillingHistory = async (
+  organizationId: string | number
+): Promise<OrganizationBillingHistory> => {
+  const { data } = await api.get(`/admins/subscriptions/organizations/${organizationId}/billing-history`)
+  return data.data as OrganizationBillingHistory
 }
 
 export const exportTransactions = async (): Promise<void> => {

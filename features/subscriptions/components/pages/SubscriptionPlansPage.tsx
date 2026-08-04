@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { BadgeCheck, Check, Layers, MoreHorizontal, Pencil, Plus, ToggleLeft, ToggleRight, Trash2, Users } from 'lucide-react'
+import { BadgeCheck, Check, EyeOff, Layers, MoreHorizontal, Pencil, Plus, ToggleLeft, ToggleRight, Trash2, Users } from 'lucide-react'
 
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { SlideOver } from '@/components/shared/SlideOver'
@@ -58,7 +58,9 @@ export default function PlansPage() {
       price_monthly: number
       price_yearly: number
       has_custom_pricing: boolean
+      is_public: boolean
       feature_ids: string[]
+      feature_units: Record<string, number | undefined>
       addon_ids: string[]
     }) => {
       const payload = {
@@ -67,7 +69,8 @@ export default function PlansPage() {
         price_monthly: values.price_monthly,
         price_yearly: values.price_yearly,
         has_custom_pricing: values.has_custom_pricing,
-        features: values.feature_ids.map((id) => ({ id })),
+        is_public: values.is_public,
+        features: values.feature_ids.map((id) => ({ id, unit: values.feature_units[id] })),
         addons: values.addon_ids,
       }
       return editPlan ? updatePlan(editPlan.id, payload) : createPlan(payload)
@@ -117,6 +120,7 @@ export default function PlansPage() {
   const activePlans = plans?.filter((plan) => plan.is_active).length ?? 0
   const subscribers = plans?.reduce((sum, plan) => sum + (plan.subscriber_count ?? 0), 0) ?? 0
   const customPlans = plans?.filter((plan) => plan.has_custom_pricing).length ?? 0
+  const hiddenPlans = plans?.filter((plan) => !plan.is_public).length ?? 0
 
   return (
     <SubscriptionWorkspace
@@ -159,6 +163,7 @@ export default function PlansPage() {
             <div>
               <p className="text-xs font-medium uppercase text-muted-foreground">Custom Pricing</p>
               <p className="text-2xl font-bold">{customPlans}</p>
+              {hiddenPlans > 0 && <p className="text-xs text-muted-foreground">{hiddenPlans} hidden</p>}
             </div>
           </CardContent>
         </Card>
@@ -190,6 +195,11 @@ export default function PlansPage() {
                     </Badge>
                     {plan.has_custom_pricing && (
                       <Badge variant="outline" className="text-[10px]">Custom</Badge>
+                    )}
+                    {!plan.is_public && (
+                      <Badge variant="secondary" className="gap-1 text-[10px]">
+                        <EyeOff className="h-3 w-3" /> Hidden
+                      </Badge>
                     )}
                   </div>
                   {plan.description && (
@@ -251,6 +261,7 @@ export default function PlansPage() {
                       <li key={feature.id} className="flex items-center gap-2 text-xs text-muted-foreground">
                         <Check className="h-3 w-3 shrink-0 text-primary" />
                         <span className="truncate">{feature.name}</span>
+                        {feature.unit != null && <span className="ml-auto shrink-0 tabular-nums">{feature.unit}</span>}
                       </li>
                     ))}
                     {plan.features.length > 5 && (
