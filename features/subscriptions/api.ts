@@ -6,6 +6,7 @@ import type {
   Invoice,
   OrganizationBillingHistory,
   PaginatedResponse,
+  ReconciliationMismatch,
   SubStatus,
   Subscription,
   SubscriptionPlan,
@@ -369,6 +370,99 @@ export const exportTransactions = async (): Promise<void> => {
   a.download = `transactions-${Date.now()}.csv`
   a.click()
   URL.revokeObjectURL(url)
+}
+
+// ─── Money-actions (finance/super_admin only) ─────────────────────────────────
+
+export const refundTransaction = async (
+  transactionId: string | number,
+  payload: { amount: number; reason: string }
+): Promise<void> => {
+  await api.post(`/admins/billing/transactions/${transactionId}/refund`, payload)
+}
+
+export const issueCreditNote = async (
+  organizationId: string | number,
+  payload: { amount: number; reason: string; reference?: string }
+): Promise<void> => {
+  await api.post(`/admins/billing/organizations/${organizationId}/credit-notes`, payload)
+}
+
+export interface CreateDiscountPayload {
+  target: 'base' | 'lot' | 'all'
+  lot_id?: string | number
+  kind: 'percent_bps' | 'fixed_minor'
+  value: number
+  starts_at: string
+  ends_at?: string
+}
+
+export const createDiscount = async (
+  organizationId: string | number,
+  payload: CreateDiscountPayload
+): Promise<void> => {
+  await api.post(`/admins/billing/organizations/${organizationId}/discounts`, payload)
+}
+
+export const cancelSubscriptionImmediately = async (
+  organizationId: string | number,
+  subscriptionId: string | number,
+  reason: string
+): Promise<void> => {
+  await api.post(`/admins/billing/organizations/${organizationId}/subscriptions/${subscriptionId}/cancel`, { reason })
+}
+
+export interface ImportLegacyAssetsPayload {
+  vehicles: Array<{
+    onboarded_date: string
+    registration_number: string
+    fuel_capacity: number
+    make?: string
+    model?: string
+    type?: string
+    color?: string
+    fuel_type?: string
+    chasis_number?: string
+    display_number?: string
+    year?: number
+  }>
+  plan_id?: string | number
+  billing_cycle?: 'monthly' | 'yearly'
+  unit_price_override_minor?: number
+}
+
+export const importLegacyAssets = async (
+  organizationId: string | number,
+  payload: ImportLegacyAssetsPayload
+): Promise<{ subscription_id: string | number; lot_ids: Array<string | number>; vehicle_count: number }> => {
+  const { data } = await api.post(`/admins/billing/organizations/${organizationId}/legacy-assets`, payload)
+  return data.data
+}
+
+export const listReconciliationMismatches = async (params?: {
+  status?: string
+}): Promise<PaginatedResponse<ReconciliationMismatch>> => {
+  const { data } = await api.get('/admins/billing/reconciliation/mismatches', { params })
+  return normalizePaginated<ReconciliationMismatch>(data)
+}
+
+export const convertPocToProduction = async (
+  organizationId: string | number,
+  payload: { name: string; email: string; fleet_size: number; industry: string }
+): Promise<{ new_organization_identifier: string | number }> => {
+  const { data } = await api.post(`/admins/billing/organizations/${organizationId}/poc/convert`, payload)
+  return data.data
+}
+
+export const revertOrganizationToPoc = async (
+  organizationId: string | number,
+  payload: { plan_id: string | number; evaluation_days?: number; reason: string }
+): Promise<void> => {
+  await api.post(`/admins/billing/organizations/${organizationId}/revert-to-poc`, payload)
+}
+
+export const anonymizeOrganization = async (organizationId: string | number): Promise<void> => {
+  await api.post(`/admins/billing/organizations/${organizationId}/anonymize`)
 }
 
 // ─── Analytics ────────────────────────────────────────────────────────────────
