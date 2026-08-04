@@ -31,7 +31,8 @@ import {
   listSubscribers, getSubscription, getSubscriptionTransactions,
   listPlans, updateSubscription, changeOrganizationPlan, extendPocSubscription,
   getOrganizationBillingHistory, retryLotRenewal, cancelSubscriptionImmediately,
-  importLegacyAssets, convertPocToProduction,
+  importLegacyAssets, convertPocToProduction, revertOrganizationToPoc,
+  anonymizeOrganization,
 } from '@/features/subscriptions/api'
 import { SubscriptionWorkspace } from '@/features/subscriptions/components/SubscriptionWorkspace'
 import { usePermission } from '@/hooks/usePermission'
@@ -416,6 +417,91 @@ function ConvertPocForm({
   )
 }
 
+function RevertToPocForm({
+  subscription,
+  plans,
+  saving,
+  onSubmit,
+}: {
+  subscription: Subscription
+  plans: SubscriptionPlan[]
+  saving: boolean
+  onSubmit: (payload: { plan_id: string; evaluation_days: number; reason: string }) => void
+}) {
+  const [planId, setPlanId] = useState('')
+  const [evaluationDays, setEvaluationDays] = useState('30')
+  const [reason, setReason] = useState('')
+
+  return (
+    <form
+      className="space-y-4 px-5"
+      onSubmit={(event) => {
+        event.preventDefault()
+        onSubmit({ plan_id: planId, evaluation_days: Number(evaluationDays), reason })
+      }}
+    >
+      <div className="rounded-lg border bg-muted/30 p-3">
+        <p className="text-sm font-medium">{subscription.organization?.name ?? 'Organization'}</p>
+        <p className="text-xs text-muted-foreground">Ends the current production subscription and starts a fresh evaluation window.</p>
+      </div>
+      <div className="space-y-2">
+        <Label>Evaluation Plan</Label>
+        <Select value={planId} onValueChange={setPlanId}>
+          <SelectTrigger className="w-full"><SelectValue placeholder="Select plan" /></SelectTrigger>
+          <SelectContent>
+            {plans.map((plan) => (
+              <SelectItem key={plan.id} value={String(plan.id)}>{plan.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="space-y-2">
+        <Label>Evaluation Days</Label>
+        <Input type="number" min={1} value={evaluationDays} onChange={(e) => setEvaluationDays(e.target.value)} required />
+      </div>
+      <div className="space-y-2">
+        <Label>Reason</Label>
+        <Input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Why is this reverting to POC?" required />
+      </div>
+      <Button type="submit" disabled={saving || !planId}>
+        {saving ? 'Reverting...' : 'Revert to POC'}
+      </Button>
+    </form>
+  )
+}
+
+function AnonymizeConfirmForm({
+  subscription,
+  saving,
+  onConfirm,
+}: {
+  subscription: Subscription
+  saving: boolean
+  onConfirm: () => void
+}) {
+  const [typed, setTyped] = useState('')
+  const orgName = subscription.organization?.name ?? ''
+  const matches = typed.trim() === orgName
+
+  return (
+    <div className="space-y-4 px-5">
+      <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3">
+        <p className="text-sm font-medium text-destructive">This is irreversible</p>
+        <p className="text-xs text-muted-foreground">
+          Redacts every human-identifying field for &quot;{orgName}&quot;. Financial records (invoices, transactions) are kept.
+        </p>
+      </div>
+      <div className="space-y-2">
+        <Label>Type the organization name to confirm</Label>
+        <Input value={typed} onChange={(e) => setTyped(e.target.value)} placeholder={orgName} />
+      </div>
+      <Button type="button" variant="destructive" disabled={saving || !matches} onClick={onConfirm}>
+        {saving ? 'Anonymizing...' : 'Anonymize Organization'}
+      </Button>
+    </div>
+  )
+}
+
 // ─── Detail drawer ────────────────────────────────────────────────────────────
 
 function SubscriberDetail({ subscription }: { subscription: Subscription }) {
@@ -625,6 +711,8 @@ export default function SubscribersPage() {
   const [cancelSub, setCancelSub] = useState<Subscription | null>(null)
   const [legacyImportSub, setLegacyImportSub] = useState<Subscription | null>(null)
   const [convertPocSub, setConvertPocSub] = useState<Subscription | null>(null)
+  const [revertPocSub, setRevertPocSub] = useState<Subscription | null>(null)
+  const [anonymizeSub, setAnonymizeSub] = useState<Subscription | null>(null)
   const canManageMoney = usePermission('admin.billing.money')
   const canManageCatalog = usePermission('admin.billing.manage_catalog')
 
@@ -725,6 +813,29 @@ export default function SubscribersPage() {
       setConvertPocSub(null)
     },
     onError: () => toast.error('POC conversion failed'),
+  })
+
+  const revertPocMutation = useMutation({
+    mutationFn: ({
+      sub, payload,
+    }: { sub: Subscription; payload: { plan_id: string; evaluation_days: number; reason: string } }) =>
+      revertOrganizationToPoc(sub.organization.id, payload),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['subscribers'] })
+      toast.success('Organization reverted to POC')
+      setRevertPocSub(null)
+    },
+    onError: () => toast.error('Revert to POC failed'),
+  })
+
+  const anonymizeMutation = useMutation({
+    mutationFn: (sub: Subscription) => anonymizeOrganization(sub.organization.id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['subscribers'] })
+      toast.success('Organization anonymized')
+      setAnonymizeSub(null)
+    },
+    onError: () => toast.error('Anonymization failed'),
   })
 
   const subscribers = data?.data ?? []
@@ -852,6 +963,19 @@ export default function SubscribersPage() {
               {canManageCatalog && sub.subscription_type === 'poc' && (
                 <DropdownMenuItem onClick={() => setConvertPocSub(sub)}>
                   <ArrowRightLeft className="mr-2 h-4 w-4" /> Convert POC → Production
+                </DropdownMenuItem>
+              )}
+              {canManageCatalog && sub.subscription_type !== 'poc' && (
+                <DropdownMenuItem onClick={() => setRevertPocSub(sub)}>
+                  <ArrowRightLeft className="mr-2 h-4 w-4" /> Revert to POC
+                </DropdownMenuItem>
+              )}
+              {canManageCatalog && (
+                <DropdownMenuItem
+                  className="text-destructive focus:text-destructive"
+                  onClick={() => setAnonymizeSub(sub)}
+                >
+                  <Ban className="mr-2 h-4 w-4" /> Anonymize Organization
                 </DropdownMenuItem>
               )}
             </DropdownMenuContent>
@@ -1061,6 +1185,45 @@ export default function SubscribersPage() {
             subscription={convertPocSub}
             saving={convertPocMutation.isPending}
             onSubmit={(payload) => convertPocMutation.mutate({ sub: convertPocSub, payload })}
+          />
+        )}
+      </SlideOver>
+
+      <SlideOver
+        open={!!revertPocSub}
+        onOpenChange={(o) => !o && setRevertPocSub(null)}
+        title="Revert to POC"
+        description={revertPocSub ? `${revertPocSub.organization?.name ?? 'Organization'} · ends the production subscription` : undefined}
+        width="lg"
+      >
+        {revertPocSub && (
+          loadingPlans ? (
+            <div className="space-y-3 px-5"><Skeleton className="h-10 w-full" /></div>
+          ) : (
+            <RevertToPocForm
+              key={revertPocSub.id}
+              subscription={revertPocSub}
+              plans={plans}
+              saving={revertPocMutation.isPending}
+              onSubmit={(payload) => revertPocMutation.mutate({ sub: revertPocSub, payload })}
+            />
+          )
+        )}
+      </SlideOver>
+
+      <SlideOver
+        open={!!anonymizeSub}
+        onOpenChange={(o) => !o && setAnonymizeSub(null)}
+        title="Anonymize Organization"
+        description={anonymizeSub ? anonymizeSub.organization?.name : undefined}
+        width="lg"
+      >
+        {anonymizeSub && (
+          <AnonymizeConfirmForm
+            key={anonymizeSub.id}
+            subscription={anonymizeSub}
+            saving={anonymizeMutation.isPending}
+            onConfirm={() => anonymizeMutation.mutate(anonymizeSub)}
           />
         )}
       </SlideOver>
