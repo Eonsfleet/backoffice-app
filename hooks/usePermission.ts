@@ -23,6 +23,15 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
     // Tracking / fleet map
     'admin.tracking.view',
   ],
+  // Mirrors the backend's billing.money gate (finance | super_admin) — a
+  // finance admin previously had NO entry here at all, so every
+  // usePermission() check silently failed for them regardless of what the
+  // backend actually allowed.
+  finance: [
+    'admin.billing.view',
+    'admin.subscriptions.view',
+    'admin.billing.money',
+  ],
   installer: [
     'admin.devices.view',
     'admin.devices.assign',
