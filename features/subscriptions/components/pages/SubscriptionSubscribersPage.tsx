@@ -7,7 +7,7 @@ import { format } from 'date-fns'
 import { toast } from 'sonner'
 import {
   Users, Search, MoreHorizontal, Eye, RefreshCw, Pencil,
-  CheckCircle2, XCircle, Clock, Car, CreditCard, ArrowRightLeft,
+  CheckCircle2, XCircle, Clock, Car, CreditCard, ArrowRightLeft, Ban,
 } from 'lucide-react'
 
 import { DataTable }     from '@/components/shared/DataTable'
@@ -29,9 +29,10 @@ import {
 import {
   listSubscribers, getSubscription, getSubscriptionTransactions,
   listPlans, updateSubscription, changeOrganizationPlan, extendPocSubscription,
-  getOrganizationBillingHistory, retryLotRenewal,
+  getOrganizationBillingHistory, retryLotRenewal, cancelSubscriptionImmediately,
 } from '@/features/subscriptions/api'
 import { SubscriptionWorkspace } from '@/features/subscriptions/components/SubscriptionWorkspace'
+import { usePermission } from '@/hooks/usePermission'
 import type { SubStatus, Subscription, SubscriptionPlan, Transaction } from '@/types/api'
 
 const STATUS_OPTIONS = [
@@ -227,6 +228,47 @@ function ChangePlanForm({
       </div>
       <Button type="submit" disabled={saving || !planId || planId === String(subscription.plan?.id ?? '')}>
         {saving ? 'Changing...' : 'Change Plan'}
+      </Button>
+    </form>
+  )
+}
+
+function CancelSubscriptionForm({
+  subscription,
+  saving,
+  onSubmit,
+}: {
+  subscription: Subscription
+  saving: boolean
+  onSubmit: (reason: string) => void
+}) {
+  const [reason, setReason] = useState('')
+
+  return (
+    <form
+      className="space-y-4 px-5"
+      onSubmit={(event) => {
+        event.preventDefault()
+        onSubmit(reason)
+      }}
+    >
+      <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3">
+        <p className="text-sm font-medium">{subscription.organization?.name ?? 'Subscription'}</p>
+        <p className="text-xs text-muted-foreground">
+          This ends the subscription immediately — for fraud/legal/policy violations only, never a routine cancellation.
+        </p>
+      </div>
+      <div className="space-y-2">
+        <Label>Reason</Label>
+        <Input
+          value={reason}
+          onChange={(event) => setReason(event.target.value)}
+          placeholder="Why is this subscription being cancelled immediately?"
+          required
+        />
+      </div>
+      <Button type="submit" variant="destructive" disabled={saving || !reason.trim()}>
+        {saving ? 'Cancelling...' : 'Cancel Subscription Immediately'}
       </Button>
     </form>
   )
@@ -438,6 +480,8 @@ export default function SubscribersPage() {
   const [editSub, setEditSub]       = useState<Subscription | null>(null)
   const [changePlanSub, setChangePlanSub] = useState<Subscription | null>(null)
   const [extendPocSub, setExtendPocSub] = useState<Subscription | null>(null)
+  const [cancelSub, setCancelSub] = useState<Subscription | null>(null)
+  const canManageMoney = usePermission('admin.billing.money')
 
   const { data, isLoading } = useQuery({
     queryKey: ['subscribers', { status, cycle, type, paymentState, search, page }],
@@ -493,6 +537,18 @@ export default function SubscribersPage() {
       setExtendPocSub(null)
     },
     onError: () => toast.error('POC extension failed'),
+  })
+
+  const cancelMutation = useMutation({
+    mutationFn: ({ sub, reason }: { sub: Subscription; reason: string }) =>
+      cancelSubscriptionImmediately(sub.organization.id, sub.id, reason),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['subscribers'] })
+      qc.invalidateQueries({ queryKey: ['organization-billing-history'] })
+      toast.success('Subscription cancelled')
+      setCancelSub(null)
+    },
+    onError: () => toast.error('Cancellation failed'),
   })
 
   const subscribers = data?.data ?? []
@@ -602,6 +658,17 @@ export default function SubscribersPage() {
                 <DropdownMenuItem onClick={() => setExtendPocSub(sub)}>
                   <Clock className="mr-2 h-4 w-4" /> Extend POC
                 </DropdownMenuItem>
+              )}
+              {canManageMoney && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    className="text-destructive focus:text-destructive"
+                    onClick={() => setCancelSub(sub)}
+                  >
+                    <Ban className="mr-2 h-4 w-4" /> Cancel Subscription
+                  </DropdownMenuItem>
+                </>
               )}
             </DropdownMenuContent>
           </DropdownMenu>
@@ -762,6 +829,23 @@ export default function SubscribersPage() {
           onConfirm={() => extendPocMutation.mutateAsync({ sub: extendPocSub, extraDays: 14 })}
         />
       )}
+
+      <SlideOver
+        open={!!cancelSub}
+        onOpenChange={(o) => !o && setCancelSub(null)}
+        title="Cancel Subscription Immediately"
+        description={cancelSub ? `${cancelSub.organization?.name ?? 'Organization'} · this cannot be undone` : undefined}
+        width="lg"
+      >
+        {cancelSub && (
+          <CancelSubscriptionForm
+            key={cancelSub.id}
+            subscription={cancelSub}
+            saving={cancelMutation.isPending}
+            onSubmit={(reason) => cancelMutation.mutate({ sub: cancelSub, reason })}
+          />
+        )}
+      </SlideOver>
     </SubscriptionWorkspace>
   )
 }
