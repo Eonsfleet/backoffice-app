@@ -6,6 +6,7 @@ export interface VehicleFilters {
   per_page?: number
   q?: string
   status?: string
+  device_status?: string
   organization_id?: string | number
   has_device?: boolean
 }

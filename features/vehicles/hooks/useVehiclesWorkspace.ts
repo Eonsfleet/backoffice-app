@@ -27,6 +27,9 @@ export function useVehiclesWorkspace() {
 
   const [createOpen, setCreateOpen] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
+  const [exportOpen, setExportOpen] = useState(false)
+  const [exportOrgId, setExportOrgId] = useState('all')
+  const [exportStatus, setExportStatus] = useState('all')
   const [exporting, setExporting] = useState(false)
   const [editVehicle, setEditVehicle] = useState<Vehicle | null>(null)
   const [assignTarget, setAssignTarget] = useState<Vehicle | null>(null)
@@ -119,20 +122,25 @@ export function useVehiclesWorkspace() {
   }
 
   const handleExport = useCallback(async () => {
+    const statusFilters = ['online', 'offline'].includes(exportStatus)
+      ? { device_status: exportStatus }
+      : { status: exportStatus !== 'all' ? exportStatus : undefined }
+
     setExporting(true)
     try {
       await exportVehicles({
         q: search || undefined,
-        status: status !== 'all' ? status : undefined,
-        organization_id: orgFilter !== 'all' ? orgFilter : undefined,
+        ...statusFilters,
+        organization_id: exportOrgId !== 'all' ? exportOrgId : undefined,
       })
+      setExportOpen(false)
       toast.success('Export started — file will download shortly')
     } catch {
       toast.error('Export failed')
     } finally {
       setExporting(false)
     }
-  }, [search, status, orgFilter])
+  }, [exportOrgId, exportStatus, search])
 
   return {
     filters: {
@@ -151,6 +159,8 @@ export function useVehiclesWorkspace() {
       setCreateOpen,
       importOpen,
       setImportOpen,
+      exportOpen,
+      setExportOpen,
       editVehicle,
       setEditVehicle,
       assignTarget,
@@ -173,6 +183,10 @@ export function useVehiclesWorkspace() {
     },
     exportState: {
       exporting,
+      exportOrgId,
+      setExportOrgId,
+      exportStatus,
+      setExportStatus,
       handleExport,
     },
   }

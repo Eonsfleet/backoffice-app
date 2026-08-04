@@ -66,6 +66,13 @@ const STATUS_OPTIONS = [
   { value: 'invite_sent',        label: 'Invite Sent' },
 ]
 
+const USER_EXPORT_STATUS_OPTIONS = [
+  { value: 'all',      label: 'All Statuses' },
+  { value: 'active',   label: 'Active' },
+  { value: 'inactive', label: 'Inactive' },
+  { value: 'blocked',  label: 'Disabled' },
+]
+
 const PER_PAGE = 15
 
 // ─── Tenant Users Tab ─────────────────────────────────────────────────────────
@@ -85,7 +92,8 @@ function TenantUsersTab() {
 
   // Export
   const [exportOpen, setExportOpen]       = useState(false)
-  const [exportOrgId, setExportOrgId]     = useState('')
+  const [exportOrgId, setExportOrgId]     = useState('all')
+  const [exportStatus, setExportStatus]   = useState('all')
   const [exportFormat, setExportFormat]   = useState<'excel' | 'csv'>('excel')
   const [exportLoading, setExportLoading] = useState(false)
 
@@ -96,10 +104,13 @@ function TenantUsersTab() {
   const [importLoading, setImportLoading] = useState(false)
 
   const handleExport = async () => {
-    if (!exportOrgId) return
     setExportLoading(true)
     try {
-      await exportUsers(exportOrgId, exportFormat)
+      await exportUsers({
+        organization_id: exportOrgId === 'all' ? undefined : exportOrgId,
+        status: exportStatus === 'all' ? undefined : exportStatus,
+        format: exportFormat,
+      })
       setExportOpen(false)
     } catch {
       toast.error('Export failed. Please try again.')
@@ -375,14 +386,28 @@ function TenantUsersTab() {
           <DialogHeader><DialogTitle>Export Users</DialogTitle></DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-1.5">
-              <Label>Organization <span className="text-destructive">*</span></Label>
+              <Label>Organization</Label>
               <SearchableSelect
-                options={(orgsData?.data ?? []).map((o) => ({ value: String(o.id), label: o.name }))}
+                options={[
+                  { value: 'all', label: 'All Organizations' },
+                  ...(orgsData?.data ?? []).map((o) => ({ value: String(o.id), label: o.name })),
+                ]}
                 value={exportOrgId}
                 onValueChange={setExportOrgId}
-                placeholder="Select organization…"
-                searchPlaceholder="Search organizations…"
+                placeholder="All Organizations"
+                searchPlaceholder="Search organizations..."
               />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Status</Label>
+              <Select value={exportStatus} onValueChange={setExportStatus}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {USER_EXPORT_STATUS_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-1.5">
               <Label>Format</Label>
@@ -397,7 +422,7 @@ function TenantUsersTab() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setExportOpen(false)}>Cancel</Button>
-            <Button onClick={handleExport} disabled={!exportOrgId || exportLoading}>
+            <Button onClick={handleExport} disabled={exportLoading}>
               <Download className="mr-2 h-4 w-4" />
               {exportLoading ? 'Exporting…' : 'Download'}
             </Button>

@@ -28,12 +28,18 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
+import {
+  Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
+} from '@/components/ui/dialog'
+import { Label } from '@/components/ui/label'
+import { SearchableSelect } from '@/components/ui/searchable-select'
 
 import {
   listDevices, deactivateDevice, exportDevices,
   listHardware, createHardware, updateHardware, deleteHardware,
   listApns, createApn, updateApn, deleteApn,
 } from '@/features/devices/api'
+import { listOrganizations } from '@/features/organizations/api'
 import { DeviceCreateForm } from '@/features/devices/components/DeviceCreateForm'
 import { DeviceImportForm } from '@/features/devices/components/DeviceImportForm'
 import { HardwareForm, type HardwareFormValues } from '@/features/devices/components/HardwareForm'
@@ -45,6 +51,16 @@ const STATUS_OPTIONS = [
   { value: 'online',     label: 'Online' },
   { value: 'offline',    label: 'Offline' },
   { value: 'unassigned', label: 'Unassigned' },
+]
+
+const DEVICE_EXPORT_STATUS_OPTIONS = [
+  { value: 'all',         label: 'All Statuses' },
+  { value: 'active',      label: 'Active' },
+  { value: 'inactive',    label: 'Inactive' },
+  { value: 'deactivated', label: 'Disabled' },
+  { value: 'online',      label: 'Online' },
+  { value: 'offline',     label: 'Offline' },
+  { value: 'unassigned',  label: 'Unassigned' },
 ]
 
 const PER_PAGE = 15
@@ -70,6 +86,9 @@ function DevicesTab() {
   const [importOpen, setImportOpen]             = useState(false)
   const [deactivateTarget, setDeactivateTarget] = useState<Device | null>(null)
   const [exporting, setExporting]               = useState(false)
+  const [exportOpen, setExportOpen]             = useState(false)
+  const [exportOrgId, setExportOrgId]           = useState('all')
+  const [exportStatus, setExportStatus]         = useState('all')
 
   const { data, isLoading } = useQuery({
     queryKey: ['devices', { search, status, page }],
@@ -80,6 +99,12 @@ function DevicesTab() {
       per_page: PER_PAGE,
     }),
     staleTime: 30_000,
+  })
+
+  const { data: orgsData } = useQuery({
+    queryKey: ['orgs-dropdown'],
+    queryFn: () => listOrganizations({ per_page: 100 }),
+    staleTime: 120_000,
   })
 
   const deactivateMutation = useMutation({
@@ -95,14 +120,19 @@ function DevicesTab() {
   const handleExport = useCallback(async () => {
     setExporting(true)
     try {
-      await exportDevices({ q: search || undefined, status: status === 'all' ? undefined : status })
+      await exportDevices({
+        q: search || undefined,
+        status: exportStatus === 'all' ? undefined : exportStatus,
+        organization_id: exportOrgId === 'all' ? undefined : exportOrgId,
+      })
+      setExportOpen(false)
       toast.success('Export started — file will download shortly')
     } catch {
       toast.error('Export failed')
     } finally {
       setExporting(false)
     }
-  }, [search, status])
+  }, [exportOrgId, exportStatus, search])
 
   const columns: ColumnDef<Device, unknown>[] = [
     {
@@ -235,7 +265,7 @@ function DevicesTab() {
         </Select>
       </div>
       <div className="flex gap-2">
-        <Button variant="outline" onClick={handleExport} disabled={exporting}>
+        <Button variant="outline" onClick={() => setExportOpen(true)} disabled={exporting}>
           <Download className="mr-2 h-4 w-4" />
           {exporting ? 'Exporting…' : 'Export CSV'}
         </Button>
@@ -268,6 +298,48 @@ function DevicesTab() {
       <SlideOver open={importOpen} onOpenChange={setImportOpen} title="Import Devices" description="Upload a CSV or Excel file to bulk-add devices. Select the organization first, then upload.">
         <DeviceImportForm onSuccess={() => setImportOpen(false)} onCancel={() => setImportOpen(false)} />
       </SlideOver>
+
+      <Dialog open={exportOpen} onOpenChange={setExportOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader><DialogTitle>Export Devices</DialogTitle></DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label>Organization</Label>
+              <SearchableSelect
+                options={[
+                  { value: 'all', label: 'All Organizations' },
+                  ...(orgsData?.data ?? []).map((org) => ({
+                    value: String(org.identifier ?? org.id),
+                    label: org.name,
+                  })),
+                ]}
+                value={exportOrgId}
+                onValueChange={setExportOrgId}
+                placeholder="All Organizations"
+                searchPlaceholder="Search organizations..."
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Status</Label>
+              <Select value={exportStatus} onValueChange={setExportStatus}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {DEVICE_EXPORT_STATUS_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setExportOpen(false)}>Cancel</Button>
+            <Button onClick={handleExport} disabled={exporting}>
+              <Download className="mr-2 h-4 w-4" />
+              {exporting ? 'Exporting…' : 'Download CSV'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {deactivateTarget && (
         <ConfirmDialog

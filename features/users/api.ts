@@ -142,11 +142,11 @@ function triggerBlobDownload(blob: Blob, filename: string): void {
 }
 
 export const exportUsers = async (
-  organizationId: string | number,
-  format: 'excel' | 'csv' = 'excel'
+  params: UserFilters & { format?: 'excel' | 'csv' } = {}
 ): Promise<void> => {
+  const format = params.format ?? 'excel'
   const response = await api.get('/admin/users/export', {
-    params: { organization_id: organizationId, format },
+    params: { ...params, format },
     responseType: 'blob',
   })
   const ext = format === 'excel' ? 'xlsx' : 'csv'

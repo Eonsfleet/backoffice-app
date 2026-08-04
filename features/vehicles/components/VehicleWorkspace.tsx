@@ -8,6 +8,14 @@ import { DataTable } from '@/components/shared/DataTable'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { SlideOver } from '@/components/shared/SlideOver'
 import { Button } from '@/components/ui/button'
+import {
+  Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
+} from '@/components/ui/dialog'
+import { Label } from '@/components/ui/label'
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select'
+import { SearchableSelect } from '@/components/ui/searchable-select'
 import { AssignDeviceForm } from '@/features/vehicles/components/AssignDeviceForm'
 import { VehicleFormFields } from '@/features/vehicles/components/VehicleFormFields'
 import { VehicleImportForm } from '@/features/vehicles/components/VehicleImportForm'
@@ -15,6 +23,15 @@ import { VehicleMetrics } from '@/features/vehicles/components/VehicleMetrics'
 import { VehicleToolbar } from '@/features/vehicles/components/VehicleToolbar'
 import { useVehiclesWorkspace } from '@/features/vehicles/hooks/useVehiclesWorkspace'
 import { createVehicleColumns } from '@/features/vehicles/utils/vehicle-columns'
+
+const VEHICLE_EXPORT_STATUS_OPTIONS = [
+  { value: 'all',            label: 'All Statuses' },
+  { value: 'active',         label: 'Active' },
+  { value: 'inactive',       label: 'Inactive' },
+  { value: 'decommissioned', label: 'Disabled' },
+  { value: 'online',         label: 'Online' },
+  { value: 'offline',        label: 'Offline' },
+]
 
 export function VehicleWorkspace() {
   const {
@@ -53,7 +70,7 @@ export function VehicleWorkspace() {
         icon={Truck}
         actions={
           <div className="flex gap-2">
-            <Button variant="outline" onClick={exportState.handleExport} disabled={exportState.exporting}>
+            <Button variant="outline" onClick={() => panels.setExportOpen(true)} disabled={exportState.exporting}>
               <Download className="mr-2 h-4 w-4" />
               {exportState.exporting ? 'Exporting…' : 'Export CSV'}
             </Button>
@@ -100,6 +117,48 @@ export function VehicleWorkspace() {
       >
         <VehicleImportForm onSuccess={() => panels.setImportOpen(false)} onCancel={() => panels.setImportOpen(false)} />
       </SlideOver>
+
+      <Dialog open={panels.exportOpen} onOpenChange={panels.setExportOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader><DialogTitle>Export Vehicles</DialogTitle></DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label>Organization</Label>
+              <SearchableSelect
+                options={[
+                  { value: 'all', label: 'All Organizations' },
+                  ...(queries.organizations.data?.data ?? []).map((org) => ({
+                    value: String(org.identifier ?? org.id),
+                    label: org.name,
+                  })),
+                ]}
+                value={exportState.exportOrgId}
+                onValueChange={exportState.setExportOrgId}
+                placeholder="All Organizations"
+                searchPlaceholder="Search organizations..."
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Status</Label>
+              <Select value={exportState.exportStatus} onValueChange={exportState.setExportStatus}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {VEHICLE_EXPORT_STATUS_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => panels.setExportOpen(false)}>Cancel</Button>
+            <Button onClick={exportState.handleExport} disabled={exportState.exporting}>
+              <Download className="mr-2 h-4 w-4" />
+              {exportState.exporting ? 'Exporting…' : 'Download CSV'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <SlideOver
         open={!!panels.editVehicle}
