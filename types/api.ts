@@ -224,7 +224,7 @@ export interface OrganizationBillingHistory {
 
 export type PaymentGateway = 'paystack' | 'flutterwave'
 export type TransactionStatus = 'successful' | 'failed' | 'pending'
-export type InvoiceStatus = 'paid' | 'unpaid' | 'overdue'
+export type InvoiceStatus = 'issued' | 'paid' | 'void' | string
 
 export interface Transaction {
   id: string | number
@@ -247,12 +247,24 @@ export interface Transaction {
 export interface Invoice {
   id: string | number
   invoice_number: string
-  organization: Pick<Organization, 'id' | 'name'>
-  plan: string
-  amount: number
-  vat: number
+  organization: Pick<Organization, 'id' | 'name'> | null
+  plan: string | null
+  amount: number | null
+  vat: number | null
   status: InvoiceStatus
-  pdf_url?: string | null
+  pdf_available?: boolean
+  created_at: string | null
+}
+
+export interface ReconciliationMismatch {
+  id: string | number
+  provider: string
+  provider_settlement_id: string
+  subscription_transaction_id: string | number
+  kind: string
+  expected_minor: number
+  actual_minor: number
+  status: string
   created_at: string
 }
 

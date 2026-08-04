@@ -18,10 +18,10 @@ import { SubscriptionWorkspace } from '@/features/subscriptions/components/Subsc
 import type { Invoice } from '@/types/api'
 
 const STATUS_OPTIONS = [
-  { value: 'all',     label: 'All Statuses' },
-  { value: 'paid',    label: 'Paid' },
-  { value: 'unpaid',  label: 'Unpaid' },
-  { value: 'overdue', label: 'Overdue' },
+  { value: 'all',    label: 'All Statuses' },
+  { value: 'issued', label: 'Issued' },
+  { value: 'paid',   label: 'Paid' },
+  { value: 'void',   label: 'Void' },
 ]
 
 function InvoiceStatusBadge({ status }: { status: Invoice['status'] }) {
@@ -30,14 +30,14 @@ function InvoiceStatusBadge({ status }: { status: Invoice['status'] }) {
       <CheckCircle2 className="h-3 w-3" /> Paid
     </Badge>
   )
-  if (status === 'overdue') return (
+  if (status === 'void') return (
     <Badge variant="outline" className="gap-1 text-destructive border-red-200 bg-red-50">
-      <AlertCircle className="h-3 w-3" /> Overdue
+      <XCircle className="h-3 w-3" /> Void
     </Badge>
   )
   return (
     <Badge variant="outline" className="gap-1 text-amber-600 border-amber-200 bg-amber-50">
-      <XCircle className="h-3 w-3" /> Unpaid
+      <AlertCircle className="h-3 w-3" /> Issued
     </Badge>
   )
 }
@@ -115,8 +115,8 @@ export default function InvoicesPage() {
       header: 'Amount',
       cell: ({ row }) => (
         <div>
-          <p className="text-sm font-semibold tabular-nums">{fmt(row.original.amount)}</p>
-          {row.original.vat > 0 && (
+          <p className="text-sm font-semibold tabular-nums">{row.original.amount != null ? fmt(row.original.amount) : '—'}</p>
+          {!!row.original.vat && row.original.vat > 0 && (
             <p className="text-[11px] text-muted-foreground">VAT {fmt(row.original.vat)}</p>
           )}
         </div>
@@ -132,7 +132,7 @@ export default function InvoicesPage() {
       header: 'Date',
       cell: ({ row }) => (
         <span className="text-xs text-muted-foreground">
-          {format(new Date(row.original.created_at), 'MMM d, yyyy')}
+          {row.original.created_at ? format(new Date(row.original.created_at), 'MMM d, yyyy') : '—'}
         </span>
       ),
     },
