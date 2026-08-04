@@ -8,6 +8,7 @@ import { toast } from 'sonner'
 import {
   Users, Search, MoreHorizontal, Eye, RefreshCw, Pencil,
   CheckCircle2, XCircle, Clock, Car, CreditCard, ArrowRightLeft, Ban,
+  UploadCloud, Trash2,
 } from 'lucide-react'
 
 import { DataTable }     from '@/components/shared/DataTable'
@@ -30,6 +31,7 @@ import {
   listSubscribers, getSubscription, getSubscriptionTransactions,
   listPlans, updateSubscription, changeOrganizationPlan, extendPocSubscription,
   getOrganizationBillingHistory, retryLotRenewal, cancelSubscriptionImmediately,
+  importLegacyAssets,
 } from '@/features/subscriptions/api'
 import { SubscriptionWorkspace } from '@/features/subscriptions/components/SubscriptionWorkspace'
 import { usePermission } from '@/hooks/usePermission'
@@ -274,6 +276,95 @@ function CancelSubscriptionForm({
   )
 }
 
+type LegacyVehicleRow = { onboarded_date: string; registration_number: string; fuel_capacity: string }
+
+function LegacyAssetImportForm({
+  subscription,
+  saving,
+  onSubmit,
+}: {
+  subscription: Subscription
+  saving: boolean
+  onSubmit: (payload: { vehicles: LegacyVehicleRow[] }) => void
+}) {
+  const [rows, setRows] = useState<LegacyVehicleRow[]>([
+    { onboarded_date: '', registration_number: '', fuel_capacity: '' },
+  ])
+
+  const updateRow = (index: number, patch: Partial<LegacyVehicleRow>) => {
+    setRows((prev) => prev.map((row, i) => (i === index ? { ...row, ...patch } : row)))
+  }
+
+  return (
+    <form
+      className="space-y-4 px-5"
+      onSubmit={(event) => {
+        event.preventDefault()
+        onSubmit({ vehicles: rows })
+      }}
+    >
+      <div className="rounded-lg border bg-muted/30 p-3">
+        <p className="text-sm font-medium">{subscription.organization?.name ?? 'Organization'}</p>
+        <p className="text-xs text-muted-foreground">
+          Onboards existing vehicles preserving their true onboarded date; billing anchors to that date&apos;s anniversary and settles immediately.
+        </p>
+      </div>
+
+      <div className="space-y-3">
+        {rows.map((row, i) => (
+          <div key={i} className="space-y-2 rounded-lg border p-3">
+            <div className="flex items-center justify-between">
+              <Label className="text-xs uppercase text-muted-foreground">Vehicle {i + 1}</Label>
+              {rows.length > 1 && (
+                <Button type="button" variant="ghost" size="sm" onClick={() => setRows((prev) => prev.filter((_, j) => j !== i))}>
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              )}
+            </div>
+            <Input
+              placeholder="Registration number"
+              value={row.registration_number}
+              onChange={(e) => updateRow(i, { registration_number: e.target.value })}
+              required
+            />
+            <div className="grid grid-cols-2 gap-2">
+              <Input
+                type="date"
+                value={row.onboarded_date}
+                onChange={(e) => updateRow(i, { onboarded_date: e.target.value })}
+                required
+              />
+              <Input
+                type="number"
+                min={1}
+                placeholder="Fuel capacity"
+                value={row.fuel_capacity}
+                onChange={(e) => updateRow(i, { fuel_capacity: e.target.value })}
+                required
+              />
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        onClick={() => setRows((prev) => [...prev, { onboarded_date: '', registration_number: '', fuel_capacity: '' }])}
+      >
+        <UploadCloud className="mr-2 h-3.5 w-3.5" /> Add Another Vehicle
+      </Button>
+
+      <div className="flex justify-end pt-2">
+        <Button type="submit" disabled={saving}>
+          {saving ? 'Importing...' : `Import ${rows.length} Vehicle${rows.length === 1 ? '' : 's'}`}
+        </Button>
+      </div>
+    </form>
+  )
+}
+
 // ─── Detail drawer ────────────────────────────────────────────────────────────
 
 function SubscriberDetail({ subscription }: { subscription: Subscription }) {
@@ -481,6 +572,7 @@ export default function SubscribersPage() {
   const [changePlanSub, setChangePlanSub] = useState<Subscription | null>(null)
   const [extendPocSub, setExtendPocSub] = useState<Subscription | null>(null)
   const [cancelSub, setCancelSub] = useState<Subscription | null>(null)
+  const [legacyImportSub, setLegacyImportSub] = useState<Subscription | null>(null)
   const canManageMoney = usePermission('admin.billing.money')
 
   const { data, isLoading } = useQuery({
@@ -549,6 +641,24 @@ export default function SubscribersPage() {
       setCancelSub(null)
     },
     onError: () => toast.error('Cancellation failed'),
+  })
+
+  const legacyImportMutation = useMutation({
+    mutationFn: ({ sub, vehicles }: { sub: Subscription; vehicles: LegacyVehicleRow[] }) =>
+      importLegacyAssets(sub.organization.id, {
+        vehicles: vehicles.map((v) => ({
+          onboarded_date: v.onboarded_date,
+          registration_number: v.registration_number,
+          fuel_capacity: Number(v.fuel_capacity),
+        })),
+      }),
+    onSuccess: (result) => {
+      qc.invalidateQueries({ queryKey: ['subscribers'] })
+      qc.invalidateQueries({ queryKey: ['organization-billing-history'] })
+      toast.success(`Imported ${result.vehicle_count} legacy vehicle(s)`)
+      setLegacyImportSub(null)
+    },
+    onError: () => toast.error('Legacy asset import failed'),
   })
 
   const subscribers = data?.data ?? []
@@ -667,6 +777,9 @@ export default function SubscribersPage() {
                     onClick={() => setCancelSub(sub)}
                   >
                     <Ban className="mr-2 h-4 w-4" /> Cancel Subscription
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setLegacyImportSub(sub)}>
+                    <UploadCloud className="mr-2 h-4 w-4" /> Import Legacy Assets
                   </DropdownMenuItem>
                 </>
               )}
@@ -843,6 +956,23 @@ export default function SubscribersPage() {
             subscription={cancelSub}
             saving={cancelMutation.isPending}
             onSubmit={(reason) => cancelMutation.mutate({ sub: cancelSub, reason })}
+          />
+        )}
+      </SlideOver>
+
+      <SlideOver
+        open={!!legacyImportSub}
+        onOpenChange={(o) => !o && setLegacyImportSub(null)}
+        title="Import Legacy Assets"
+        description={legacyImportSub ? `${legacyImportSub.organization?.name ?? 'Organization'} · onboard pre-existing vehicles` : undefined}
+        width="lg"
+      >
+        {legacyImportSub && (
+          <LegacyAssetImportForm
+            key={legacyImportSub.id}
+            subscription={legacyImportSub}
+            saving={legacyImportMutation.isPending}
+            onSubmit={({ vehicles }) => legacyImportMutation.mutate({ sub: legacyImportSub, vehicles })}
           />
         )}
       </SlideOver>
