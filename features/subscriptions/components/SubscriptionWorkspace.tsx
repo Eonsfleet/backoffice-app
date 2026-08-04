@@ -9,6 +9,7 @@ import {
   Layers,
   PlusCircle,
   Receipt,
+  Scale,
   Users,
   type LucideIcon,
 } from 'lucide-react'
@@ -26,6 +27,7 @@ const SECTIONS: SubscriptionSection[] = [
   { href: '/subscriptions/plans', label: 'Plans', description: 'Pricing and limits', icon: Layers },
   { href: '/subscriptions/subscribers', label: 'Subscribers', description: 'Organizations and renewals', icon: Users },
   { href: '/subscriptions/transactions', label: 'Transactions', description: 'Payment history', icon: Receipt },
+  { href: '/subscriptions/reconciliation', label: 'Reconciliation', description: 'Provider settlement mismatches', icon: Scale },
   { href: '/subscriptions/invoices', label: 'Invoices', description: 'Billing documents', icon: FileText },
   { href: '/subscriptions/analytics', label: 'Analytics', description: 'MRR and churn', icon: BarChart3 },
   { href: '/subscriptions/addons', label: 'Add-ons', description: 'Optional modules', icon: PlusCircle },
