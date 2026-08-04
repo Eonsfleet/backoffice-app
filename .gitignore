@@ -24,6 +24,8 @@ build/
 .env.test.local
 .env.production.local
 
+.worktrees/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
