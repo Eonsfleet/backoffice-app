@@ -157,7 +157,7 @@ export function OrgFormSlideOver({ open, onOpenChange, org }: OrgFormSlideOverPr
         </Field>
 
         {/* Email + Phone */}
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Business Email" error={errors.email?.message}>
             <Input {...register('email')} placeholder="admin@sahara.com" type="email" />
           </Field>
@@ -167,7 +167,7 @@ export function OrgFormSlideOver({ open, onOpenChange, org }: OrgFormSlideOverPr
         </div>
 
         {/* Fleet size + Industry */}
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Fleet Size" error={errors.fleet_size?.message}>
             <Input {...register('fleet_size')} placeholder="50" type="number" min={1} />
           </Field>
@@ -181,7 +181,7 @@ export function OrgFormSlideOver({ open, onOpenChange, org }: OrgFormSlideOverPr
           <Input {...register('street')} placeholder="14 Alimosho Street" />
         </Field>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid gap-4 sm:grid-cols-2">
           <Field label="City" error={errors.city?.message}>
             <Input {...register('city')} placeholder="Lagos" />
           </Field>

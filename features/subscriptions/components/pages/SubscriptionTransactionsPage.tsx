@@ -159,8 +159,8 @@ export default function TransactionsPage() {
 
   const toolbar = (
     <div className="flex flex-wrap items-center justify-between gap-2">
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="relative min-w-[200px] max-w-sm flex-1">
+      <div className="flex w-full flex-wrap items-center gap-2">
+        <div className="relative min-w-full flex-1 sm:min-w-[200px] sm:max-w-sm">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Search org or reference…"
@@ -170,13 +170,13 @@ export default function TransactionsPage() {
           />
         </div>
         <Select value={status} onValueChange={(v) => { setStatus(v); setPage(1) }}>
-          <SelectTrigger className="w-36"><SelectValue /></SelectTrigger>
+          <SelectTrigger className="w-full sm:w-36"><SelectValue /></SelectTrigger>
           <SelectContent>
             {STATUS_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
           </SelectContent>
         </Select>
         <Select value={gateway} onValueChange={(v) => { setGateway(v); setPage(1) }}>
-          <SelectTrigger className="w-36"><SelectValue /></SelectTrigger>
+          <SelectTrigger className="w-full sm:w-36"><SelectValue /></SelectTrigger>
           <SelectContent>
             {GATEWAY_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
           </SelectContent>

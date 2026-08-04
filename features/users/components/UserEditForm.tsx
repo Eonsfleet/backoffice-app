@@ -91,7 +91,7 @@ export function UserEditForm({
 
   return (
     <form onSubmit={handleSubmit((v) => mutation.mutate(v))} className="space-y-4 px-5">
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid gap-3 sm:grid-cols-2">
         <div className="space-y-1.5">
           <Label>First Name *</Label>
           <Input {...register('first_name')} placeholder="John" />

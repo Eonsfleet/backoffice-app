@@ -57,10 +57,10 @@ export function SubscriptionWorkspace({ title, description, actions, children }:
             </div>
             <p className="mt-2 max-w-2xl text-sm text-muted-foreground">{description}</p>
           </div>
-          {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
+          {actions && <div className="flex w-full flex-wrap items-center gap-2 lg:w-auto lg:shrink-0 lg:justify-end">{actions}</div>}
         </div>
 
-        <div className="overflow-x-auto border-b">
+        <div className="-mx-3 overflow-x-auto border-b px-3 sm:mx-0 sm:px-0">
           <nav className="flex min-w-max gap-1">
             {SECTIONS.map(({ href, label, description, icon: Icon }) => {
               const active = pathname === href

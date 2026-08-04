@@ -215,8 +215,8 @@ function DevicesTab() {
 
   const toolbar = (
     <div className="flex flex-wrap items-center justify-between gap-2">
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="relative min-w-[200px] max-w-sm flex-1">
+      <div className="flex w-full flex-wrap items-center gap-2">
+        <div className="relative min-w-full flex-1 sm:min-w-[200px] sm:max-w-sm">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Search IMEI or serial…"
@@ -226,7 +226,7 @@ function DevicesTab() {
           />
         </div>
         <Select value={status} onValueChange={(v) => { setStatus(v); setPage(1) }}>
-          <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
+          <SelectTrigger className="w-full sm:w-40"><SelectValue /></SelectTrigger>
           <SelectContent>
             {STATUS_OPTIONS.map((o) => (
               <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
@@ -418,7 +418,7 @@ function HardwareTab() {
 
   const toolbar = (
     <div className="flex flex-wrap items-center justify-between gap-2">
-      <div className="relative min-w-[200px] max-w-sm flex-1">
+      <div className="relative min-w-full flex-1 sm:min-w-[200px] sm:max-w-sm">
         <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
         <Input
           placeholder="Search hardware models…"
@@ -585,7 +585,7 @@ function ApnTab() {
 
   const toolbar = (
     <div className="flex flex-wrap items-center justify-between gap-2">
-      <div className="relative min-w-[200px] max-w-sm flex-1">
+      <div className="relative min-w-full flex-1 sm:min-w-[200px] sm:max-w-sm">
         <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
         <Input
           placeholder="Search APNs…"

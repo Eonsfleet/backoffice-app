@@ -263,7 +263,7 @@ function NotificationBell() {
 
 export function Topbar() {
   return (
-    <header className="flex h-14 items-center gap-3 border-b border-border bg-background px-4">
+    <header className="flex h-14 items-center gap-2 border-b border-border bg-background px-3 sm:gap-3 sm:px-4">
       {/* Mobile: hamburger → sheet sidebar */}
       <Sheet>
         <SheetTrigger asChild>
@@ -276,11 +276,13 @@ export function Topbar() {
         </SheetContent>
       </Sheet>
 
-      <Breadcrumb />
+      <div className="min-w-0 flex-1 truncate">
+        <Breadcrumb />
+      </div>
 
-      <div className="ml-auto flex items-center gap-2">
+      <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-2">
         <CommandPalette />
-        <Separator orientation="vertical" className="mx-1 h-5" />
+        <Separator orientation="vertical" className="mx-1 hidden h-5 sm:block" />
         <ThemeToggle />
         <NotificationBell />
       </div>

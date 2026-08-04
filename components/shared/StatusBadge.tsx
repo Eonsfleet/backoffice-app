@@ -40,6 +40,7 @@ const STATUS_STYLES: Record<string, string> = {
   replaced:            'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400',
   deactivated:         'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400',
   // Billing / payments
+  current:             'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
   successful:          'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
   failed:              'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
   paid:                'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',

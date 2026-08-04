@@ -566,7 +566,7 @@ export default function AnalyticsPage() {
               </>
             ) : (
               <>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid gap-3 min-[420px]:grid-cols-2">
                   <div className="rounded-md border border-border p-3">
                     <div className="mb-2 flex items-center gap-2 text-xs text-muted-foreground">
                       <Cpu className="h-3.5 w-3.5" />

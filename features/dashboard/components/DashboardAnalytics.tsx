@@ -151,7 +151,7 @@ export function DashboardGrowthCard() {
         ) : (
           <>
             <GrowthChart growth={growth} />
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid gap-2 min-[420px]:grid-cols-2">
               {[
                 ['Organizations', growth?.current.organizations, growth?.change.organizations.percent, 'border-blue-200 text-blue-700'],
                 ['Subscriptions', growth?.current.subscriptions, growth?.change.subscriptions.percent, 'border-emerald-200 text-emerald-700'],
@@ -208,7 +208,7 @@ export function DashboardAnalytics() {
             </div>
           ) : (
             <>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid gap-2 min-[420px]:grid-cols-2">
                 <StatRow label="Moving now" value={fleet?.movement.moving_now} icon={Truck} tone="green" />
                 <StatRow label="Active today" value={fleet?.movement.active_today} icon={Activity} tone="blue" />
                 <StatRow label="Trips today" value={fleet?.trips.total_today} icon={Route} tone="primary" />
@@ -252,7 +252,7 @@ export function DashboardAnalytics() {
             </div>
           ) : (
             <>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid gap-2 min-[420px]:grid-cols-2">
                 <StatRow label="Online" value={device?.summary.online} icon={Wifi} tone="green" />
                 <StatRow label="Offline" value={device?.summary.offline} icon={WifiOff} tone="red" />
                 <StatRow label="Unassigned" value={device?.summary.unassigned} icon={Cpu} tone="blue" />

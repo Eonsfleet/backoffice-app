@@ -14,6 +14,9 @@ import {
   Layers,
   Receipt,
   RefreshCw,
+  Route,
+  ServerCog,
+  ShieldCheck,
   Users,
 } from 'lucide-react'
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts'
@@ -42,10 +45,17 @@ const STATUS_COLORS: Record<string, string> = {
 }
 
 const QUICK_ACTIONS = [
-  { label: 'Manage Plans', href: '/subscriptions/plans', icon: Layers, description: 'Pricing, limits, features' },
-  { label: 'Review Subscribers', href: '/subscriptions/subscribers', icon: Users, description: 'Renewals and payment retry' },
-  { label: 'Open Transactions', href: '/subscriptions/transactions', icon: Receipt, description: 'Payment trail and exports' },
-  { label: 'View Invoices', href: '/subscriptions/invoices', icon: FileText, description: 'Download billing documents' },
+  { label: 'Plan Catalog', href: '/subscriptions/plans', icon: Layers, description: 'Visibility, features, pricing' },
+  { label: 'Subscriber Ops', href: '/subscriptions/subscribers', icon: Users, description: 'POC, production, renewals' },
+  { label: 'Transactions', href: '/subscriptions/transactions', icon: Receipt, description: 'Payment trail and exports' },
+  { label: 'Invoices', href: '/subscriptions/invoices', icon: FileText, description: 'Documents and status' },
+]
+
+const ADMIN_API_LANES = [
+  { label: 'Catalog', href: '/subscriptions/plans', icon: Layers, tone: 'text-blue-600', items: ['public plans', 'hidden plans', 'feature units'] },
+  { label: 'Lifecycle', href: '/subscriptions/subscribers', icon: Route, tone: 'text-emerald-600', items: ['POC', 'production', 'scheduled change'] },
+  { label: 'Recovery', href: '/subscriptions/subscribers', icon: RefreshCw, tone: 'text-amber-700', items: ['payment state', 'billing groups', 'renewal retry'] },
+  { label: 'Finance', href: '/subscriptions/transactions', icon: ShieldCheck, tone: 'text-violet-600', items: ['transactions', 'invoices', 'exports'] },
 ]
 
 function money(value?: number | null) {
@@ -202,6 +212,45 @@ export default function SubscriptionsOverviewPage() {
           loading={loadingDist}
         />
       </div>
+
+      <Card className="overflow-hidden">
+        <CardHeader className="border-b bg-muted/20">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <ServerCog className="h-4 w-4 text-primary" />
+                Admin Billing API
+              </CardTitle>
+              <CardDescription>Catalog, lifecycle, recovery, and finance operations</CardDescription>
+            </div>
+            <StatusBadge status={attentionCount > 0 ? 'pending' : 'active'} />
+          </div>
+        </CardHeader>
+        <CardContent className="grid gap-0 p-0 sm:grid-cols-2 xl:grid-cols-4">
+          {ADMIN_API_LANES.map(({ label, href, icon: Icon, tone, items }) => (
+            <Link
+              key={label}
+              href={href}
+              className="group border-b p-4 transition-colors hover:bg-muted/30 sm:odd:border-r xl:border-b-0 xl:border-r xl:last:border-r-0"
+            >
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <Icon className={`h-4 w-4 ${tone}`} />
+                  <p className="text-sm font-semibold">{label}</p>
+                </div>
+                <ArrowRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {items.map((item) => (
+                  <span key={item} className="rounded-full border bg-background px-2 py-0.5 text-[11px] text-muted-foreground">
+                    {item}
+                  </span>
+                ))}
+              </div>
+            </Link>
+          ))}
+        </CardContent>
+      </Card>
 
       <div className="grid gap-4 xl:grid-cols-12">
         <Card className="xl:col-span-4">

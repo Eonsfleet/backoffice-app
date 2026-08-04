@@ -15,6 +15,7 @@ import { StatusBadge }   from '@/components/shared/StatusBadge'
 import { SlideOver }     from '@/components/shared/SlideOver'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { Button }        from '@/components/ui/button'
+import { Badge }         from '@/components/ui/badge'
 import { Input }         from '@/components/ui/input'
 import { Label }         from '@/components/ui/label'
 import { Card, CardContent } from '@/components/ui/card'
@@ -90,6 +91,15 @@ function toDateInput(value?: string | null) {
 
 function editableStatus(status: SubStatus): SubStatus {
   return ['expired', 'suspended', 'canceled'].includes(status) ? status : 'expired'
+}
+
+function DataPoint({ label, value, accent }: { label: string; value: React.ReactNode; accent?: string }) {
+  return (
+    <div className="rounded-lg border bg-background px-3 py-2">
+      <p className="text-[11px] font-medium uppercase text-muted-foreground">{label}</p>
+      <div className={`mt-1 text-sm font-semibold ${accent ?? 'text-foreground'}`}>{value}</div>
+    </div>
+  )
 }
 
 function SubscriptionEditForm({
@@ -260,71 +270,51 @@ function SubscriberDetail({ subscription }: { subscription: Subscription }) {
 
   return (
     <div className="space-y-6 px-5">
-      {/* Subscription info */}
-      <div className="rounded-xl border bg-muted/30 p-4 space-y-3">
-        <div className="flex items-center justify-between">
+      <div className="rounded-xl border bg-muted/20 p-4 space-y-4">
+        <div className="flex flex-col gap-3 min-[420px]:flex-row min-[420px]:items-start min-[420px]:justify-between">
           <div>
             <p className="text-xs text-muted-foreground">Organization</p>
             <p className="text-sm font-semibold">{sub.organization?.name}</p>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              <Badge variant="secondary" className="uppercase">{sub.subscription_type ?? 'unknown'}</Badge>
+              {sub.is_payment_restricted && <Badge variant="destructive">Restricted</Badge>}
+            </div>
           </div>
-          <StatusBadge status={sub.status} />
+          <div className="flex flex-wrap gap-1.5 min-[420px]:justify-end">
+            <StatusBadge status={sub.status} />
+            {sub.payment_state && <StatusBadge status={sub.payment_state} />}
+          </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-3 pt-1">
-          <div>
-            <p className="text-xs text-muted-foreground">Type</p>
-            <p className="text-sm font-medium uppercase">{sub.subscription_type ?? '—'}</p>
-          </div>
-          <div>
-            <p className="text-xs text-muted-foreground">Payment State</p>
-            <p className="text-sm font-medium capitalize">{sub.payment_state ?? '—'}</p>
-          </div>
-          <div>
-            <p className="text-xs text-muted-foreground">Plan</p>
-            <p className="text-sm font-medium">{sub.plan?.name ?? '—'}</p>
-          </div>
-          <div>
-            <p className="text-xs text-muted-foreground">Billing Cycle</p>
-            <p className="text-sm font-medium capitalize">{sub.billing_cycle ?? '—'}</p>
-          </div>
-          <div>
-            <p className="text-xs text-muted-foreground">Started</p>
-            <p className="text-sm font-medium">
-              {sub.started_at ? format(new Date(sub.started_at), 'MMM d, yyyy') : '—'}
-            </p>
-          </div>
-          <div>
-            <p className="text-xs text-muted-foreground">Renews / Ends</p>
-            <p className="text-sm font-medium">
-              {(() => {
+        <div className="grid gap-3 min-[420px]:grid-cols-2">
+          <DataPoint label="Plan" value={sub.plan?.name ?? '—'} />
+          <DataPoint label="Billing Cycle" value={<span className="capitalize">{sub.billing_cycle ?? '—'}</span>} />
+          <DataPoint
+            label="Started"
+            value={sub.started_at ? format(new Date(sub.started_at), 'MMM d, yyyy') : '—'}
+          />
+          <DataPoint
+            label="Renews / Ends"
+            value={(() => {
                 const d = sub.next_billing_date ?? sub.ends_at
                 return d ? format(new Date(d), 'MMM d, yyyy') : '—'
               })()}
-            </p>
-          </div>
-          {sub.mrr != null && (
-            <div>
-              <p className="text-xs text-muted-foreground">MRR</p>
-              <p className="text-sm font-semibold text-emerald-600">{fmt(sub.mrr)}</p>
-            </div>
-          )}
+          />
+          {sub.mrr != null && <DataPoint label="MRR" value={fmt(sub.mrr)} accent="text-emerald-600" />}
           {sub.vehicle_count != null && (
-            <div>
-              <p className="text-xs text-muted-foreground">Vehicles</p>
-              <div className="flex items-center gap-1.5">
-                <Car className="h-3.5 w-3.5 text-muted-foreground" />
-                <p className="text-sm font-medium">{sub.vehicle_count}</p>
-              </div>
-            </div>
+            <DataPoint
+              label="Vehicles"
+              value={
+                <span className="flex items-center gap-1.5">
+                  <Car className="h-3.5 w-3.5 text-muted-foreground" />
+                  {sub.vehicle_count}
+                </span>
+              }
+            />
           )}
-          {sub.poc_asset_limit != null && (
-            <div>
-              <p className="text-xs text-muted-foreground">POC Asset Limit</p>
-              <p className="text-sm font-medium tabular-nums">{sub.poc_asset_limit}</p>
-            </div>
-          )}
+          {sub.poc_asset_limit != null && <DataPoint label="POC Asset Limit" value={sub.poc_asset_limit} />}
           {sub.plan_change_effective_at && (
-            <div className="col-span-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-amber-900">
+            <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-amber-900 min-[420px]:col-span-2">
               <p className="text-xs font-medium">Scheduled plan change</p>
               <p className="text-xs">Effective {format(new Date(sub.plan_change_effective_at), 'MMM d, yyyy')}</p>
             </div>
@@ -353,7 +343,7 @@ function SubscriberDetail({ subscription }: { subscription: Subscription }) {
                   </div>
                   <StatusBadge status={lot.status ?? 'unknown'} />
                 </div>
-                <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
+                <div className="mt-3 grid gap-2 text-xs min-[420px]:grid-cols-3">
                   <div>
                     <p className="text-muted-foreground">Rate</p>
                     <p className="font-medium tabular-nums">{fmtMinor(lot.rate_minor)}</p>
@@ -622,7 +612,7 @@ export default function SubscribersPage() {
 
   const toolbar = (
     <div className="flex flex-wrap items-center gap-2">
-      <div className="relative min-w-[180px] max-w-xs flex-1">
+      <div className="relative min-w-full flex-1 sm:min-w-[180px] sm:max-w-xs">
         <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
         <Input
           placeholder="Search organization…"
@@ -632,25 +622,25 @@ export default function SubscribersPage() {
         />
       </div>
       <Select value={status} onValueChange={(v) => { setStatus(v); setPage(1) }}>
-        <SelectTrigger className="w-36"><SelectValue /></SelectTrigger>
+        <SelectTrigger className="w-full sm:w-36"><SelectValue /></SelectTrigger>
         <SelectContent>
           {STATUS_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
         </SelectContent>
       </Select>
       <Select value={cycle} onValueChange={(v) => { setCycle(v); setPage(1) }}>
-        <SelectTrigger className="w-36"><SelectValue /></SelectTrigger>
+        <SelectTrigger className="w-full sm:w-36"><SelectValue /></SelectTrigger>
         <SelectContent>
           {CYCLE_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
         </SelectContent>
       </Select>
       <Select value={type} onValueChange={(v) => { setType(v); setPage(1) }}>
-        <SelectTrigger className="w-36"><SelectValue /></SelectTrigger>
+        <SelectTrigger className="w-full sm:w-36"><SelectValue /></SelectTrigger>
         <SelectContent>
           {TYPE_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
         </SelectContent>
       </Select>
       <Select value={paymentState} onValueChange={(v) => { setPaymentState(v); setPage(1) }}>
-        <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
+        <SelectTrigger className="w-full sm:w-40"><SelectValue /></SelectTrigger>
         <SelectContent>
           {PAYMENT_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
         </SelectContent>

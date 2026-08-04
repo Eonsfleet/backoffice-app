@@ -28,7 +28,7 @@ export function VehicleToolbar({
 }: VehicleToolbarProps) {
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <div className="relative min-w-[200px] max-w-sm flex-1">
+      <div className="relative min-w-full flex-1 sm:min-w-[200px] sm:max-w-sm">
         <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
         <Input
           placeholder="Search plate, make, model…"
@@ -38,7 +38,7 @@ export function VehicleToolbar({
         />
       </div>
       <Select value={status} onValueChange={onStatusChange}>
-        <SelectTrigger className="w-36"><SelectValue /></SelectTrigger>
+        <SelectTrigger className="w-full sm:w-36"><SelectValue /></SelectTrigger>
         <SelectContent>
           {VEHICLE_STATUS_OPTIONS.map((option) => (
             <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
@@ -46,7 +46,7 @@ export function VehicleToolbar({
         </SelectContent>
       </Select>
       <Select value={orgFilter} onValueChange={onOrgChange}>
-        <SelectTrigger className="w-44"><SelectValue placeholder="All Organizations" /></SelectTrigger>
+        <SelectTrigger className="w-full sm:w-44"><SelectValue placeholder="All Organizations" /></SelectTrigger>
         <SelectContent>
           <SelectItem value="all">All Organizations</SelectItem>
           {organizations.map((org) => (

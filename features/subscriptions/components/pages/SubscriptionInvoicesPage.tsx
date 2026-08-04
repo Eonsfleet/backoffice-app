@@ -161,7 +161,7 @@ export default function InvoicesPage() {
 
   const toolbar = (
     <div className="flex flex-wrap items-center gap-2">
-      <div className="relative min-w-[200px] max-w-sm flex-1">
+      <div className="relative min-w-full flex-1 sm:min-w-[200px] sm:max-w-sm">
         <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
         <Input
           placeholder="Search org or invoice #…"
@@ -171,7 +171,7 @@ export default function InvoicesPage() {
         />
       </div>
       <Select value={status} onValueChange={(v) => { setStatus(v); setPage(1) }}>
-        <SelectTrigger className="w-36"><SelectValue /></SelectTrigger>
+        <SelectTrigger className="w-full sm:w-36"><SelectValue /></SelectTrigger>
         <SelectContent>
           {STATUS_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
         </SelectContent>

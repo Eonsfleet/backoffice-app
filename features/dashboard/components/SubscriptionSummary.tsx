@@ -44,7 +44,7 @@ export function SubscriptionSummary() {
         <CardDescription>Current subscription status across all organizations</CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid gap-4 min-[420px]:grid-cols-3">
           {metrics.map(({ label, value, icon: Icon, color, bg }) => (
             <div key={label} className="flex flex-col items-center gap-2 rounded-lg border border-border p-4 text-center">
               <div className={`flex h-10 w-10 items-center justify-center rounded-full ${bg}`}>

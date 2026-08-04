@@ -123,7 +123,7 @@ function SelectedVehiclePanel({
         {isLoading && <RefreshCw className="h-4 w-4 shrink-0 animate-spin text-muted-foreground" />}
       </div>
 
-      <div className="grid grid-cols-2 gap-2 text-xs">
+      <div className="grid gap-2 text-xs min-[420px]:grid-cols-2">
         <div className="rounded-md border border-border p-2">
           <div className="mb-1 flex items-center gap-1.5 text-muted-foreground"><Gauge className="h-3.5 w-3.5" /> Speed</div>
           <p className="font-semibold tabular-nums">{loc?.speed != null ? `${loc.speed} km/h` : '-'}</p>
@@ -142,7 +142,7 @@ function SelectedVehiclePanel({
         </div>
       </div>
 
-      <div className="mt-3 grid grid-cols-2 gap-2">
+      <div className="mt-3 grid gap-2 min-[420px]:grid-cols-2">
         <Button asChild size="sm" variant="outline">
           <Link href="/vehicles">
             <Car className="mr-1.5 h-3.5 w-3.5" /> Manage
@@ -303,10 +303,10 @@ export function FleetMapView() {
       </div>
 
       {/* ── Main area ─────────────────────────────────────────────────────────── */}
-      <div className="flex gap-3" style={{ height: 'calc(100vh - 220px)', minHeight: '520px' }}>
+      <div className="flex min-h-[640px] flex-col gap-3 lg:h-[calc(100dvh-220px)] lg:min-h-[520px] lg:flex-row">
 
         {/* Sidebar */}
-        <aside className="flex w-72 shrink-0 flex-col rounded-xl border bg-card overflow-hidden">
+        <aside className="flex max-h-72 w-full shrink-0 flex-col overflow-hidden rounded-xl border bg-card lg:max-h-none lg:w-72">
 
           {/* Search */}
           <div className="border-b p-3">
@@ -401,7 +401,7 @@ export function FleetMapView() {
         </aside>
 
         {/* Map canvas */}
-        <div className="relative flex-1 overflow-hidden rounded-xl border">
+        <div className="relative min-h-[420px] flex-1 overflow-hidden rounded-xl border">
           {selectedVehicle && (
             <SelectedVehiclePanel
               vehicle={vehicleDetailQ.data ?? selectedVehicle}

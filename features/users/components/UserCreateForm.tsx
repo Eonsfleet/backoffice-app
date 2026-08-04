@@ -64,7 +64,7 @@ export function UserCreateForm({ onSuccess, onCancel }: { onSuccess: () => void;
 
   return (
     <form onSubmit={handleSubmit((v) => mutation.mutate(v))} className="space-y-4 p-5">
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid gap-3 sm:grid-cols-2">
         <div className="space-y-1.5">
           <Label>First Name *</Label>
           <Input {...register('f_name')} placeholder="John" />

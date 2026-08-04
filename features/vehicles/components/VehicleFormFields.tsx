@@ -110,7 +110,7 @@ export function VehicleFormFields({
         {errors.organization_id && <p className="text-xs text-destructive">{errors.organization_id.message}</p>}
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid gap-3 sm:grid-cols-2">
         <div className="space-y-1.5">
           <Label>Make</Label>
           <Input {...register('make')} placeholder="e.g. Toyota" />
@@ -121,7 +121,7 @@ export function VehicleFormFields({
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid gap-3 sm:grid-cols-2">
         <div className="space-y-1.5">
           <Label>Year</Label>
           <Input {...register('year', { valueAsNumber: true })} type="number" min={1980} max={CURRENT_YEAR + 1} placeholder={String(CURRENT_YEAR)} />
@@ -132,7 +132,7 @@ export function VehicleFormFields({
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid gap-3 sm:grid-cols-2">
         <div className="space-y-1.5">
           <Label>Body Type</Label>
           <SearchableSelect
@@ -156,7 +156,7 @@ export function VehicleFormFields({
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid gap-3 sm:grid-cols-2">
         <div className="space-y-1.5">
           <Label>Fuel Tank Capacity *</Label>
           <Input
@@ -181,7 +181,7 @@ export function VehicleFormFields({
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid gap-3 sm:grid-cols-2">
         <div className="space-y-1.5">
           <Label>Chassis Number</Label>
           <Input {...register('chasis_number')} placeholder="Chassis / VIN" />

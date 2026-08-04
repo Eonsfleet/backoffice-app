@@ -102,7 +102,7 @@ export function PlanForm({ plan, features, addons, loadingFeatures, loadingAddon
         />
       </Field>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Monthly Price (₦) *" error={errors.price_monthly?.message}>
           <Input {...register('price_monthly', { valueAsNumber: true })} type="number" min={0} placeholder="20000" />
         </Field>

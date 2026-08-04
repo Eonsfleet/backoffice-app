@@ -278,8 +278,8 @@ function TenantUsersTab() {
 
   const toolbar = (
     <div className="flex flex-wrap items-center justify-between gap-2">
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="relative min-w-[200px] max-w-sm flex-1">
+      <div className="flex w-full flex-wrap items-center gap-2">
+        <div className="relative min-w-full flex-1 sm:min-w-[200px] sm:max-w-sm">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Search users…"
@@ -289,13 +289,13 @@ function TenantUsersTab() {
           />
         </div>
         <Select value={status} onValueChange={(v) => { setStatus(v); setPage(1) }}>
-          <SelectTrigger className="w-36"><SelectValue /></SelectTrigger>
+          <SelectTrigger className="w-full sm:w-36"><SelectValue /></SelectTrigger>
           <SelectContent>
             {STATUS_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
           </SelectContent>
         </Select>
         <Select value={orgFilter} onValueChange={(v) => { setOrgFilter(v); setPage(1) }}>
-          <SelectTrigger className="w-44"><SelectValue placeholder="All Organizations" /></SelectTrigger>
+          <SelectTrigger className="w-full sm:w-44"><SelectValue placeholder="All Organizations" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Organizations</SelectItem>
             {orgsData?.data?.map((org) => (
@@ -587,7 +587,7 @@ function AdminUsersTab() {
 
   const toolbar = (
     <div className="flex flex-wrap items-center justify-between gap-2">
-      <div className="relative min-w-[200px] max-w-sm flex-1">
+      <div className="relative min-w-full flex-1 sm:min-w-[200px] sm:max-w-sm">
         <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
         <Input
           placeholder="Search admins…"

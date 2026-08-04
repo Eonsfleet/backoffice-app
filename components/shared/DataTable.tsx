@@ -73,11 +73,11 @@ export function DataTable<T>({
   return (
     <div className="space-y-3">
       {/* Toolbar slot + column visibility toggle */}
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex-1">{toolbar}</div>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0 flex-1">{toolbar}</div>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm" className="shrink-0">
+            <Button variant="outline" size="sm" className="w-full shrink-0 sm:w-auto">
               <Settings2 className="mr-2 h-4 w-4" />
               Columns
             </Button>
@@ -108,7 +108,7 @@ export function DataTable<T>({
             <div className="h-full w-1/3 animate-pulse bg-primary rounded-full" />
           </div>
         )}
-        <Table>
+        <Table className="min-w-max">
           <TableHeader>
             {table.getHeaderGroups().map((hg) => (
               <TableRow key={hg.id} className="bg-muted/40 hover:bg-muted/40">
@@ -165,11 +165,11 @@ export function DataTable<T>({
 
       {/* Pagination */}
       {pagination && onPaginationChange && (
-        <div className="flex items-center justify-between text-sm text-muted-foreground">
+        <div className="flex flex-col gap-3 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
           <span>
             Page {pagination.pageIndex + 1} of {pageCount ?? '?'}
           </span>
-          <div className="flex items-center gap-2">
+          <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center">
             <Button
               variant="outline" size="sm"
               disabled={pagination.pageIndex === 0}

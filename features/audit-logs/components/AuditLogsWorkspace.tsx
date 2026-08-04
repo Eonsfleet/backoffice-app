@@ -219,7 +219,7 @@ export default function AuditLogsPage() {
 
   const toolbar = (
     <div className="flex flex-wrap items-center gap-2">
-      <div className="relative flex-1 min-w-[180px] max-w-xs">
+      <div className="relative min-w-full flex-1 sm:min-w-[180px] sm:max-w-xs">
         <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
         <Input
           placeholder="Search actions…"
@@ -229,19 +229,19 @@ export default function AuditLogsPage() {
         />
       </div>
       <Select value={riskLevel} onValueChange={(v) => { setRiskLevel(v); setPage(1) }}>
-        <SelectTrigger className="w-36"><SelectValue /></SelectTrigger>
+        <SelectTrigger className="w-full sm:w-36"><SelectValue /></SelectTrigger>
         <SelectContent>
           {RISK_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
         </SelectContent>
       </Select>
       <Select value={method} onValueChange={(v) => { setMethod(v); setPage(1) }}>
-        <SelectTrigger className="w-36"><SelectValue /></SelectTrigger>
+        <SelectTrigger className="w-full sm:w-36"><SelectValue /></SelectTrigger>
         <SelectContent>
           {METHOD_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
         </SelectContent>
       </Select>
       <Select value={actorType} onValueChange={(v) => { setActorType(v); setPage(1) }}>
-        <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
+        <SelectTrigger className="w-full sm:w-40"><SelectValue /></SelectTrigger>
         <SelectContent>
           {ACTOR_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
         </SelectContent>

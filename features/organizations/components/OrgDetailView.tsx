@@ -393,7 +393,7 @@ export function OrgDetailView({ id }: { id: string }) {
                   <CardTitle className="text-sm text-muted-foreground uppercase tracking-wide">Fleet Overview</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                  <div className="grid gap-3 min-[420px]:grid-cols-2 sm:grid-cols-4">
                     <StatCard label="Vehicles"      value={org.vehicle_count ?? org.fleet_size} />
                     <StatCard label="Vehicle Limit" value={org.current_plan?.plan.vehicle_limit == null ? 'Unlimited' : org.current_plan?.plan.vehicle_limit} />
                   </div>
