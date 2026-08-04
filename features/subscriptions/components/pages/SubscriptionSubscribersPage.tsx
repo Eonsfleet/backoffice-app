@@ -31,7 +31,7 @@ import {
   listSubscribers, getSubscription, getSubscriptionTransactions,
   listPlans, updateSubscription, changeOrganizationPlan, extendPocSubscription,
   getOrganizationBillingHistory, retryLotRenewal, cancelSubscriptionImmediately,
-  importLegacyAssets,
+  importLegacyAssets, convertPocToProduction,
 } from '@/features/subscriptions/api'
 import { SubscriptionWorkspace } from '@/features/subscriptions/components/SubscriptionWorkspace'
 import { usePermission } from '@/hooks/usePermission'
@@ -365,6 +365,57 @@ function LegacyAssetImportForm({
   )
 }
 
+function ConvertPocForm({
+  subscription,
+  saving,
+  onSubmit,
+}: {
+  subscription: Subscription
+  saving: boolean
+  onSubmit: (payload: { name: string; email: string; fleet_size: number; industry: string }) => void
+}) {
+  const [name, setName] = useState(subscription.organization?.name ?? '')
+  const [email, setEmail] = useState('')
+  const [fleetSize, setFleetSize] = useState('')
+  const [industry, setIndustry] = useState('')
+
+  return (
+    <form
+      className="space-y-4 px-5"
+      onSubmit={(event) => {
+        event.preventDefault()
+        onSubmit({ name, email, fleet_size: Number(fleetSize), industry })
+      }}
+    >
+      <div className="rounded-lg border bg-muted/30 p-3">
+        <p className="text-sm font-medium">{subscription.organization?.name ?? 'Organization'}</p>
+        <p className="text-xs text-muted-foreground">Converts this POC into a new production organization, re-parenting its fleet.</p>
+      </div>
+      <div className="space-y-2">
+        <Label>Organization Name</Label>
+        <Input value={name} onChange={(e) => setName(e.target.value)} required />
+      </div>
+      <div className="space-y-2">
+        <Label>Contact Email</Label>
+        <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+      </div>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="space-y-2">
+          <Label>Fleet Size</Label>
+          <Input type="number" min={1} value={fleetSize} onChange={(e) => setFleetSize(e.target.value)} required />
+        </div>
+        <div className="space-y-2">
+          <Label>Industry</Label>
+          <Input value={industry} onChange={(e) => setIndustry(e.target.value)} required />
+        </div>
+      </div>
+      <Button type="submit" disabled={saving}>
+        {saving ? 'Converting...' : 'Convert to Production'}
+      </Button>
+    </form>
+  )
+}
+
 // ─── Detail drawer ────────────────────────────────────────────────────────────
 
 function SubscriberDetail({ subscription }: { subscription: Subscription }) {
@@ -573,7 +624,9 @@ export default function SubscribersPage() {
   const [extendPocSub, setExtendPocSub] = useState<Subscription | null>(null)
   const [cancelSub, setCancelSub] = useState<Subscription | null>(null)
   const [legacyImportSub, setLegacyImportSub] = useState<Subscription | null>(null)
+  const [convertPocSub, setConvertPocSub] = useState<Subscription | null>(null)
   const canManageMoney = usePermission('admin.billing.money')
+  const canManageCatalog = usePermission('admin.billing.manage_catalog')
 
   const { data, isLoading } = useQuery({
     queryKey: ['subscribers', { status, cycle, type, paymentState, search, page }],
@@ -659,6 +712,19 @@ export default function SubscribersPage() {
       setLegacyImportSub(null)
     },
     onError: () => toast.error('Legacy asset import failed'),
+  })
+
+  const convertPocMutation = useMutation({
+    mutationFn: ({
+      sub, payload,
+    }: { sub: Subscription; payload: { name: string; email: string; fleet_size: number; industry: string } }) =>
+      convertPocToProduction(sub.organization.id, payload),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['subscribers'] })
+      toast.success('Organization converted to production')
+      setConvertPocSub(null)
+    },
+    onError: () => toast.error('POC conversion failed'),
   })
 
   const subscribers = data?.data ?? []
@@ -782,6 +848,11 @@ export default function SubscribersPage() {
                     <UploadCloud className="mr-2 h-4 w-4" /> Import Legacy Assets
                   </DropdownMenuItem>
                 </>
+              )}
+              {canManageCatalog && sub.subscription_type === 'poc' && (
+                <DropdownMenuItem onClick={() => setConvertPocSub(sub)}>
+                  <ArrowRightLeft className="mr-2 h-4 w-4" /> Convert POC → Production
+                </DropdownMenuItem>
               )}
             </DropdownMenuContent>
           </DropdownMenu>
@@ -973,6 +1044,23 @@ export default function SubscribersPage() {
             subscription={legacyImportSub}
             saving={legacyImportMutation.isPending}
             onSubmit={({ vehicles }) => legacyImportMutation.mutate({ sub: legacyImportSub, vehicles })}
+          />
+        )}
+      </SlideOver>
+
+      <SlideOver
+        open={!!convertPocSub}
+        onOpenChange={(o) => !o && setConvertPocSub(null)}
+        title="Convert POC to Production"
+        description={convertPocSub ? `${convertPocSub.organization?.name ?? 'Organization'} · creates a new production organization` : undefined}
+        width="lg"
+      >
+        {convertPocSub && (
+          <ConvertPocForm
+            key={convertPocSub.id}
+            subscription={convertPocSub}
+            saving={convertPocMutation.isPending}
+            onSubmit={(payload) => convertPocMutation.mutate({ sub: convertPocSub, payload })}
           />
         )}
       </SlideOver>
