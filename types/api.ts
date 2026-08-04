@@ -220,46 +220,6 @@ export interface OrganizationBillingHistory {
   discounts: ContractDiscount[]
 }
 
-// ─── Per-asset Subscriptions ──────────────────────────────────────────────────
-
-export type AssetSubscriptionStatus = 'trialing' | 'active' | 'past_due' | 'cancelled' | 'expired'
-export type AssetDunningStage = 'grace' | 'restricted' | 'suspended' | null
-
-export interface AssetSubscription {
-  id: number
-  subscribable_type: 'Vehicle' | 'Device' | string
-  subscribable_id: number
-  billing_cycle: BillingCycle
-  price_kobo: number
-  price_naira: number
-  currency: string
-  status: AssetSubscriptionStatus
-  status_label: string
-  dunning_stage: AssetDunningStage
-  started_at: string | null
-  current_period_start: string | null
-  current_period_end: string | null
-  next_billing_at: string | null
-  dunning_started_at: string | null
-  cancelled_at: string | null
-  expires_at: string | null
-  last_billed_at: string | null
-  plan: Pick<SubscriptionPlan, 'id' | 'name'> | null
-  // loaded when admin fetches with subscribable relation
-  organization?: Pick<Organization, 'id' | 'name'> | null
-}
-
-export interface AssetSubscriptionSummary {
-  total: number
-  active: number
-  trialing: number
-  past_due: number
-  cancelled: number
-  expired: number
-  monthly_arr_kobo: number
-  monthly_arr_naira: number
-}
-
 // ─── Billing ──────────────────────────────────────────────────────────────────
 
 export type PaymentGateway = 'paystack' | 'flutterwave'
