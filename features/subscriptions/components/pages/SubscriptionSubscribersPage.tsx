@@ -8,7 +8,7 @@ import { toast } from 'sonner'
 import {
   Users, Search, MoreHorizontal, Eye, RefreshCw, Pencil,
   CheckCircle2, XCircle, Clock, Car, CreditCard, ArrowRightLeft, Ban,
-  UploadCloud, Trash2,
+  UploadCloud, Trash2, Gift, Percent,
 } from 'lucide-react'
 
 import { DataTable }     from '@/components/shared/DataTable'
@@ -32,7 +32,8 @@ import {
   listPlans, updateSubscription, changeOrganizationPlan, extendPocSubscription,
   getOrganizationBillingHistory, retryLotRenewal, cancelSubscriptionImmediately,
   importLegacyAssets, convertPocToProduction, revertOrganizationToPoc,
-  anonymizeOrganization,
+  anonymizeOrganization, issueCreditNote, createDiscount, refundTransaction,
+  type CreateDiscountPayload,
 } from '@/features/subscriptions/api'
 import { SubscriptionWorkspace } from '@/features/subscriptions/components/SubscriptionWorkspace'
 import { usePermission } from '@/hooks/usePermission'
@@ -502,6 +503,140 @@ function AnonymizeConfirmForm({
   )
 }
 
+function CreditNoteForm({
+  organizationName,
+  saving,
+  onSubmit,
+}: {
+  organizationName?: string
+  saving: boolean
+  onSubmit: (payload: { amount: number; reason: string; reference?: string }) => void
+}) {
+  const [amount, setAmount] = useState('')
+  const [reason, setReason] = useState('')
+  const [reference, setReference] = useState('')
+
+  return (
+    <form
+      className="space-y-4"
+      onSubmit={(event) => {
+        event.preventDefault()
+        onSubmit({ amount: Number(amount), reason, reference: reference.trim() || undefined })
+      }}
+    >
+      <p className="text-xs text-muted-foreground">Issue a forward balance credit for {organizationName ?? 'this organization'}.</p>
+      <div className="space-y-2">
+        <Label>Amount (₦)</Label>
+        <Input type="number" min={0.01} step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} required />
+      </div>
+      <div className="space-y-2">
+        <Label>Reason</Label>
+        <Input value={reason} onChange={(e) => setReason(e.target.value)} required />
+      </div>
+      <div className="space-y-2">
+        <Label>Reference (optional)</Label>
+        <Input value={reference} onChange={(e) => setReference(e.target.value)} />
+      </div>
+      <Button type="submit" size="sm" disabled={saving}>
+        {saving ? 'Issuing...' : 'Issue Credit Note'}
+      </Button>
+    </form>
+  )
+}
+
+function DiscountForm({
+  organizationName,
+  saving,
+  onSubmit,
+}: {
+  organizationName?: string
+  saving: boolean
+  onSubmit: (payload: CreateDiscountPayload) => void
+}) {
+  const [target, setTarget] = useState<CreateDiscountPayload['target']>('all')
+  const [kind, setKind] = useState<CreateDiscountPayload['kind']>('percent_bps')
+  const [value, setValue] = useState('')
+  const [startsAt, setStartsAt] = useState('')
+
+  return (
+    <form
+      className="space-y-4"
+      onSubmit={(event) => {
+        event.preventDefault()
+        onSubmit({ target, kind, value: Number(value), starts_at: startsAt })
+      }}
+    >
+      <p className="text-xs text-muted-foreground">Create a sales-negotiated contract discount for {organizationName ?? 'this organization'}.</p>
+      <div className="grid grid-cols-2 gap-2">
+        <div className="space-y-2">
+          <Label>Applies To</Label>
+          <Select value={target} onValueChange={(v) => setTarget(v as CreateDiscountPayload['target'])}>
+            <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All</SelectItem>
+              <SelectItem value="base">Base</SelectItem>
+              <SelectItem value="lot">Lot</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-2">
+          <Label>Kind</Label>
+          <Select value={kind} onValueChange={(v) => setKind(v as CreateDiscountPayload['kind'])}>
+            <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="percent_bps">Percent</SelectItem>
+              <SelectItem value="fixed_minor">Fixed</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+      <div className="space-y-2">
+        <Label>{kind === 'percent_bps' ? 'Value (basis points, e.g. 500 = 5%)' : 'Value (minor units, e.g. kobo)'}</Label>
+        <Input type="number" min={1} value={value} onChange={(e) => setValue(e.target.value)} required />
+      </div>
+      <div className="space-y-2">
+        <Label>Starts At</Label>
+        <Input type="date" value={startsAt} onChange={(e) => setStartsAt(e.target.value)} required />
+      </div>
+      <Button type="submit" size="sm" disabled={saving}>
+        {saving ? 'Creating...' : 'Apply Discount'}
+      </Button>
+    </form>
+  )
+}
+
+function RefundForm({
+  transaction,
+  saving,
+  onSubmit,
+}: {
+  transaction: Transaction
+  saving: boolean
+  onSubmit: (payload: { amount: number; reason: string }) => void
+}) {
+  const [amount, setAmount] = useState('')
+  const [reason, setReason] = useState('')
+
+  return (
+    <form
+      className="space-y-3 rounded-lg border bg-muted/20 p-3"
+      onSubmit={(event) => {
+        event.preventDefault()
+        onSubmit({ amount: Number(amount), reason })
+      }}
+    >
+      <p className="text-xs text-muted-foreground">Refund transaction {transaction.reference} (max {transaction.amount}).</p>
+      <div className="grid grid-cols-2 gap-2">
+        <Input type="number" min={0.01} max={transaction.amount} step="0.01" placeholder="Amount (₦)" value={amount} onChange={(e) => setAmount(e.target.value)} required />
+        <Input placeholder="Reason" value={reason} onChange={(e) => setReason(e.target.value)} required />
+      </div>
+      <Button type="submit" size="sm" variant="destructive" disabled={saving}>
+        {saving ? 'Refunding...' : 'Issue Refund'}
+      </Button>
+    </form>
+  )
+}
+
 // ─── Detail drawer ────────────────────────────────────────────────────────────
 
 function SubscriberDetail({ subscription }: { subscription: Subscription }) {
@@ -536,6 +671,45 @@ function SubscriberDetail({ subscription }: { subscription: Subscription }) {
       toast.success('Renewal retry initiated')
     },
     onError: () => toast.error('Renewal retry failed'),
+  })
+
+  const [showCreditNote, setShowCreditNote] = useState(false)
+  const [showDiscount, setShowDiscount] = useState(false)
+
+  const creditNoteMutation = useMutation({
+    mutationFn: (payload: { amount: number; reason: string; reference?: string }) =>
+      issueCreditNote(organizationId!, payload),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['organization-billing-history', organizationId] })
+      toast.success('Credit note issued')
+      setShowCreditNote(false)
+    },
+    onError: () => toast.error('Credit note failed'),
+  })
+
+  const discountMutation = useMutation({
+    mutationFn: (payload: CreateDiscountPayload) => createDiscount(organizationId!, payload),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['organization-billing-history', organizationId] })
+      toast.success('Discount applied')
+      setShowDiscount(false)
+    },
+    onError: () => toast.error('Discount creation failed'),
+  })
+
+  const canManageMoney = usePermission('admin.billing.money')
+
+  const [refundTxnId, setRefundTxnId] = useState<string | number | null>(null)
+
+  const refundMutation = useMutation({
+    mutationFn: ({ transactionId, payload }: { transactionId: string | number; payload: { amount: number; reason: string } }) =>
+      refundTransaction(transactionId, payload),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['subscription-transactions', subscription.id] })
+      toast.success('Refund initiated')
+      setRefundTxnId(null)
+    },
+    onError: () => toast.error('Refund failed'),
   })
 
   return (
@@ -593,7 +767,37 @@ function SubscriberDetail({ subscription }: { subscription: Subscription }) {
       </div>
 
       <div>
-        <p className="mb-3 text-sm font-semibold text-foreground">Billing Groups</p>
+        <div className="mb-3 flex items-center justify-between">
+          <p className="text-sm font-semibold text-foreground">Billing Groups</p>
+          {canManageMoney && (
+            <div className="flex gap-2">
+              <Button type="button" variant="outline" size="sm" onClick={() => setShowCreditNote((v) => !v)}>
+                <Gift className="mr-1.5 h-3.5 w-3.5" /> Credit Note
+              </Button>
+              <Button type="button" variant="outline" size="sm" onClick={() => setShowDiscount((v) => !v)}>
+                <Percent className="mr-1.5 h-3.5 w-3.5" /> Discount
+              </Button>
+            </div>
+          )}
+        </div>
+        {showCreditNote && (
+          <div className="mb-4 rounded-xl border p-3">
+            <CreditNoteForm
+              organizationName={sub.organization?.name}
+              saving={creditNoteMutation.isPending}
+              onSubmit={(payload) => creditNoteMutation.mutate(payload)}
+            />
+          </div>
+        )}
+        {showDiscount && (
+          <div className="mb-4 rounded-xl border p-3">
+            <DiscountForm
+              organizationName={sub.organization?.name}
+              saving={discountMutation.isPending}
+              onSubmit={(payload) => discountMutation.mutate(payload)}
+            />
+          </div>
+        )}
         {loadingHistory ? (
           <div className="space-y-2">
             {Array.from({ length: 2 }).map((_, i) => <Skeleton key={i} className="h-16 w-full rounded-lg" />)}
@@ -669,18 +873,35 @@ function SubscriberDetail({ subscription }: { subscription: Subscription }) {
         ) : (
           <ul className="divide-y divide-border rounded-xl border overflow-hidden">
             {transactions.map((tx: Transaction) => (
-              <li key={tx.id} className="flex items-center gap-2.5 px-3 py-2.5">
-                <TxStatusIcon status={tx.status} />
-                <div className="min-w-0 flex-1">
-                  <p className="truncate font-mono text-xs font-medium">{tx.reference}</p>
-                  <p className="text-[11px] text-muted-foreground capitalize">{tx.payment_method}</p>
+              <li key={tx.id} className="space-y-2 px-3 py-2.5">
+                <div className="flex items-center gap-2.5">
+                  <TxStatusIcon status={tx.status} />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-mono text-xs font-medium">{tx.reference}</p>
+                    <p className="text-[11px] text-muted-foreground capitalize">{tx.payment_method}</p>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className="text-xs font-semibold tabular-nums">{fmt(tx.amount)}</p>
+                    <p className="text-[11px] text-muted-foreground">
+                      {format(new Date(tx.created_at), 'MMM d, yyyy')}
+                    </p>
+                  </div>
+                  {canManageMoney && tx.status === 'successful' && (
+                    <Button
+                      type="button" variant="ghost" size="sm" className="h-7 shrink-0 px-2 text-xs"
+                      onClick={() => setRefundTxnId((current) => (current === tx.id ? null : tx.id))}
+                    >
+                      Refund
+                    </Button>
+                  )}
                 </div>
-                <div className="text-right shrink-0">
-                  <p className="text-xs font-semibold tabular-nums">{fmt(tx.amount)}</p>
-                  <p className="text-[11px] text-muted-foreground">
-                    {format(new Date(tx.created_at), 'MMM d, yyyy')}
-                  </p>
-                </div>
+                {refundTxnId === tx.id && (
+                  <RefundForm
+                    transaction={tx}
+                    saving={refundMutation.isPending}
+                    onSubmit={(payload) => refundMutation.mutate({ transactionId: tx.id, payload })}
+                  />
+                )}
               </li>
             ))}
           </ul>
