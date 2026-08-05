@@ -17,6 +17,9 @@ dist-ssr
 out/
 build/
 
+# TypeScript incremental build cache
+*.tsbuildinfo
+
 # Env files
 .env
 .env.local
