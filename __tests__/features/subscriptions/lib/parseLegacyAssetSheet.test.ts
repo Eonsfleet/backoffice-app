@@ -109,4 +109,39 @@ describe('parseLegacyAssetSheet', () => {
     if (res.ok) return
     expect(res.error).toMatch(/\.csv or \.xlsx/i)
   })
+
+  it('recognizes punctuation headers and maps Body Type to type + body_type', async () => {
+    const res = await parseLegacyAssetSheet(csvFile(
+      'Make,Model,Year,Registration No.,Display No.,Chassis No.,Body Type,Vehicle Type,Color,Fuel Type,Device ID,Cluster Name,Driver Email,Onboarded Date\n' +
+      'TVS,3 Wheeler,2026,MUS422QS,SUBCITY-ABJ-192,MD2A25BX5TWJ66239,Keke,Commercial,Yellow,Petrol,358657106476158,Abuja,driver@company.com,2026-03-15\n',
+    ))
+    expect(res.ok).toBe(true)
+    if (!res.ok) return
+    expect(res.rows[0].errors).toEqual([])
+    expect(res.rows[0].data).toMatchObject({
+      make: 'TVS', model: '3 Wheeler', year: 2026, registration_number: 'MUS422QS',
+      display_number: 'SUBCITY-ABJ-192', chasis_number: 'MD2A25BX5TWJ66239',
+      type: 'tricycle', body_type: 'Keke', vehicle_category: 'Commercial', color: 'Yellow', fuel_type: 'Petrol',
+      device_id: '358657106476158', cluster_name: 'Abuja', driver_email: 'driver@company.com',
+      onboarded_date: '2026-03-15',
+    })
+  })
+
+  it('flags an unrecognized Body Type and a malformed driver email', async () => {
+    const res = await parseLegacyAssetSheet(csvFile(
+      'Registration No.,Onboarded Date,Body Type,Driver Email\n' +
+      'ABC-123-XY,2020-01-15,spaceship,not-an-email\n',
+    ))
+    expect(res.ok).toBe(true)
+    if (!res.ok) return
+    expect(res.rows[0].errors.join(' ')).toMatch(/body type/i)
+    expect(res.rows[0].errors.join(' ')).toMatch(/email/i)
+  })
+
+  it('no longer requires fuel_capacity', async () => {
+    const res = await parseLegacyAssetSheet(csvFile('Registration No.,Onboarded Date\nABC-123-XY,2020-01-15\n'))
+    expect(res.ok).toBe(true)
+    if (!res.ok) return
+    expect(res.rows[0].errors).toEqual([])
+  })
 })

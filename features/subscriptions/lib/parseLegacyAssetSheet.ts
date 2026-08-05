@@ -14,9 +14,25 @@ export type ParseResult =
 
 const VEHICLE_TYPES = ['car', 'van', 'truck', 'bus', 'motorcycle', 'tricycle']
 
-const REQUIRED: Array<keyof LegacyVehicleInput> = ['onboarded_date', 'registration_number', 'fuel_capacity']
+// Free-text "Body Type" values (e.g. "Keke") → canonical VehicleTypeEnum value.
+const BODY_TYPE_MAP: Record<string, string> = {
+  keke: 'tricycle',
+  'keke napep': 'tricycle',
+  tricycle: 'tricycle',
+  okada: 'motorcycle',
+  bike: 'motorcycle',
+  motorcycle: 'motorcycle',
+  car: 'car',
+  saloon: 'car',
+  van: 'van',
+  truck: 'truck',
+  lorry: 'truck',
+  bus: 'bus',
+}
 
-// normalized header (lowercase, underscores/spaces collapsed to single space) → canonical key
+const REQUIRED: Array<keyof LegacyVehicleInput> = ['onboarded_date', 'registration_number']
+
+// normalized header (lowercase, punctuation/spaces collapsed to single space) → canonical key
 const HEADER_ALIASES: Record<string, keyof LegacyVehicleInput> = {
   'onboarded date': 'onboarded_date',
   'onboard date': 'onboarded_date',
@@ -24,6 +40,7 @@ const HEADER_ALIASES: Record<string, keyof LegacyVehicleInput> = {
   'date onboarded': 'onboarded_date',
   registration: 'registration_number',
   'registration number': 'registration_number',
+  'registration no': 'registration_number',
   'reg no': 'registration_number',
   reg: 'registration_number',
   plate: 'registration_number',
@@ -34,19 +51,29 @@ const HEADER_ALIASES: Record<string, keyof LegacyVehicleInput> = {
   make: 'make',
   model: 'model',
   type: 'type',
+  'body type': 'body_type',
+  'vehicle type': 'vehicle_category',
   color: 'color',
   colour: 'color',
   'fuel type': 'fuel_type',
   'chasis number': 'chasis_number',
   'chassis number': 'chasis_number',
+  'chasis no': 'chasis_number',
+  'chassis no': 'chasis_number',
   chasis: 'chasis_number',
   chassis: 'chasis_number',
   'display number': 'display_number',
+  'display no': 'display_number',
   year: 'year',
+  'device id': 'device_id',
+  imei: 'device_id',
+  'cluster name': 'cluster_name',
+  cluster: 'cluster_name',
+  'driver email': 'driver_email',
 }
 
 function normalizeHeader(h: string): string {
-  return h.toLowerCase().trim().replace(/[_\s]+/g, ' ')
+  return h.toLowerCase().trim().replace(/[^a-z0-9]+/g, ' ').trim()
 }
 
 function pad(n: number): string {
@@ -235,7 +262,7 @@ export async function parseLegacyAssetSheet(file: File): Promise<ParseResult> {
 
   const rows: ParsedRow[] = fieldRows.map((fields, i) => {
     const errors: string[] = []
-    const data: LegacyVehicleInput = { onboarded_date: '', registration_number: '', fuel_capacity: 0 }
+    const data: LegacyVehicleInput = { onboarded_date: '', registration_number: '' }
 
     const iso = parseDateToIso(fields.onboarded_date ?? '')
     if (!fields.onboarded_date) errors.push('onboarded_date is required')
@@ -252,12 +279,14 @@ export async function parseLegacyAssetSheet(file: File): Promise<ParseResult> {
       if ((regCounts.get(reg.toLowerCase()) ?? 0) > 1) errors.push('duplicate registration_number in file')
     }
 
+    // fuel_capacity is optional; the backend defaults it by vehicle type when omitted.
     const fcRaw = fields.fuel_capacity ?? ''
-    const fc = Number(fcRaw)
-    if (!fcRaw) errors.push('fuel_capacity is required')
-    else if (!Number.isFinite(fc)) errors.push('fuel_capacity must be a number')
-    else if (fc < 1) errors.push('fuel_capacity must be at least 1')
-    else data.fuel_capacity = fc
+    if (fcRaw) {
+      const fc = Number(fcRaw)
+      if (!Number.isFinite(fc)) errors.push('fuel_capacity must be a number')
+      else if (fc < 1) errors.push('fuel_capacity must be at least 1')
+      else data.fuel_capacity = fc
+    }
 
     for (const k of ['make', 'model'] as const) {
       const v = fields[k]
@@ -268,14 +297,27 @@ export async function parseLegacyAssetSheet(file: File): Promise<ParseResult> {
       }
     }
 
-    if (fields.type) {
+    // "Body Type" (e.g. "Keke") is stored verbatim and mapped to the canonical type enum.
+    if (fields.body_type) {
+      data.body_type = fields.body_type
+      const mapped = BODY_TYPE_MAP[fields.body_type.toLowerCase().trim()]
+      if (!mapped) errors.push(`unrecognized Body Type "${fields.body_type}"`)
+      else data.type = mapped
+    } else if (fields.type) {
       const t = fields.type.toLowerCase()
       if (!VEHICLE_TYPES.includes(t)) errors.push(`type must be one of: ${VEHICLE_TYPES.join(', ')}`)
       else data.type = t
     }
 
+    if (fields.vehicle_category) data.vehicle_category = fields.vehicle_category
     if (fields.color) data.color = fields.color
     if (fields.fuel_type) data.fuel_type = fields.fuel_type
+    if (fields.device_id) data.device_id = fields.device_id
+    if (fields.cluster_name) data.cluster_name = fields.cluster_name
+    if (fields.driver_email) {
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(fields.driver_email)) errors.push('driver_email is not a valid email')
+      else data.driver_email = fields.driver_email
+    }
 
     for (const k of ['chasis_number', 'display_number'] as const) {
       const v = fields[k]

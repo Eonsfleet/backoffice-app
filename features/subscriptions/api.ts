@@ -416,15 +416,20 @@ export interface ImportLegacyAssetsPayload {
   vehicles: Array<{
     onboarded_date: string
     registration_number: string
-    fuel_capacity: number
+    fuel_capacity?: number
     make?: string
     model?: string
     type?: string
+    body_type?: string
+    vehicle_category?: string
     color?: string
     fuel_type?: string
     chasis_number?: string
     display_number?: string
     year?: number
+    device_id?: string
+    cluster_name?: string
+    driver_email?: string
   }>
   plan_id?: string | number
   billing_cycle?: 'monthly' | 'yearly'
