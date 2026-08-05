@@ -31,7 +31,7 @@ import {
   listSubscribers, getSubscription, getSubscriptionTransactions,
   listPlans, updateSubscription, changeOrganizationPlan, extendPocSubscription,
   getOrganizationBillingHistory, retryLotRenewal, cancelSubscriptionImmediately,
-  importLegacyAssets, convertPocToProduction, revertOrganizationToPoc,
+  importLegacyAssets, validateLegacyAssets, convertPocToProduction, revertOrganizationToPoc,
   anonymizeOrganization, issueCreditNote, createDiscount, refundTransaction,
   type CreateDiscountPayload,
 } from '@/features/subscriptions/api'
@@ -306,20 +306,38 @@ function LegacyAssetUploadForm({
     setFileError(null)
     setRows(null)
     const result = await parseLegacyAssetSheet(file)
-    setParsing(false)
     if (!result.ok) {
+      setParsing(false)
       setFileError(result.error)
       return
     }
-    setRows(result.rows)
+    // Ask the server to validate the DB-dependent fields (device/driver) for the
+    // rows that already pass client-side checks, and merge those errors in.
+    try {
+      const clientValid = result.rows.filter((r) => r.errors.length === 0)
+      if (clientValid.length > 0) {
+        const res = await validateLegacyAssets(subscription.organization.id, { vehicles: clientValid.map((r) => r.data) })
+        const errorsByIndex = new Map(res.rows.map((r) => [r.index, r.errors]))
+        clientValid.forEach((row, i) => {
+          const serverErrors = errorsByIndex.get(i + 1) // server indexes are 1-based over the clientValid subset
+          if (serverErrors?.length) row.errors = [...row.errors, ...serverErrors]
+        })
+      }
+    } catch {
+      setParsing(false)
+      setFileError('Could not validate rows against the server. Please try again.')
+      return
+    }
+    setParsing(false)
+    setRows([...result.rows])
   }
 
   const validCount = rows?.filter((r) => r.errors.length === 0).length ?? 0
   const allValid = !!rows && rows.length > 0 && validCount === rows.length
 
   const downloadTemplate = () => {
-    const headers = ['onboarded_date', 'registration_number', 'fuel_capacity', 'make', 'model', 'type', 'color', 'fuel_type', 'chasis_number', 'display_number', 'year']
-    const example = ['2020-01-15', 'ABC-123-XY', '80', 'Toyota', 'Hilux', 'truck', 'White', 'diesel', 'CHS123456', 'ABC123XY', '2020']
+    const headers = ['Make', 'Model', 'Year', 'Registration No.', 'Display No.', 'Chassis No.', 'Body Type', 'Vehicle Type', 'Color', 'Fuel Type', 'Device ID (optional)', 'Cluster Name (optional)', 'Driver Email (optional)', 'Onboarded Date (optional, required for migration imports)']
+    const example = ['TVS', '3 Wheeler', '2026', 'MUS422QS', 'SUBCITY-ABJ-192', 'MD2A25BX5TWJ66239', 'Keke', 'Commercial', 'Yellow', 'Petrol', '358657106476158', 'Abuja', 'driver@company.com', '2026-03-15']
     const csv = `${headers.join(',')}\n${example.join(',')}\n`
     const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }))
     const a = document.createElement('a')
