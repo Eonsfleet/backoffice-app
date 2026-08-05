@@ -338,7 +338,9 @@ function LegacyAssetUploadForm({
   const downloadTemplate = () => {
     const headers = ['Make', 'Model', 'Year', 'Registration No.', 'Display No.', 'Chassis No.', 'Body Type', 'Vehicle Type', 'Color', 'Fuel Type', 'Device ID (optional)', 'Cluster Name (optional)', 'Driver Email (optional)', 'Onboarded Date (optional, required for migration imports)']
     const example = ['TVS', '3 Wheeler', '2026', 'MUS422QS', 'SUBCITY-ABJ-192', 'MD2A25BX5TWJ66239', 'Keke', 'Commercial', 'Yellow', 'Petrol', '358657106476158', 'Abuja', 'driver@company.com', '2026-03-15']
-    const csv = `${headers.join(',')}\n${example.join(',')}\n`
+    const csvCell = (v: string) => (/[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v)
+    const toRow = (cells: string[]) => cells.map(csvCell).join(',')
+    const csv = `${toRow(headers)}\n${toRow(example)}\n`
     const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }))
     const a = document.createElement('a')
     a.href = url

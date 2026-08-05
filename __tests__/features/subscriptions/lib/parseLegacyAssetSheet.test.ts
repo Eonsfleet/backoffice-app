@@ -138,6 +138,20 @@ describe('parseLegacyAssetSheet', () => {
     expect(res.rows[0].errors.join(' ')).toMatch(/email/i)
   })
 
+  it('recognizes template headers that carry parenthetical annotations', async () => {
+    const res = await parseLegacyAssetSheet(csvFile(
+      'Make,Model,Year,Registration No.,Display No.,Chassis No.,Body Type,Vehicle Type,Color,Fuel Type,Device ID (optional),Cluster Name (optional),Driver Email (optional),"Onboarded Date (optional, required for migration imports)"\n' +
+      'TVS,3 Wheeler,2026,MUS422QS,SUBCITY-ABJ-192,MD2A25BX5TWJ66239,Keke,Commercial,Yellow,Petrol,358657106476158,Abuja,driver@company.com,2026-03-15\n',
+    ))
+    expect(res.ok).toBe(true)
+    if (!res.ok) return
+    expect(res.rows[0].errors).toEqual([])
+    expect(res.rows[0].data).toMatchObject({
+      registration_number: 'MUS422QS', onboarded_date: '2026-03-15', type: 'tricycle',
+      device_id: '358657106476158', cluster_name: 'Abuja', driver_email: 'driver@company.com',
+    })
+  })
+
   it('no longer requires fuel_capacity', async () => {
     const res = await parseLegacyAssetSheet(csvFile('Registration No.,Onboarded Date\nABC-123-XY,2020-01-15\n'))
     expect(res.ok).toBe(true)

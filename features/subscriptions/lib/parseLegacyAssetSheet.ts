@@ -73,7 +73,9 @@ const HEADER_ALIASES: Record<string, keyof LegacyVehicleInput> = {
 }
 
 function normalizeHeader(h: string): string {
-  return h.toLowerCase().trim().replace(/[^a-z0-9]+/g, ' ').trim()
+  // Drop parenthetical annotations (e.g. "Onboarded Date (optional, required ...)")
+  // before collapsing punctuation, so annotated template headers still match aliases.
+  return h.toLowerCase().replace(/\([^)]*\)/g, ' ').replace(/[^a-z0-9]+/g, ' ').trim()
 }
 
 function pad(n: number): string {
