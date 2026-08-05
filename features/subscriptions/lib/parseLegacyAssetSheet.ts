@@ -73,9 +73,11 @@ const HEADER_ALIASES: Record<string, keyof LegacyVehicleInput> = {
 }
 
 function normalizeHeader(h: string): string {
-  // Drop parenthetical annotations (e.g. "Onboarded Date (optional, required ...)")
-  // before collapsing punctuation, so annotated template headers still match aliases.
-  return h.toLowerCase().replace(/\([^)]*\)/g, ' ').replace(/[^a-z0-9]+/g, ' ').trim()
+  // Drop everything from the first "(" onward — handles annotations like
+  // "Onboarded Date (optional, required ...)" even when an unquoted comma inside
+  // the annotation split it across CSV columns (so "Onboarded Date (optional"
+  // still matches). Then collapse remaining punctuation to spaces.
+  return h.toLowerCase().replace(/\(.*$/, ' ').replace(/[^a-z0-9]+/g, ' ').trim()
 }
 
 function pad(n: number): string {
@@ -103,8 +105,15 @@ function parseDateToIso(raw: string): string | null {
   if (!s) return null
   let m = s.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/) // ISO / YYYY-first
   if (m) return buildIso(+m[1], +m[2], +m[3])
-  m = s.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/) // day-first DD-MM-YYYY
-  if (m) return buildIso(+m[3], +m[2], +m[1])
+  m = s.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/) // M/D/YYYY or D/M/YYYY
+  if (m) {
+    const a = +m[1]
+    const b = +m[2]
+    const y = +m[3]
+    if (a > 12 && b <= 12) return buildIso(y, b, a) // day-first (a is the day)
+    if (b > 12 && a <= 12) return buildIso(y, a, b) // month-first (b is the day)
+    return buildIso(y, a, b) // ambiguous (both <= 12) → assume month-first; template recommends ISO
+  }
   return null
 }
 

@@ -152,6 +152,27 @@ describe('parseLegacyAssetSheet', () => {
     })
   })
 
+  it('handles a real Excel export: unquoted comma in annotated header, M/D/YYYY date, trailing comma', async () => {
+    const csv =
+      'Make,Model,Year,Registration No.,Display No.,Chassis No.,Body Type,Vehicle Type,Color,Fuel Type,Device ID (optional),Cluster Name (optional),Driver Email (optional),Onboarded Date (optional, required for migration imports)\n' +
+      'TVS,3 Wheeler,2026,MUS422QS,SUBCITY-ABJ-192,MD2A25BX5TWJ66239,Keke,Commercial,Yellow,Petrol,358657106476158,Abuja,driver@company.com,3/15/2026,\n'
+    const res = await parseLegacyAssetSheet(csvFile(csv))
+    expect(res.ok).toBe(true)
+    if (!res.ok) return
+    expect(res.rows[0].data.onboarded_date).toBe('2026-03-15')
+    expect(res.rows[0].data.registration_number).toBe('MUS422QS')
+    expect(res.rows[0].data.type).toBe('tricycle')
+  })
+
+  it('parses M/D/YYYY, D/M/YYYY (via >12 disambiguation), and ISO dates', async () => {
+    const res = await parseLegacyAssetSheet(csvFile(
+      'Registration No.,Onboarded Date\nAAA-111,3/15/2026\nBBB-222,15/03/2026\nCCC-333,2026-03-15\n',
+    ))
+    expect(res.ok).toBe(true)
+    if (!res.ok) return
+    expect(res.rows.map((r) => r.data.onboarded_date)).toEqual(['2026-03-15', '2026-03-15', '2026-03-15'])
+  })
+
   it('no longer requires fuel_capacity', async () => {
     const res = await parseLegacyAssetSheet(csvFile('Registration No.,Onboarded Date\nABC-123-XY,2020-01-15\n'))
     expect(res.ok).toBe(true)
