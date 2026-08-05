@@ -82,7 +82,10 @@ function resolveStatus(raw: string | null | undefined): Subscription['status'] {
 
 function normalizeSubscription(raw: RawSubscription): Subscription {
   const relOrg = raw.relationships?.organization
-  const orgId  = relOrg?.id ?? raw.attributes.organization_id ?? ''
+  // Admin billing endpoints key on the org *identifier* (a random 5–7 digit tenant
+  // key), NOT the organization primary key. attributes.organization_id is that
+  // identifier; relOrg.id is the PK. Prefer the identifier so billing actions resolve.
+  const orgId  = raw.attributes.organization_id ?? relOrg?.attributes?.identifier ?? relOrg?.id ?? ''
   const orgName = relOrg
     ? ((relOrg as { name?: string }).name ?? relOrg.attributes?.name ?? '')
     : ''
