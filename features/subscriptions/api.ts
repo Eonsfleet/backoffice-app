@@ -444,6 +444,14 @@ export const importLegacyAssets = async (
   return data.data
 }
 
+export const validateLegacyAssets = async (
+  organizationId: string | number,
+  payload: ImportLegacyAssetsPayload
+): Promise<{ rows: Array<{ index: number; errors: string[] }>; valid: boolean }> => {
+  const { data } = await api.post(`/admins/billing/organizations/${organizationId}/legacy-assets/validate`, payload)
+  return data.data
+}
+
 export const listReconciliationMismatches = async (params?: {
   status?: string
 }): Promise<PaginatedResponse<ReconciliationMismatch>> => {
