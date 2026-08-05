@@ -95,6 +95,14 @@ function toDateInput(value?: string | null) {
   return Number.isNaN(date.getTime()) ? '' : format(date, 'yyyy-MM-dd')
 }
 
+// Safely format a date; returns the fallback for null/empty/unparseable values so
+// a single bad date from the API can never crash the view with "Invalid time value".
+function safeDate(value: string | number | null | undefined, pattern: string, fallback = '—'): string {
+  if (value == null || value === '') return fallback
+  const date = new Date(value)
+  return Number.isNaN(date.getTime()) ? fallback : format(date, pattern)
+}
+
 function editableStatus(status: SubStatus): SubStatus {
   return ['expired', 'suspended', 'canceled'].includes(status) ? status : 'expired'
 }
@@ -830,13 +838,13 @@ function SubscriberDetail({ subscription }: { subscription: Subscription }) {
           <DataPoint label="Billing Cycle" value={<span className="capitalize">{sub.billing_cycle ?? '—'}</span>} />
           <DataPoint
             label="Started"
-            value={sub.started_at ? format(new Date(sub.started_at), 'MMM d, yyyy') : '—'}
+            value={safeDate(sub.started_at, 'MMM d, yyyy')}
           />
           <DataPoint
             label="Renews / Ends"
             value={(() => {
                 const d = sub.next_billing_date ?? sub.ends_at
-                return d ? format(new Date(d), 'MMM d, yyyy') : '—'
+                return safeDate(d, 'MMM d, yyyy')
               })()}
           />
           {sub.mrr != null && <DataPoint label="MRR" value={fmt(sub.mrr)} accent="text-emerald-600" />}
@@ -855,7 +863,7 @@ function SubscriberDetail({ subscription }: { subscription: Subscription }) {
           {sub.plan_change_effective_at && (
             <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-amber-900 min-[420px]:col-span-2">
               <p className="text-xs font-medium">Scheduled plan change</p>
-              <p className="text-xs">Effective {format(new Date(sub.plan_change_effective_at), 'MMM d, yyyy')}</p>
+              <p className="text-xs">Effective {safeDate(sub.plan_change_effective_at, 'MMM d, yyyy')}</p>
             </div>
           )}
         </div>
@@ -923,7 +931,7 @@ function SubscriberDetail({ subscription }: { subscription: Subscription }) {
                   </div>
                   <div>
                     <p className="text-muted-foreground">Renews</p>
-                    <p className="font-medium">{lot.next_renewal_at ? format(new Date(lot.next_renewal_at), 'MMM d') : '—'}</p>
+                    <p className="font-medium">{safeDate(lot.next_renewal_at, 'MMM d')}</p>
                   </div>
                 </div>
                 {['failed', 'suspended', 'past_due'].includes(lot.status ?? '') && (
@@ -978,7 +986,7 @@ function SubscriberDetail({ subscription }: { subscription: Subscription }) {
                   <div className="text-right shrink-0">
                     <p className="text-xs font-semibold tabular-nums">{fmt(tx.amount)}</p>
                     <p className="text-[11px] text-muted-foreground">
-                      {format(new Date(tx.created_at), 'MMM d, yyyy')}
+                      {safeDate(tx.created_at, 'MMM d, yyyy')}
                     </p>
                   </div>
                   {canManageMoney && tx.status === 'successful' && (
@@ -1216,7 +1224,7 @@ export default function SubscribersPage() {
       header: 'Started',
       cell: ({ row }) => (
         <span className="text-sm text-muted-foreground">
-          {row.original.started_at ? format(new Date(row.original.started_at), 'MMM d, yyyy') : '—'}
+          {safeDate(row.original.started_at, 'MMM d, yyyy')}
         </span>
       ),
     },
@@ -1227,7 +1235,7 @@ export default function SubscribersPage() {
         const d = row.original.next_billing_date ?? row.original.ends_at
         return (
           <span className="text-sm text-muted-foreground">
-            {d ? format(new Date(d), 'MMM d, yyyy') : '—'}
+            {safeDate(d, 'MMM d, yyyy')}
           </span>
         )
       },
