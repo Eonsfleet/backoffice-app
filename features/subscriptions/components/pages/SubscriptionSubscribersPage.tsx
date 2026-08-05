@@ -8,7 +8,7 @@ import { toast } from 'sonner'
 import {
   Users, Search, MoreHorizontal, Eye, RefreshCw, Pencil,
   CheckCircle2, XCircle, Clock, Car, CreditCard, ArrowRightLeft, Ban,
-  UploadCloud, Trash2, Gift, Percent,
+  UploadCloud, Download, Gift, Percent,
 } from 'lucide-react'
 
 import { DataTable }     from '@/components/shared/DataTable'
@@ -37,6 +37,7 @@ import {
 } from '@/features/subscriptions/api'
 import { SubscriptionWorkspace } from '@/features/subscriptions/components/SubscriptionWorkspace'
 import { usePermission } from '@/hooks/usePermission'
+import { parseLegacyAssetSheet, type ParsedRow, type LegacyVehicleInput } from '@/features/subscriptions/lib/parseLegacyAssetSheet'
 import type { SubStatus, Subscription, SubscriptionPlan, Transaction } from '@/types/api'
 
 const STATUS_OPTIONS = [
@@ -278,92 +279,166 @@ function CancelSubscriptionForm({
   )
 }
 
-type LegacyVehicleRow = { onboarded_date: string; registration_number: string; fuel_capacity: string }
-
-function LegacyAssetImportForm({
+function LegacyAssetUploadForm({
   subscription,
+  plans,
   saving,
   onSubmit,
 }: {
   subscription: Subscription
+  plans: SubscriptionPlan[]
   saving: boolean
-  onSubmit: (payload: { vehicles: LegacyVehicleRow[] }) => void
+  onSubmit: (payload: {
+    vehicles: LegacyVehicleInput[]
+    plan_id?: string | number
+    billing_cycle?: 'monthly' | 'yearly'
+  }) => void
 }) {
-  const [rows, setRows] = useState<LegacyVehicleRow[]>([
-    { onboarded_date: '', registration_number: '', fuel_capacity: '' },
-  ])
+  const [rows, setRows] = useState<ParsedRow[] | null>(null)
+  const [fileError, setFileError] = useState<string | null>(null)
+  const [parsing, setParsing] = useState(false)
+  const [planId, setPlanId] = useState('')
+  const [billingCycle, setBillingCycle] = useState('')
 
-  const updateRow = (index: number, patch: Partial<LegacyVehicleRow>) => {
-    setRows((prev) => prev.map((row, i) => (i === index ? { ...row, ...patch } : row)))
+  const handleFile = async (file?: File) => {
+    if (!file) return
+    setParsing(true)
+    setFileError(null)
+    setRows(null)
+    const result = await parseLegacyAssetSheet(file)
+    setParsing(false)
+    if (!result.ok) {
+      setFileError(result.error)
+      return
+    }
+    setRows(result.rows)
+  }
+
+  const validCount = rows?.filter((r) => r.errors.length === 0).length ?? 0
+  const allValid = !!rows && rows.length > 0 && validCount === rows.length
+
+  const downloadTemplate = () => {
+    const headers = ['onboarded_date', 'registration_number', 'fuel_capacity', 'make', 'model', 'type', 'color', 'fuel_type', 'chasis_number', 'display_number', 'year']
+    const example = ['2020-01-15', 'ABC-123-XY', '80', 'Toyota', 'Hilux', 'truck', 'White', 'diesel', 'CHS123456', 'ABC123XY', '2020']
+    const csv = `${headers.join(',')}\n${example.join(',')}\n`
+    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }))
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'legacy-assets-template.csv'
+    a.click()
+    URL.revokeObjectURL(url)
   }
 
   return (
-    <form
-      className="space-y-4 px-5"
-      onSubmit={(event) => {
-        event.preventDefault()
-        onSubmit({ vehicles: rows })
-      }}
-    >
+    <div className="space-y-4 px-5">
       <div className="rounded-lg border bg-muted/30 p-3">
         <p className="text-sm font-medium">{subscription.organization?.name ?? 'Organization'}</p>
         <p className="text-xs text-muted-foreground">
-          Onboards existing vehicles preserving their true onboarded date; billing anchors to that date&apos;s anniversary and settles immediately.
+          Upload a CSV or Excel sheet of existing vehicles. Each vehicle&apos;s onboarded date is preserved and billing anchors to its anniversary.
         </p>
       </div>
 
-      <div className="space-y-3">
-        {rows.map((row, i) => (
-          <div key={i} className="space-y-2 rounded-lg border p-3">
-            <div className="flex items-center justify-between">
-              <Label className="text-xs uppercase text-muted-foreground">Vehicle {i + 1}</Label>
-              {rows.length > 1 && (
-                <Button type="button" variant="ghost" size="sm" onClick={() => setRows((prev) => prev.filter((_, j) => j !== i))}>
-                  <Trash2 className="h-3.5 w-3.5" />
-                </Button>
-              )}
-            </div>
-            <Input
-              placeholder="Registration number"
-              value={row.registration_number}
-              onChange={(e) => updateRow(i, { registration_number: e.target.value })}
-              required
-            />
-            <div className="grid grid-cols-2 gap-2">
-              <Input
-                type="date"
-                value={row.onboarded_date}
-                onChange={(e) => updateRow(i, { onboarded_date: e.target.value })}
-                required
-              />
-              <Input
-                type="number"
-                min={1}
-                placeholder="Fuel capacity"
-                value={row.fuel_capacity}
-                onChange={(e) => updateRow(i, { fuel_capacity: e.target.value })}
-                required
-              />
-            </div>
-          </div>
-        ))}
-      </div>
-
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        onClick={() => setRows((prev) => [...prev, { onboarded_date: '', registration_number: '', fuel_capacity: '' }])}
-      >
-        <UploadCloud className="mr-2 h-3.5 w-3.5" /> Add Another Vehicle
-      </Button>
-
-      <div className="flex justify-end pt-2">
-        <Button type="submit" disabled={saving}>
-          {saving ? 'Importing...' : `Import ${rows.length} Vehicle${rows.length === 1 ? '' : 's'}`}
+      <div className="flex flex-wrap items-center gap-2">
+        <label className="inline-flex cursor-pointer items-center rounded-md border bg-background px-3 py-2 text-sm font-medium hover:bg-accent">
+          <input
+            type="file"
+            accept=".csv,.xlsx"
+            className="hidden"
+            onChange={(e) => handleFile(e.target.files?.[0])}
+          />
+          <UploadCloud className="mr-2 h-4 w-4" /> Choose file
+        </label>
+        <Button type="button" variant="ghost" size="sm" onClick={downloadTemplate}>
+          <Download className="mr-1.5 h-3.5 w-3.5" /> Download template
         </Button>
       </div>
-    </form>
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="space-y-2">
+          <Label>Plan (first migration only)</Label>
+          <Select value={planId} onValueChange={setPlanId}>
+            <SelectTrigger className="w-full"><SelectValue placeholder="Use existing subscription" /></SelectTrigger>
+            <SelectContent>
+              {plans.map((p) => (
+                <SelectItem key={p.id} value={String(p.id)}>{p.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-2">
+          <Label>Billing Cycle</Label>
+          <Select value={billingCycle} onValueChange={setBillingCycle}>
+            <SelectTrigger className="w-full"><SelectValue placeholder="Default" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="monthly">Monthly</SelectItem>
+              <SelectItem value="yearly">Yearly</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      {parsing && <p className="text-xs text-muted-foreground">Parsing file…</p>}
+      {fileError && (
+        <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-xs text-destructive">
+          {fileError}
+        </div>
+      )}
+
+      {rows && (
+        <div className="space-y-2">
+          <p className="text-xs font-medium">{validCount} of {rows.length} rows valid</p>
+          <div className="max-h-72 overflow-auto rounded-lg border">
+            <table className="w-full text-xs">
+              <thead className="sticky top-0 bg-muted">
+                <tr>
+                  <th className="px-2 py-1.5 text-left font-medium">#</th>
+                  <th className="px-2 py-1.5 text-left font-medium">Registration</th>
+                  <th className="px-2 py-1.5 text-left font-medium">Onboarded</th>
+                  <th className="px-2 py-1.5 text-left font-medium">Fuel</th>
+                  <th className="px-2 py-1.5 text-left font-medium">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r) => (
+                  <tr key={r.index} className={r.errors.length ? 'bg-destructive/5' : ''}>
+                    <td className="px-2 py-1.5 text-muted-foreground">{r.index}</td>
+                    <td className="px-2 py-1.5 font-mono">{r.data.registration_number || '—'}</td>
+                    <td className="px-2 py-1.5">{r.data.onboarded_date || '—'}</td>
+                    <td className="px-2 py-1.5 tabular-nums">{r.data.fuel_capacity || '—'}</td>
+                    <td className="px-2 py-1.5">
+                      {r.errors.length === 0 ? (
+                        <span className="inline-flex items-center gap-1 text-emerald-600">
+                          <CheckCircle2 className="h-3 w-3" /> Valid
+                        </span>
+                      ) : (
+                        <span className="text-destructive">{r.errors.join('; ')}</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      <div className="flex justify-end pt-2">
+        <Button
+          type="button"
+          disabled={!allValid || saving}
+          onClick={() =>
+            rows &&
+            onSubmit({
+              vehicles: rows.map((r) => r.data),
+              plan_id: planId || undefined,
+              billing_cycle: (billingCycle || undefined) as 'monthly' | 'yearly' | undefined,
+            })
+          }
+        >
+          {saving ? 'Importing...' : `Import ${validCount} Vehicle${validCount === 1 ? '' : 's'}`}
+        </Button>
+      </div>
+    </div>
   )
 }
 
@@ -1006,14 +1081,13 @@ export default function SubscribersPage() {
   })
 
   const legacyImportMutation = useMutation({
-    mutationFn: ({ sub, vehicles }: { sub: Subscription; vehicles: LegacyVehicleRow[] }) =>
-      importLegacyAssets(sub.organization.id, {
-        vehicles: vehicles.map((v) => ({
-          onboarded_date: v.onboarded_date,
-          registration_number: v.registration_number,
-          fuel_capacity: Number(v.fuel_capacity),
-        })),
-      }),
+    mutationFn: ({
+      sub,
+      payload,
+    }: {
+      sub: Subscription
+      payload: { vehicles: LegacyVehicleInput[]; plan_id?: string | number; billing_cycle?: 'monthly' | 'yearly' }
+    }) => importLegacyAssets(sub.organization.id, payload),
     onSuccess: (result) => {
       qc.invalidateQueries({ queryKey: ['subscribers'] })
       qc.invalidateQueries({ queryKey: ['organization-billing-history'] })
@@ -1380,16 +1454,21 @@ export default function SubscribersPage() {
         open={!!legacyImportSub}
         onOpenChange={(o) => !o && setLegacyImportSub(null)}
         title="Import Legacy Assets"
-        description={legacyImportSub ? `${legacyImportSub.organization?.name ?? 'Organization'} · onboard pre-existing vehicles` : undefined}
+        description={legacyImportSub ? `${legacyImportSub.organization?.name ?? 'Organization'} · upload a CSV or Excel sheet` : undefined}
         width="lg"
       >
         {legacyImportSub && (
-          <LegacyAssetImportForm
-            key={legacyImportSub.id}
-            subscription={legacyImportSub}
-            saving={legacyImportMutation.isPending}
-            onSubmit={({ vehicles }) => legacyImportMutation.mutate({ sub: legacyImportSub, vehicles })}
-          />
+          loadingPlans ? (
+            <div className="space-y-3 px-5"><Skeleton className="h-10 w-full" /></div>
+          ) : (
+            <LegacyAssetUploadForm
+              key={legacyImportSub.id}
+              subscription={legacyImportSub}
+              plans={plans}
+              saving={legacyImportMutation.isPending}
+              onSubmit={(payload) => legacyImportMutation.mutate({ sub: legacyImportSub, payload })}
+            />
+          )
         )}
       </SlideOver>
 
