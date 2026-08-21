@@ -1,5 +1,6 @@
 import { api } from '@/lib/api/client'
 import type { TenantUser, PaginatedResponse } from '@/types/api'
+import type { ImportStartedResponse } from '@/features/imports/api'
 
 export interface UserFilters {
   page?: number
@@ -161,7 +162,7 @@ export const downloadUserTemplate = async (): Promise<void> => {
 export const importUsers = async (
   organizationId: string | number,
   file: File
-): Promise<string> => {
+): Promise<ImportStartedResponse> => {
   const form = new FormData()
   form.append('file', file)
   form.append('model', 'User')
@@ -169,7 +170,7 @@ export const importUsers = async (
   const { data: res } = await api.post('/admin/file/import', form, {
     headers: { 'Content-Type': 'multipart/form-data' },
   })
-  return res.data?.batch_id as string
+  return res.data as ImportStartedResponse
 }
 
 // ─── Activity Log ─────────────────────────────────────────────────────────────

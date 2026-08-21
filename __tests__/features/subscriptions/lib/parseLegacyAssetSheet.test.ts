@@ -45,16 +45,25 @@ describe('parseLegacyAssetSheet', () => {
   })
 
   it('flags row-level validation problems', async () => {
-    const future = '2999-01-01'
     const res = await parseLegacyAssetSheet(csvFile(
-      `${HEADER}\n${future},ABC-123-XY,80\n2020-01-15,SHORT,80\n2020-01-15,GOOD-REG-1,0\nnot-a-date,GOOD-REG-2,5\n`,
+      `${HEADER}\n2020-01-15,SHORT,80\n2020-01-15,GOOD-REG-1,0\nnot-a-date,GOOD-REG-2,5\n`,
     ))
     expect(res.ok).toBe(true)
     if (!res.ok) return
-    expect(res.rows[0].errors.join(' ')).toMatch(/future/i)
-    expect(res.rows[1].errors.join(' ')).toMatch(/at least 6/i)
-    expect(res.rows[2].errors.join(' ')).toMatch(/at least 1/i)
-    expect(res.rows[3].errors.join(' ')).toMatch(/valid date/i)
+    expect(res.rows[0].errors.join(' ')).toMatch(/at least 6/i)
+    expect(res.rows[1].errors.join(' ')).toMatch(/at least 1/i)
+    expect(res.rows[2].errors.join(' ')).toMatch(/valid date/i)
+  })
+
+  // Fleets load vehicles ahead of the date they go live, so a future onboarded
+  // date must parse cleanly rather than being flagged.
+  it('accepts a future onboarded date', async () => {
+    const future = '2999-01-01'
+    const res = await parseLegacyAssetSheet(csvFile(`${HEADER}\n${future},ABC-123-XY,80\n`))
+    expect(res.ok).toBe(true)
+    if (!res.ok) return
+    expect(res.rows[0].errors).toEqual([])
+    expect(res.rows[0].data.onboarded_date).toBe(future)
   })
 
   it('flags duplicate registration numbers within the file', async () => {

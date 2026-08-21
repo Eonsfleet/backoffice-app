@@ -3,12 +3,14 @@
 import { useRef, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { Download, Upload, FileSpreadsheet } from 'lucide-react'
+import { Upload, FileSpreadsheet } from 'lucide-react'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { SearchableSelect } from '@/components/ui/searchable-select'
 import { importVehicles, downloadVehicleImportTemplate } from '@/features/vehicles/api'
 import { listOrganizations } from '@/features/organizations/api'
+import { ImportProgress } from '@/features/imports/components/ImportProgress'
+import { ImportInstructions } from '@/features/imports/components/ImportInstructions'
 
 export function VehicleImportForm({
   onSuccess,
@@ -25,6 +27,7 @@ export function VehicleImportForm({
   const [orgError, setOrgError]   = useState('')
   const [fileError, setFileError] = useState('')
   const [downloading, setDownloading] = useState(false)
+  const [importId, setImportId]   = useState<number | null>(null)
 
   const { data: orgsData } = useQuery({
     queryKey: ['orgs-dropdown'],
@@ -50,17 +53,27 @@ export function VehicleImportForm({
 
   const mutation = useMutation({
     mutationFn: () => importVehicles(file!, orgId),
-    onSuccess: () => {
-      toast.success('Import started — vehicles will appear shortly')
-      qc.invalidateQueries({ queryKey: ['vehicles'] })
-      qc.invalidateQueries({ queryKey: ['vehicle-metrics'] })
-      onSuccess()
-    },
+    // The form switches to the progress view rather than closing: the sheet is
+    // validated in full before anything is written, so the outcome — and any
+    // per-row reasons — is what the operator needs to see, not a fire-and-forget toast.
+    onSuccess: (result) => setImportId(result.data_import_id),
     onError: (err: unknown) => {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
       toast.error(msg ?? 'Import failed')
     },
   })
+
+  const handleFinished = () => {
+    qc.invalidateQueries({ queryKey: ['vehicles'] })
+    qc.invalidateQueries({ queryKey: ['vehicle-metrics'] })
+    onSuccess()
+  }
+
+  const handleReset = () => {
+    setImportId(null)
+    setFile(null)
+    if (fileInputRef.current) fileInputRef.current.value = ''
+  }
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0] ?? null
@@ -75,6 +88,19 @@ export function VehicleImportForm({
     if (!file)  { setFileError('Please select a CSV or Excel file'); valid = false }
     if (!valid) return
     mutation.mutate()
+  }
+
+  if (importId !== null) {
+    return (
+      <div className="px-5 pb-1">
+        <ImportProgress
+          importId={importId}
+          module="vehicle"
+          onDone={handleFinished}
+          onReset={handleReset}
+        />
+      </div>
+    )
   }
 
   return (
@@ -92,23 +118,11 @@ export function VehicleImportForm({
         {orgError && <p className="text-xs text-destructive">{orgError}</p>}
       </div>
 
-      {/* Template download */}
-      <div className="rounded-lg border border-dashed p-4 bg-muted/30 space-y-2">
-        <p className="text-sm font-medium">Excel Template</p>
-        <p className="text-xs text-muted-foreground">
-          Download the template, fill in your vehicle data, then upload below.
-          Columns: <span className="font-mono">Make</span>, <span className="font-mono">Model</span>,{' '}
-          <span className="font-mono">Year</span>, <span className="font-mono">Registration No.</span>,{' '}
-          <span className="font-mono">Display No.</span>, <span className="font-mono">Chassis No.</span>,{' '}
-          <span className="font-mono">Body Type</span>, <span className="font-mono">Vehicle Type</span>,{' '}
-          <span className="font-mono">Color</span>, <span className="font-mono">Fuel Type</span>,{' '}
-          <span className="font-mono">IMEI (optional)</span>, <span className="font-mono">Driver Email (optional)</span>.
-        </p>
-        <Button type="button" variant="outline" size="sm" onClick={handleDownloadTemplate} disabled={downloading}>
-          <Download className="mr-2 h-3.5 w-3.5" />
-          {downloading ? 'Downloading…' : 'Download Template'}
-        </Button>
-      </div>
+      <ImportInstructions
+        module="vehicle"
+        onDownloadTemplate={handleDownloadTemplate}
+        downloading={downloading}
+      />
 
       {/* File upload */}
       <div className="space-y-1.5">

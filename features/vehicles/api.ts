@@ -1,5 +1,6 @@
 import { api } from '@/lib/api/client'
 import type { Vehicle, VehicleLocation, PaginatedResponse } from '@/types/api'
+import type { ImportStartedResponse } from '@/features/imports/api'
 
 export interface VehicleFilters {
   page?: number
@@ -333,7 +334,7 @@ export const exportVehicles = async (filters?: VehicleFilters): Promise<void> =>
 export const importVehicles = async (
   file: File,
   organizationId: string | number
-): Promise<{ batch_id: string }> => {
+): Promise<ImportStartedResponse> => {
   const form = new FormData()
   form.append('file', file)
   form.append('model', 'Vehicle')

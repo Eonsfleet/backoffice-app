@@ -88,11 +88,6 @@ function formatUtcDate(d: Date): string {
   return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}`
 }
 
-function todayIso(): string {
-  const d = new Date()
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
-}
-
 function buildIso(y: number, mo: number, d: number): string | null {
   if (mo < 1 || mo > 12 || d < 1 || d > 31) return null
   const dt = new Date(Date.UTC(y, mo - 1, d))
@@ -275,10 +270,11 @@ export async function parseLegacyAssetSheet(file: File): Promise<ParseResult> {
     const errors: string[] = []
     const data: LegacyVehicleInput = { onboarded_date: '', registration_number: '' }
 
+    // Future dates are accepted: fleets load vehicles ahead of the date they go
+    // live, and billing anchors on whatever date the sheet gives.
     const iso = parseDateToIso(fields.onboarded_date ?? '')
     if (!fields.onboarded_date) errors.push('onboarded_date is required')
     else if (!iso) errors.push('onboarded_date is not a valid date (use YYYY-MM-DD)')
-    else if (iso > todayIso()) errors.push('onboarded_date cannot be in the future')
     else data.onboarded_date = iso
 
     const reg = fields.registration_number ?? ''

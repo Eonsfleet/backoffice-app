@@ -8,7 +8,7 @@ import { format, formatDistanceToNow } from 'date-fns'
 import {
   Users, Search, MoreHorizontal, Eye, Pencil, Trash2,
   UserCheck, UserX, TrendingUp, Plus, ShieldCheck,
-  KeyRound, UserCog, Download, Upload, FileDown,
+  KeyRound, UserCog, Download, Upload,
 } from 'lucide-react'
 
 import { PageHeader }   from '@/components/shared/PageHeader'
@@ -43,6 +43,8 @@ import { listOrganizations } from '@/features/organizations/api'
 import { UserCreateForm } from '@/features/users/components/UserCreateForm'
 import { UserEditForm }   from '@/features/users/components/UserEditForm'
 import { UserDetail }     from '@/features/users/components/UserDetail'
+import { ImportProgress } from '@/features/imports/components/ImportProgress'
+import { ImportInstructions } from '@/features/imports/components/ImportInstructions'
 
 import {
   listAdminUsers, createAdminUser, updateAdminUser,
@@ -102,6 +104,7 @@ function TenantUsersTab() {
   const [importOrgId, setImportOrgId]     = useState('')
   const [importFile, setImportFile]       = useState<File | null>(null)
   const [importLoading, setImportLoading] = useState(false)
+  const [importId, setImportId]           = useState<number | null>(null)
 
   const handleExport = async () => {
     setExportLoading(true)
@@ -123,11 +126,10 @@ function TenantUsersTab() {
     if (!importOrgId || !importFile) return
     setImportLoading(true)
     try {
-      await importUsers(importOrgId, importFile)
-      toast.success('Import started. Users will be created in the background.')
-      setImportOpen(false)
-      setImportFile(null)
-      setImportOrgId('')
+      // Keep the dialog open on the progress view: the sheet is validated in full
+      // before anything is written, so the outcome and any per-row reasons matter.
+      const started = await importUsers(importOrgId, importFile)
+      setImportId(started.data_import_id)
     } catch {
       toast.error('Import failed. Please check the file and try again.')
     } finally {
@@ -431,9 +433,26 @@ function TenantUsersTab() {
       </Dialog>
 
       {/* Import */}
-      <Dialog open={importOpen} onOpenChange={(o) => { setImportOpen(o); if (!o) { setImportFile(null); setImportOrgId('') } }}>
-        <DialogContent className="max-w-sm">
+      <Dialog open={importOpen} onOpenChange={(o) => { setImportOpen(o); if (!o) { setImportFile(null); setImportOrgId(''); setImportId(null) } }}>
+        <DialogContent className="max-w-md">
           <DialogHeader><DialogTitle>Import Users</DialogTitle></DialogHeader>
+          {importId !== null ? (
+            <div className="py-2">
+              <ImportProgress
+                importId={importId}
+                module="user"
+                onDone={() => {
+                  qc.invalidateQueries({ queryKey: ['users'] })
+                  qc.invalidateQueries({ queryKey: ['user-metrics'] })
+                  setImportOpen(false)
+                  setImportFile(null)
+                  setImportOrgId('')
+                  setImportId(null)
+                }}
+                onReset={() => { setImportId(null); setImportFile(null) }}
+              />
+            </div>
+          ) : (
           <div className="space-y-4 py-2">
             <div className="space-y-1.5">
               <Label>Organization <span className="text-destructive">*</span></Label>
@@ -445,6 +464,11 @@ function TenantUsersTab() {
                 searchPlaceholder="Search organizations…"
               />
             </div>
+            <ImportInstructions
+              module="user"
+              onDownloadTemplate={downloadUserTemplate}
+              templateLabel="Download import template"
+            />
             <div className="space-y-1.5">
               <Label>File <span className="text-destructive">*</span></Label>
               <input
@@ -454,15 +478,9 @@ function TenantUsersTab() {
                 onChange={(e) => setImportFile(e.target.files?.[0] ?? null)}
               />
             </div>
-            <button
-              type="button"
-              onClick={downloadUserTemplate}
-              className="flex items-center gap-1.5 text-xs text-primary hover:underline"
-            >
-              <FileDown className="h-3.5 w-3.5" />
-              Download import template
-            </button>
           </div>
+          )}
+          {importId === null && (
           <DialogFooter>
             <Button variant="outline" onClick={() => setImportOpen(false)}>Cancel</Button>
             <Button onClick={handleImport} disabled={!importOrgId || !importFile || importLoading}>
@@ -470,6 +488,7 @@ function TenantUsersTab() {
               {importLoading ? 'Uploading…' : 'Import'}
             </Button>
           </DialogFooter>
+          )}
         </DialogContent>
       </Dialog>
     </div>

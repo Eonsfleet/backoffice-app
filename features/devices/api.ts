@@ -1,5 +1,6 @@
 import { api } from '@/lib/api/client'
 import type { Apn, Device, Hardware, PaginatedResponse } from '@/types/api'
+import type { ImportStartedResponse } from '@/features/imports/api'
 
 export interface DeviceFilters {
   page?: number
@@ -75,7 +76,7 @@ export interface DevicePayload {
 export const importDevices = async (
   file: File,
   organizationId: string | number
-): Promise<{ batch_id: string }> => {
+): Promise<ImportStartedResponse> => {
   const form = new FormData()
   form.append('file', file)
   form.append('model', 'device')
@@ -93,6 +94,15 @@ export const createDevice = async (payload: DevicePayload): Promise<Device> => {
 
 export const deactivateDevice = async (id: string | number): Promise<void> => {
   await api.post(`/admin/devices/${id}/deactivate`)
+}
+
+/**
+ * Removes the device from the fleet. The API soft-deletes it, so telemetry history
+ * that references the record is preserved and the row can be restored server-side —
+ * unlike deactivateDevice, which leaves the device listed but switched off.
+ */
+export const deleteDevice = async (id: string | number): Promise<void> => {
+  await api.delete(`/admin/devices/${id}`)
 }
 
 export interface HardwarePayload {

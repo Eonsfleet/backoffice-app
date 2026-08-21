@@ -35,7 +35,7 @@ import { Label } from '@/components/ui/label'
 import { SearchableSelect } from '@/components/ui/searchable-select'
 
 import {
-  listDevices, deactivateDevice, exportDevices,
+  listDevices, deactivateDevice, deleteDevice, exportDevices,
   listHardware, createHardware, updateHardware, deleteHardware,
   listApns, createApn, updateApn, deleteApn,
 } from '@/features/devices/api'
@@ -85,6 +85,7 @@ function DevicesTab() {
   const [createOpen, setCreateOpen]             = useState(false)
   const [importOpen, setImportOpen]             = useState(false)
   const [deactivateTarget, setDeactivateTarget] = useState<Device | null>(null)
+  const [deleteDeviceTarget, setDeleteDeviceTarget] = useState<Device | null>(null)
   const [exporting, setExporting]               = useState(false)
   const [exportOpen, setExportOpen]             = useState(false)
   const [exportOrgId, setExportOrgId]           = useState('all')
@@ -115,6 +116,20 @@ function DevicesTab() {
       setDeactivateTarget(null)
     },
     onError: () => toast.error('Failed to deactivate device'),
+  })
+
+  const deleteDeviceMutation = useMutation({
+    mutationFn: (id: string | number) => deleteDevice(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['devices'] })
+      qc.invalidateQueries({ queryKey: ['device-metrics'] })
+      toast.success('Device deleted')
+      setDeleteDeviceTarget(null)
+    },
+    onError: (err: unknown) => {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
+      toast.error(msg ?? 'Failed to delete device')
+    },
   })
 
   const handleExport = useCallback(async () => {
@@ -236,6 +251,12 @@ function DevicesTab() {
               >
                 <PowerOff className="mr-2 h-4 w-4" /> Deactivate
               </DropdownMenuItem>
+              <DropdownMenuItem
+                className="text-destructive focus:text-destructive"
+                onClick={() => setDeleteDeviceTarget(d)}
+              >
+                <Trash2 className="mr-2 h-4 w-4" /> Delete
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         )
@@ -350,6 +371,21 @@ function DevicesTab() {
           confirmLabel="Deactivate"
           variant="destructive"
           onConfirm={() => deactivateMutation.mutateAsync(deactivateTarget.id)}
+        />
+      )}
+
+      {deleteDeviceTarget && (
+        <ConfirmDialog
+          open={!!deleteDeviceTarget}
+          onOpenChange={(o) => !o && setDeleteDeviceTarget(null)}
+          title="Delete Device"
+          description={
+            `Delete device ${deleteDeviceTarget.device_id}? It will be removed from the fleet and ` +
+            'unassigned from any vehicle. Deactivate instead if you only want it to stop reporting.'
+          }
+          confirmLabel="Delete"
+          variant="destructive"
+          onConfirm={() => deleteDeviceMutation.mutateAsync(deleteDeviceTarget.id)}
         />
       )}
     </div>
