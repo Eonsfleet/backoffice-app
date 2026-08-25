@@ -9,17 +9,23 @@ import {
   Building2, Mail, Phone, MapPin, Briefcase, Calendar,
   Pencil, ShieldOff, ShieldCheck, Trash2, ArrowLeft, Loader2,
   Shield, Truck, Route, AlertTriangle, Bell, MapPinned, ChevronRight,
+  CreditCard,
 } from 'lucide-react'
 
 import { PageHeader } from '@/components/shared/PageHeader'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
+import { SlideOver } from '@/components/shared/SlideOver'
 import { OrgFormSlideOver } from '@/features/organizations/components/OrgFormSlideOver'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Separator } from '@/components/ui/separator'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select'
 import {
   getOrganization,
   suspendOrganization,
@@ -28,6 +34,7 @@ import {
   getOrgActivityLog,
   type OrgActivityEntry,
 } from '@/features/organizations/api'
+import { listPlans, changeOrganizationPlan, assignOrganizationPlan } from '@/features/subscriptions/api'
 import { OrgPerformanceTab } from '@/features/organizations/components/OrgPerformanceTab'
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
@@ -242,6 +249,155 @@ function OrgActivityTab({ identifier }: { identifier: string | number }) {
   )
 }
 
+// ─── Change plan ──────────────────────────────────────────────────────────────
+
+/**
+ * Reassign the organization's plan without going hunting for it under
+ * Subscriptions → Subscribers. Addressed by the org *identifier* and the
+ * subscription id, because that is what the admin billing endpoints key on.
+ */
+function ChangePlanPanel({
+  organizationIdentifier,
+  subscriptionId,
+  currentPlanId,
+  currentPlanName,
+  vehicleCount,
+  billingCycle,
+  onDone,
+}: {
+  organizationIdentifier: string | number
+  /** Absent when the organization has no subscription yet — assign instead of change. */
+  subscriptionId?: string | number
+  currentPlanId?: number
+  currentPlanName?: string
+  vehicleCount?: number
+  billingCycle?: 'monthly' | 'yearly'
+  onDone: () => void
+}) {
+  const qc = useQueryClient()
+  const isAssign = !subscriptionId
+  const [planId, setPlanId] = useState(String(currentPlanId ?? ''))
+  const [cycle, setCycle] = useState<'monthly' | 'yearly'>(billingCycle ?? 'monthly')
+
+  const { data: plans = [], isFetching } = useQuery({
+    queryKey: ['plans', 'org-change-plan'],
+    queryFn: listPlans,
+    staleTime: 60_000,
+  })
+
+  const mutation = useMutation({
+    mutationFn: () => isAssign
+      ? assignOrganizationPlan(organizationIdentifier, planId, cycle).then(() => undefined)
+      : changeOrganizationPlan(organizationIdentifier, subscriptionId!, planId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['organization'] })
+      qc.invalidateQueries({ queryKey: ['organizations'] })
+      qc.invalidateQueries({ queryKey: ['subscribers'] })
+      toast.success(isAssign ? 'Plan assigned — invoice issued' : 'Plan change queued')
+      onDone()
+    },
+    onError: (err) => {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
+      toast.error(msg ?? (isAssign ? 'Could not assign plan' : 'Plan change failed'))
+    },
+  })
+
+  // Asset-based billing bills every vehicle the org owns, so the backend
+  // refuses an org with none. Say so before the request rather than after.
+  const noAssets = isAssign && (vehicleCount ?? 0) === 0
+
+  if (isFetching && plans.length === 0) {
+    return (
+      <div className="space-y-3 px-5">
+        <Skeleton className="h-10 w-full" />
+        <Skeleton className="h-10 w-32" />
+      </div>
+    )
+  }
+
+  return (
+    <form
+      className="space-y-4 px-5"
+      onSubmit={(event) => { event.preventDefault(); mutation.mutate() }}
+    >
+      {isAssign ? (
+        <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 space-y-1">
+          <p className="text-sm font-medium">No subscription yet</p>
+          <p className="text-xs text-muted-foreground">
+            Assigning a plan creates a production subscription over the{' '}
+            {vehicleCount ?? 0} vehicle{(vehicleCount ?? 0) === 1 ? '' : 's'} this
+            organization owns, and issues a real invoice for them.
+          </p>
+        </div>
+      ) : (
+        <div className="rounded-lg border bg-muted/30 p-3">
+          <p className="text-xs text-muted-foreground">Current plan</p>
+          <p className="text-sm font-medium">{currentPlanName ?? '—'}</p>
+        </div>
+      )}
+
+      {noAssets && (
+        <p className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-xs text-destructive">
+          This organization has no vehicles. Asset-based billing needs at least
+          one vehicle before a plan can be assigned — add vehicles first.
+        </p>
+      )}
+
+      <div className="space-y-2">
+        <Label>{isAssign ? 'Plan' : 'Target Plan'}</Label>
+        <Select value={planId} onValueChange={setPlanId} disabled={noAssets}>
+          <SelectTrigger className="w-full"><SelectValue placeholder="Select plan" /></SelectTrigger>
+          <SelectContent>
+            {plans.map((plan) => (
+              <SelectItem key={plan.id} value={String(plan.id)}>
+                {plan.name}{!plan.is_public ? ' · hidden' : ''}{plan.has_custom_pricing ? ' · custom' : ''}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {!isAssign && (
+          <p className="text-xs text-muted-foreground">
+            An upgrade takes effect immediately; a downgrade is scheduled for the
+            end of the current billing period.
+          </p>
+        )}
+      </div>
+
+      {isAssign && (
+        <div className="space-y-2">
+          <Label>Billing Cycle</Label>
+          <Select
+            value={cycle}
+            onValueChange={(value) => setCycle(value as 'monthly' | 'yearly')}
+            disabled={noAssets}
+          >
+            <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="monthly">Monthly</SelectItem>
+              <SelectItem value="yearly">Yearly</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+
+      <Button
+        type="submit"
+        disabled={
+          mutation.isPending
+          || !planId
+          || noAssets
+          || (!isAssign && planId === String(currentPlanId ?? ''))
+        }
+      >
+        {mutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+        {mutation.isPending
+          ? (isAssign ? 'Assigning…' : 'Changing…')
+          : (isAssign ? 'Assign Plan & Invoice' : 'Change Plan')}
+      </Button>
+    </form>
+  )
+}
+
 // ─── Main view ────────────────────────────────────────────────────────────────
 
 export function OrgDetailView({ id }: { id: string }) {
@@ -251,6 +407,7 @@ export function OrgDetailView({ id }: { id: string }) {
   const [editOpen, setEditOpen]       = useState(false)
   const [suspendOpen, setSuspendOpen] = useState(false)
   const [deleteOpen, setDeleteOpen]   = useState(false)
+  const [planOpen, setPlanOpen]       = useState(false)
 
   const { data: org, isLoading } = useQuery({
     queryKey: ['organization', id],
@@ -438,6 +595,15 @@ export function OrgDetailView({ id }: { id: string }) {
                     variant="outline"
                     className="w-full justify-start"
                     size="sm"
+                    onClick={() => setPlanOpen(true)}
+                  >
+                    <CreditCard className="mr-2 h-3.5 w-3.5" />
+                    {org.current_plan?.id ? 'Change Plan' : 'Assign Plan'}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start"
+                    size="sm"
                     onClick={() => setSuspendOpen(true)}
                     disabled={suspendMutation.isPending}
                   >
@@ -483,6 +649,27 @@ export function OrgDetailView({ id }: { id: string }) {
 
       {/* Edit slide-over */}
       <OrgFormSlideOver open={editOpen} onOpenChange={setEditOpen} org={org} />
+
+      {/* Change plan slide-over */}
+      <SlideOver
+        open={planOpen}
+        onOpenChange={setPlanOpen}
+        title={org.current_plan?.id ? 'Change Plan' : 'Assign Plan'}
+        description={`${org.name} · admins may assign hidden or custom plans`}
+        width="md"
+      >
+        {planOpen && (
+          <ChangePlanPanel
+            organizationIdentifier={org.identifier ?? org.id}
+            subscriptionId={org.current_plan?.id}
+            currentPlanId={org.current_plan?.plan?.id}
+            currentPlanName={org.current_plan?.plan?.name}
+            billingCycle={org.current_plan?.billing_cycle as 'monthly' | 'yearly' | undefined}
+            vehicleCount={org.total_vehicles ?? org.vehicle_count}
+            onDone={() => setPlanOpen(false)}
+          />
+        )}
+      </SlideOver>
 
       {/* Suspend confirm */}
       <ConfirmDialog

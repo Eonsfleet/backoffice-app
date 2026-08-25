@@ -333,6 +333,27 @@ export const downloadInvoice = async (id: string | number): Promise<void> => {
   URL.revokeObjectURL(url)
 }
 
+/**
+ * First plan for an organization that has no subscription yet — the state every
+ * admin-created org was left in before provisioning bound a plan at creation.
+ * Creates a production subscription over the org's existing assets and issues a
+ * real invoice, so it refuses if a subscription already exists (use
+ * changeOrganizationPlan then) or if the org owns no vehicles.
+ *
+ * Keyed by the org *identifier*, like every other admin billing endpoint.
+ */
+export const assignOrganizationPlan = async (
+  organizationId: string | number,
+  planId: string | number,
+  billingCycle: 'monthly' | 'yearly' = 'monthly'
+): Promise<{ subscription_id: number; vehicle_count?: number; invoice_number?: string }> => {
+  const { data } = await api.post(
+    `/admins/billing/organizations/${organizationId}/assign-plan`,
+    { plan_id: planId, billing_cycle: billingCycle }
+  )
+  return data.data
+}
+
 export const changeOrganizationPlan = async (
   organizationId: string | number,
   subscriptionId: string | number,

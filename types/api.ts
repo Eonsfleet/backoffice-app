@@ -80,7 +80,11 @@ export interface Organization {
   total_vehicles?: number
   total_devices?: number
   current_plan?: {
+    /** Subscription id — what the admin change-plan endpoint is addressed by. */
+    id?: string | number
     status: string
+    subscription_type?: 'poc' | 'production' | string
+    billing_cycle?: BillingCycle
     plan: {
       id: number
       name: string

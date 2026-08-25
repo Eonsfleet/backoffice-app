@@ -74,7 +74,11 @@ export interface OrganizationPayload {
   // POC is the only billing type the backend provisions for manual org
   // creation (StoreOrganizationRequest `in:poc`, and
   // OrganizationProvisioningService::BILLING_TYPES). Anything else is a 422.
+  // The plan is still required: provisioning binds the POC subscription to it,
+  // and that subscription is what later billing actions are addressed by.
   billing_type?: 'poc'
+  plan_id?: number
+  billing_cycle?: 'monthly' | 'yearly'
   evaluation_days?: number
 }
 
