@@ -2,6 +2,54 @@ import { api } from '@/lib/api/client'
 import type { Organization, PaginatedResponse } from '@/types/api'
 import { normalizePaginated } from '@/lib/api/utils'
 
+/**
+ * OrganizationResource nests the address as its own JSON:API-style node:
+ *   relationships.address = { id, attributes: { street, city, state, country, zipcode } }
+ *
+ * Flatten it into top-level fields (and a display string) so components can
+ * render `org.address` as text and the edit form can prefill each part.
+ * The key is absent entirely when the organization has no address row.
+ */
+interface AddressNode {
+  id?: string
+  attributes?: {
+    street?: string | null
+    city?: string | null
+    state?: string | null
+    country?: string | null
+    zipcode?: string | null
+  }
+}
+
+const flattenAddress = (org: Record<string, unknown>): Organization => {
+  const node = org.address as AddressNode | string | null | undefined
+
+  // Already a plain string (or missing) — nothing to unwrap.
+  if (node == null || typeof node === 'string') return org as unknown as Organization
+
+  const a = node.attributes ?? {}
+  const line = [a.street, a.city, a.state, a.country].filter(Boolean).join(', ')
+
+  return {
+    ...(org as unknown as Organization),
+    street:  a.street  ?? undefined,
+    city:    a.city    ?? undefined,
+    state:   a.state   ?? undefined,
+    country: a.country ?? undefined,
+    zipcode: a.zipcode ?? undefined,
+    address: line || undefined,
+  }
+}
+
+/** Unwrap the `{ id, attributes, relationships }` envelope a single resource returns. */
+const unwrapOrganization = (o: Record<string, unknown> | null | undefined): Organization => {
+  if (!o) return o as unknown as Organization
+  const flat = o.attributes
+    ? { id: o.id, ...(o.attributes as object), ...((o.relationships as object) ?? {}) }
+    : o
+  return flattenAddress(flat as Record<string, unknown>)
+}
+
 export interface OrgFilters {
   page?: number
   per_page?: number
@@ -22,9 +70,11 @@ export interface OrganizationPayload {
   city?: string
   state?: string
   country?: string
-  billing_type?: 'poc' | 'trial' | 'direct_subscription'
-  plan_id?: number
-  billing_cycle?: 'monthly' | 'yearly'
+  zipcode?: string
+  // POC is the only billing type the backend provisions for manual org
+  // creation (StoreOrganizationRequest `in:poc`, and
+  // OrganizationProvisioningService::BILLING_TYPES). Anything else is a 422.
+  billing_type?: 'poc'
   evaluation_days?: number
 }
 
@@ -32,21 +82,23 @@ export const listOrganizations = async (
   params?: OrgFilters
 ): Promise<PaginatedResponse<Organization>> => {
   const { data } = await api.get('/admin/organizations', { params })
-  return normalizePaginated<Organization>(data)
+  const page = normalizePaginated<Organization>(data)
+  return {
+    ...page,
+    data: page.data.map((o) => flattenAddress(o as unknown as Record<string, unknown>)),
+  }
 }
 
 export const getOrganization = async (id: string | number): Promise<Organization> => {
   const { data } = await api.get(`/admin/organizations/${id}`)
-  const o = data.data
-  return o?.attributes ? { id: o.id, ...o.attributes, ...(o.relationships ?? {}) } : o
+  return unwrapOrganization(data.data)
 }
 
 export const createOrganization = async (
   payload: OrganizationPayload
 ): Promise<Organization> => {
   const { data } = await api.post('/admin/organizations', payload)
-  const o = data.data
-  return o?.attributes ? { id: o.id, ...o.attributes, ...(o.relationships ?? {}) } : o
+  return unwrapOrganization(data.data)
 }
 
 export const updateOrganization = async (
@@ -54,8 +106,7 @@ export const updateOrganization = async (
   payload: OrganizationPayload
 ): Promise<Organization> => {
   const { data } = await api.put(`/admin/organizations/${id}`, payload)
-  const o = data.data
-  return o?.attributes ? { id: o.id, ...o.attributes, ...(o.relationships ?? {}) } : o
+  return unwrapOrganization(data.data)
 }
 
 export const suspendOrganization = async (id: string | number): Promise<void> => {

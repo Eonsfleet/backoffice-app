@@ -58,7 +58,13 @@ export interface Organization {
   owner_email?: string
   email?: string
   phone?: string
+  /** Human-readable single line, built from the address parts below. */
   address?: string
+  street?: string
+  city?: string
+  state?: string
+  country?: string
+  zipcode?: string
   logo: string | null
   status: OrgStatus
   subscription_plan?: string | null

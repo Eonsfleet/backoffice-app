@@ -267,7 +267,10 @@ export function OrgDetailView({ id }: { id: string }) {
       toast.success(org?.status === 'suspended' ? 'Organization reactivated' : 'Organization suspended')
       setSuspendOpen(false)
     },
-    onError: () => toast.error('Action failed. Please try again.'),
+    onError: (err) => {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
+      toast.error(msg ?? 'Action failed. Please try again.')
+    },
   })
 
   const deleteMutation = useMutation({
@@ -277,7 +280,10 @@ export function OrgDetailView({ id }: { id: string }) {
       toast.success('Organization deleted')
       router.replace('/organizations')
     },
-    onError: () => toast.error('Failed to delete organization'),
+    onError: (err) => {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
+      toast.error(msg ?? 'Failed to delete organization')
+    },
   })
 
   if (isLoading) {
@@ -394,7 +400,7 @@ export function OrgDetailView({ id }: { id: string }) {
                 </CardHeader>
                 <CardContent>
                   <div className="grid gap-3 min-[420px]:grid-cols-2 sm:grid-cols-4">
-                    <StatCard label="Vehicles"      value={org.vehicle_count ?? org.fleet_size} />
+                    <StatCard label="Vehicles"      value={org.total_vehicles ?? org.vehicle_count ?? org.fleet_size} />
                     <StatCard label="Vehicle Limit" value={org.current_plan?.plan.vehicle_limit == null ? 'Unlimited' : org.current_plan?.plan.vehicle_limit} />
                   </div>
                 </CardContent>

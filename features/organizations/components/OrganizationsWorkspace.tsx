@@ -31,15 +31,18 @@ import {
 import type { Organization } from '@/types/api'
 import { DEFAULT_PAGE_SIZE } from '@/lib/constants'
 
+// Only these values filter anything server-side: `active`/`inactive`/`suspended`
+// resolve against the statuses table (OrganizationRepository → HasFilters), and
+// `expired`/`cancelled` are matched against the subscription status. Slugs like
+// trial/grace/restricted have no organization status row, so Status::getId()
+// returned null and the list came back silently empty.
 const STATUS_OPTIONS = [
-  { value: 'all',        label: 'All Statuses' },
-  { value: 'active',     label: 'Active' },
-  { value: 'trial',      label: 'Trial' },
-  { value: 'grace',      label: 'Grace' },
-  { value: 'restricted', label: 'Restricted' },
-  { value: 'suspended',  label: 'Suspended' },
-  { value: 'expired',    label: 'Expired' },
-  { value: 'inactive',   label: 'Inactive' },
+  { value: 'all',       label: 'All Statuses' },
+  { value: 'active',    label: 'Active' },
+  { value: 'inactive',  label: 'Inactive' },
+  { value: 'suspended', label: 'Suspended' },
+  { value: 'expired',   label: 'Expired' },
+  { value: 'cancelled', label: 'Cancelled' },
 ]
 
 export default function OrganizationsPage() {
@@ -77,7 +80,10 @@ export default function OrganizationsPage() {
       toast.success(org.status === 'suspended' ? 'Organization reactivated' : 'Organization suspended')
       setSuspendTarget(null)
     },
-    onError: () => toast.error('Action failed. Please try again.'),
+    onError: (err) => {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
+      toast.error(msg ?? 'Action failed. Please try again.')
+    },
   })
 
   const deleteMutation = useMutation({
@@ -87,7 +93,10 @@ export default function OrganizationsPage() {
       toast.success('Organization deleted')
       setDeleteTarget(null)
     },
-    onError: () => toast.error('Failed to delete organization'),
+    onError: (err) => {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
+      toast.error(msg ?? 'Failed to delete organization')
+    },
   })
 
   const openCreate = useCallback(() => { setEditOrg(null); setFormOpen(true) }, [])
