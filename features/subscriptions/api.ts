@@ -336,20 +336,24 @@ export const downloadInvoice = async (id: string | number): Promise<void> => {
 /**
  * First plan for an organization that has no subscription yet — the state every
  * admin-created org was left in before provisioning bound a plan at creation.
- * Creates a production subscription over the org's existing assets and issues a
- * real invoice, so it refuses if a subscription already exists (use
- * changeOrganizationPlan then) or if the org owns no vehicles.
+ *
+ * Billing is capacity-based, so what gets charged depends on what there is to
+ * charge for: an org that already owns assets is billed for those, `assetCount`
+ * buys that many slots up front, and omitting it binds the plan without
+ * charging anything. Refuses if a subscription already exists — use
+ * changeOrganizationPlan then.
  *
  * Keyed by the org *identifier*, like every other admin billing endpoint.
  */
 export const assignOrganizationPlan = async (
   organizationId: string | number,
   planId: string | number,
-  billingCycle: 'monthly' | 'yearly' = 'monthly'
+  billingCycle: 'monthly' | 'yearly' = 'monthly',
+  assetCount?: number
 ): Promise<{ subscription_id: number; vehicle_count?: number; invoice_number?: string }> => {
   const { data } = await api.post(
     `/admins/billing/organizations/${organizationId}/assign-plan`,
-    { plan_id: planId, billing_cycle: billingCycle }
+    { plan_id: planId, billing_cycle: billingCycle, asset_count: assetCount ?? 0 }
   )
   return data.data
 }

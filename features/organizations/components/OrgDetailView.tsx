@@ -19,6 +19,7 @@ import { SlideOver } from '@/components/shared/SlideOver'
 import { OrgFormSlideOver } from '@/features/organizations/components/OrgFormSlideOver'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Separator } from '@/components/ui/separator'
@@ -278,6 +279,11 @@ function ChangePlanPanel({
   const isAssign = !subscriptionId
   const [planId, setPlanId] = useState(String(currentPlanId ?? ''))
   const [cycle, setCycle] = useState<'monthly' | 'yearly'>(billingCycle ?? 'monthly')
+  // Slots to buy up front. Only meaningful when the org owns no assets yet —
+  // an org that already has vehicles is billed for exactly those.
+  const [assetCount, setAssetCount] = useState('0')
+  const hasAssets = (vehicleCount ?? 0) > 0
+  const slots = Number(assetCount) || 0
 
   const { data: plans = [], isFetching } = useQuery({
     queryKey: ['plans', 'org-change-plan'],
@@ -287,13 +293,18 @@ function ChangePlanPanel({
 
   const mutation = useMutation({
     mutationFn: () => isAssign
-      ? assignOrganizationPlan(organizationIdentifier, planId, cycle).then(() => undefined)
+      ? assignOrganizationPlan(organizationIdentifier, planId, cycle, hasAssets ? undefined : slots)
+          .then(() => undefined)
       : changeOrganizationPlan(organizationIdentifier, subscriptionId!, planId),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['organization'] })
       qc.invalidateQueries({ queryKey: ['organizations'] })
       qc.invalidateQueries({ queryKey: ['subscribers'] })
-      toast.success(isAssign ? 'Plan assigned — invoice issued' : 'Plan change queued')
+      toast.success(
+        !isAssign ? 'Plan change queued'
+          : hasAssets || slots > 0 ? 'Plan assigned — invoice issued'
+          : 'Plan assigned'
+      )
       onDone()
     },
     onError: (err) => {
@@ -302,9 +313,6 @@ function ChangePlanPanel({
     },
   })
 
-  // Asset-based billing bills every vehicle the org owns, so the backend
-  // refuses an org with none. Say so before the request rather than after.
-  const noAssets = isAssign && (vehicleCount ?? 0) === 0
 
   if (isFetching && plans.length === 0) {
     return (
@@ -324,9 +332,9 @@ function ChangePlanPanel({
         <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 space-y-1">
           <p className="text-sm font-medium">No subscription yet</p>
           <p className="text-xs text-muted-foreground">
-            Assigning a plan creates a production subscription over the{' '}
-            {vehicleCount ?? 0} vehicle{(vehicleCount ?? 0) === 1 ? '' : 's'} this
-            organization owns, and issues a real invoice for them.
+            {hasAssets
+              ? `Assigning a plan bills the ${vehicleCount} vehicle${vehicleCount === 1 ? '' : 's'} this organization already owns, and issues an invoice for them.`
+              : 'This organization has no assets onboarded. The plan and its per-asset rate are recorded now; billing happens when asset slots are purchased.'}
           </p>
         </div>
       ) : (
@@ -336,16 +344,9 @@ function ChangePlanPanel({
         </div>
       )}
 
-      {noAssets && (
-        <p className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-xs text-destructive">
-          This organization has no vehicles. Asset-based billing needs at least
-          one vehicle before a plan can be assigned — add vehicles first.
-        </p>
-      )}
-
       <div className="space-y-2">
         <Label>{isAssign ? 'Plan' : 'Target Plan'}</Label>
-        <Select value={planId} onValueChange={setPlanId} disabled={noAssets}>
+        <Select value={planId} onValueChange={setPlanId}>
           <SelectTrigger className="w-full"><SelectValue placeholder="Select plan" /></SelectTrigger>
           <SelectContent>
             {plans.map((plan) => (
@@ -369,7 +370,6 @@ function ChangePlanPanel({
           <Select
             value={cycle}
             onValueChange={(value) => setCycle(value as 'monthly' | 'yearly')}
-            disabled={noAssets}
           >
             <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
             <SelectContent>
@@ -380,19 +380,37 @@ function ChangePlanPanel({
         </div>
       )}
 
+      {isAssign && !hasAssets && (
+        <div className="space-y-2">
+          <Label>Asset Slots to Purchase</Label>
+          <Input
+            type="number"
+            min={0}
+            value={assetCount}
+            onChange={(event) => setAssetCount(event.target.value)}
+          />
+          <p className="text-xs text-muted-foreground">
+            {slots > 0
+              ? `Buys ${slots} asset slot${slots === 1 ? '' : 's'} now at the plan's rate and issues an invoice. The organization can then onboard up to ${slots} vehicle${slots === 1 ? '' : 's'}.`
+              : 'Leave at 0 to assign the plan without charging anything. Capacity has to be purchased before the first vehicle can be onboarded.'}
+          </p>
+        </div>
+      )}
+
       <Button
         type="submit"
         disabled={
           mutation.isPending
           || !planId
-          || noAssets
           || (!isAssign && planId === String(currentPlanId ?? ''))
         }
       >
         {mutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
         {mutation.isPending
           ? (isAssign ? 'Assigning…' : 'Changing…')
-          : (isAssign ? 'Assign Plan & Invoice' : 'Change Plan')}
+          : !isAssign ? 'Change Plan'
+          : hasAssets || slots > 0 ? 'Assign Plan & Invoice'
+          : 'Assign Plan'}
       </Button>
     </form>
   )
