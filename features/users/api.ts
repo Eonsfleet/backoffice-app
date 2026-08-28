@@ -23,7 +23,7 @@ type RawUser = {
     phone_number?: string
     avatar?: string | null
     status?: string
-    role?: string | unknown[]
+    role?: unknown
     last_login?: string | null
     joined_date?: string
     email_verified_at?: string | null
@@ -44,7 +44,9 @@ function normalizeUser(raw: RawUser): TenantUser {
     ? { id: raw.relationships.organization.id, name: raw.relationships.organization.attributes.name }
     : null
 
-  const role = Array.isArray(a.role) ? undefined : (a.role as string | undefined)
+  // Anything other than a string is dropped: `role` is rendered straight into
+  // JSX, so a stray array/object from the API would crash the whole dashboard.
+  const role = typeof a.role === 'string' ? a.role : undefined
 
   return {
     id:               raw.id,
