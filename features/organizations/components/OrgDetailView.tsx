@@ -1,4 +1,9 @@
 'use client'
+import { usePermission } from '@/hooks/usePermission'
+import { useAuthStore } from '@/stores/auth.store'
+import { QueryError } from '@/components/shared/QueryError'
+import { OrgRelations } from './OrgRelations'
+
 
 import { useState, useEffect, useRef } from 'react'
 import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -419,6 +424,13 @@ function ChangePlanPanel({
 // ─── Main view ────────────────────────────────────────────────────────────────
 
 export function OrgDetailView({ id }: { id: string }) {
+  const superAdmin = useAuthStore(s => s.user?.role === 'super_admin')
+  const canManage = usePermission('admin.organizations.manage')
+  const canSuspend = usePermission('admin.organizations.suspend')
+  const canDelete = usePermission('admin.organizations.delete')
+  const canBill = usePermission('admin.billing.money')
+  const canAudit = usePermission('admin.audit.view')
+  const canDevices = usePermission('admin.devices.view')
   const router = useRouter()
   const qc = useQueryClient()
 
@@ -427,7 +439,7 @@ export function OrgDetailView({ id }: { id: string }) {
   const [deleteOpen, setDeleteOpen]   = useState(false)
   const [planOpen, setPlanOpen]       = useState(false)
 
-  const { data: org, isLoading } = useQuery({
+  const { data: org, isLoading, error, refetch } = useQuery({
     queryKey: ['organization', id],
     queryFn: () => getOrganization(id),
     staleTime: 30_000,
@@ -477,6 +489,8 @@ export function OrgDetailView({ id }: { id: string }) {
     )
   }
 
+  if (error) return <QueryError error={error} retry={() => void refetch()} label="this organization" />
+
   if (!org) {
     return (
       <div className="flex flex-col items-center justify-center gap-3 py-24 text-center">
@@ -503,16 +517,16 @@ export function OrgDetailView({ id }: { id: string }) {
           className="pb-0"
           actions={
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" onClick={() => setEditOpen(true)}>
+              <Button variant="outline" size="sm" disabled={!canManage} onClick={() => setEditOpen(true)}>
                 <Pencil className="mr-1.5 h-3.5 w-3.5" /> Edit
               </Button>
-              <Button variant="outline" size="sm" onClick={() => setSuspendOpen(true)}>
+              <Button variant="outline" size="sm" disabled={!canSuspend} onClick={() => setSuspendOpen(true)}>
                 {isSuspended
                   ? <><ShieldCheck className="mr-1.5 h-3.5 w-3.5" /> Reactivate</>
                   : <><ShieldOff className="mr-1.5 h-3.5 w-3.5" /> Suspend</>
                 }
               </Button>
-              <Button variant="destructive" size="sm" onClick={() => setDeleteOpen(true)}>
+              <Button variant="destructive" size="sm" disabled={!canDelete} onClick={() => setDeleteOpen(true)}>
                 <Trash2 className="mr-1.5 h-3.5 w-3.5" /> Delete
               </Button>
             </div>
@@ -522,10 +536,13 @@ export function OrgDetailView({ id }: { id: string }) {
 
       {/* Tabs */}
       <Tabs defaultValue="overview">
-        <TabsList>
+        <TabsList className="max-w-full flex-wrap h-auto">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="performance">Performance</TabsTrigger>
-          <TabsTrigger value="activity">Activity</TabsTrigger>
+          {canAudit && <TabsTrigger value="activity">Audit activity</TabsTrigger>}
+          {superAdmin && <TabsTrigger value="users">Users</TabsTrigger>}
+          {superAdmin && <TabsTrigger value="vehicles">Vehicles</TabsTrigger>}
+          {canDevices && <TabsTrigger value="devices">Devices</TabsTrigger>}
         </TabsList>
 
         {/* ── Overview ── */}
@@ -576,7 +593,7 @@ export function OrgDetailView({ id }: { id: string }) {
                 <CardContent>
                   <div className="grid gap-3 min-[420px]:grid-cols-2 sm:grid-cols-4">
                     <StatCard label="Vehicles"      value={org.total_vehicles ?? org.vehicle_count ?? org.fleet_size} />
-                    <StatCard label="Vehicle Limit" value={org.current_plan?.plan.vehicle_limit == null ? 'Unlimited' : org.current_plan?.plan.vehicle_limit} />
+                    <StatCard label="Vehicle Limit" value={!org.current_plan?.plan ? 'Unavailable' : org.current_plan.plan.vehicle_limit === null ? 'Unlimited' : org.current_plan.plan.vehicle_limit} />
                   </div>
                 </CardContent>
               </Card>
@@ -606,14 +623,14 @@ export function OrgDetailView({ id }: { id: string }) {
                   <CardTitle className="text-sm text-muted-foreground uppercase tracking-wide">Quick Actions</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-2">
-                  <Button variant="outline" className="w-full justify-start" size="sm" onClick={() => setEditOpen(true)}>
+                  <Button variant="outline" className="w-full justify-start" size="sm" disabled={!canManage} onClick={() => setEditOpen(true)}>
                     <Pencil className="mr-2 h-3.5 w-3.5" /> Edit Profile
                   </Button>
                   <Button
                     variant="outline"
                     className="w-full justify-start"
                     size="sm"
-                    onClick={() => setPlanOpen(true)}
+                    disabled={!canBill} onClick={() => setPlanOpen(true)}
                   >
                     <CreditCard className="mr-2 h-3.5 w-3.5" />
                     {org.current_plan?.id ? 'Change Plan' : 'Assign Plan'}
@@ -623,7 +640,7 @@ export function OrgDetailView({ id }: { id: string }) {
                     className="w-full justify-start"
                     size="sm"
                     onClick={() => setSuspendOpen(true)}
-                    disabled={suspendMutation.isPending}
+                    disabled={!canSuspend || suspendMutation.isPending}
                   >
                     {suspendMutation.isPending
                       ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
@@ -637,7 +654,7 @@ export function OrgDetailView({ id }: { id: string }) {
                     variant="outline"
                     className="w-full justify-start text-destructive hover:text-destructive"
                     size="sm"
-                    onClick={() => setDeleteOpen(true)}
+                    disabled={!canDelete} onClick={() => setDeleteOpen(true)}
                   >
                     <Trash2 className="mr-2 h-3.5 w-3.5" /> Delete Organization
                   </Button>
@@ -653,7 +670,7 @@ export function OrgDetailView({ id }: { id: string }) {
         </TabsContent>
 
         {/* ── Activity ── */}
-        <TabsContent value="activity" className="mt-4">
+        {canAudit && <TabsContent value="activity" className="mt-4">
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-base">Activity Log</CardTitle>
@@ -662,21 +679,24 @@ export function OrgDetailView({ id }: { id: string }) {
               <OrgActivityTab identifier={org.identifier ?? org.slug ?? id} />
             </CardContent>
           </Card>
-        </TabsContent>
-      </Tabs>
+        </TabsContent>}
+        {superAdmin && <TabsContent value="users" className="mt-4"><OrgRelations organizationId={org.id} kind="users" /></TabsContent>}
+        {superAdmin && <TabsContent value="vehicles" className="mt-4"><OrgRelations organizationId={org.id} kind="vehicles" /></TabsContent>}
+        {canDevices && <TabsContent value="devices" className="mt-4"><OrgRelations organizationId={org.id} kind="devices" /></TabsContent>}
+        </Tabs>
 
       {/* Edit slide-over */}
-      <OrgFormSlideOver open={editOpen} onOpenChange={setEditOpen} org={org} />
+      <OrgFormSlideOver open={canManage && editOpen} onOpenChange={setEditOpen} org={org} />
 
       {/* Change plan slide-over */}
       <SlideOver
-        open={planOpen}
+        open={canBill && planOpen}
         onOpenChange={setPlanOpen}
         title={org.current_plan?.id ? 'Change Plan' : 'Assign Plan'}
         description={`${org.name} · admins may assign hidden or custom plans`}
         width="md"
       >
-        {planOpen && (
+        {canBill && planOpen && (
           <ChangePlanPanel
             organizationIdentifier={org.identifier ?? org.id}
             subscriptionId={org.current_plan?.id}
@@ -691,7 +711,7 @@ export function OrgDetailView({ id }: { id: string }) {
 
       {/* Suspend confirm */}
       <ConfirmDialog
-        open={suspendOpen}
+        open={canSuspend && suspendOpen}
         onOpenChange={setSuspendOpen}
         title={isSuspended ? 'Reactivate Organization' : 'Suspend Organization'}
         description={
@@ -706,7 +726,7 @@ export function OrgDetailView({ id }: { id: string }) {
 
       {/* Delete confirm */}
       <ConfirmDialog
-        open={deleteOpen}
+        open={canDelete && deleteOpen}
         onOpenChange={setDeleteOpen}
         title="Delete Organization"
         description={`Permanently delete "${org.name}"? This cannot be undone.`}

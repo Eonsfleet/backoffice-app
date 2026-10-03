@@ -1,19 +1,25 @@
 import { api } from '@/lib/api/client'
 import type { DashboardMetrics, Organization } from '@/types/api'
 
+function count(value: unknown): number | undefined {
+  if (typeof value === 'number') return Number.isFinite(value) && value >= 0 ? value : undefined
+  if (value && typeof value === 'object') { const node = value as { count?: unknown; total?: unknown }; return count(node.count ?? node.total) }
+  return undefined
+}
+
 export const getDashboardMetrics = async (): Promise<DashboardMetrics> => {
   const { data } = await api.get('/admin/dashboard-metrics')
   const d = data.data ?? {}
   // API returns nested { total_organization: { count: N }, ... }
   return {
-    total_organizations:  d.total_organization?.count  ?? d.total_organizations  ?? 0,
-    total_vehicles:       d.total_vehicle?.count        ?? d.total_vehicles       ?? 0,
-    total_users:          d.total_user?.count            ?? d.total_users          ?? 0,
-    total_devices:        d.total_device?.count          ?? d.total_devices        ?? 0,
-    active_subscriptions: d.active_subscriptions ?? 0,
-    revenue_this_month:   d.revenue_this_month   ?? 0,
-    online_devices:       d.online_devices       ?? 0,
-    organizations_growth: d.organizations_growth ?? undefined,
+    total_organizations: count(d.total_organization ?? d.total_organizations),
+    total_vehicles: count(d.total_vehicle ?? d.total_vehicles),
+    total_users: count(d.total_user ?? d.total_users),
+    total_devices: count(d.total_device ?? d.total_devices),
+    active_subscriptions: count(d.active_subscriptions),
+    revenue_this_month: count(d.revenue_this_month),
+    online_devices: count(d.online_devices),
+    organizations_growth: typeof d.organizations_growth === 'number' && Number.isFinite(d.organizations_growth) ? d.organizations_growth : undefined,
   }
 }
 
@@ -23,9 +29,9 @@ export type OrgPerformanceEntry = {
 }
 
 export type SubscriptionMetrics = {
-  total_subscriptions:   number
-  active_subscriptions:  number
-  expired_subscriptions: number
+  total_subscriptions?: number
+  active_subscriptions?: number
+  expired_subscriptions?: number
 }
 
 export const getDashboardOrganizations = async (): Promise<Organization[]> => {
@@ -44,30 +50,27 @@ export const getDashboardOrganizations = async (): Promise<Organization[]> => {
 }
 
 export type DeviceStatusBreakdown = {
-  online: number
-  offline: number
-  unassigned: number
+  online?: number
+  offline?: number
+  unassigned?: number
 }
 
 export const getDashboardDevices = async (): Promise<DeviceStatusBreakdown> => {
   const { data } = await api.get('/admin/dashboard-device-metrics')
   const d = data.data ?? data
-  const pick = (v: unknown): number => {
-    if (typeof v === 'number') return v
-    if (v && typeof v === 'object' && 'count' in v) return (v as { count: number }).count ?? 0
-    if (v && typeof v === 'object' && 'total' in v) return (v as { total: number }).total ?? 0
-    return 0
-  }
+
   return {
-    online:     pick(d.online),
-    offline:    pick(d.offline),
-    unassigned: pick(d.unassigned) || pick(d.disconnected),
+    online:     count(d.online),
+    offline:    count(d.offline),
+    // disconnected counts vehicles without a device, not unassigned hardware.
+    unassigned: count(d.unassigned),
   }
 }
 
 export const getSubscriptionMetrics = async (): Promise<SubscriptionMetrics> => {
   const { data } = await api.get('/admin/dashboard-subscription-metrics')
-  return data.data
+  const d = data.data ?? {}
+  return { total_subscriptions: count(d.total_subscriptions), active_subscriptions: count(d.active_subscriptions), expired_subscriptions: count(d.expired_subscriptions) }
 }
 
 export const getOrgPerformance = async (): Promise<OrgPerformanceEntry[]> => {

@@ -1,4 +1,5 @@
 'use client'
+import { useAuthStore } from '@/stores/auth.store'
 
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -51,6 +52,7 @@ function StatusIcon({ status }: { status: Device['status'] }) {
 }
 
 export function DeviceDetailView({ id }: { id: string }) {
+  const canManage = useAuthStore(s => s.user?.role === 'super_admin')
   const router = useRouter()
   const qc = useQueryClient()
   const [deactivateOpen, setDeactivateOpen] = useState(false)
@@ -113,7 +115,7 @@ export function DeviceDetailView({ id }: { id: string }) {
               variant="destructive"
               size="sm"
               onClick={() => setDeactivateOpen(true)}
-              disabled={deactivateMutation.isPending}
+              disabled={!canManage || deactivateMutation.isPending}
             >
               {deactivateMutation.isPending
                 ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
@@ -240,7 +242,7 @@ export function DeviceDetailView({ id }: { id: string }) {
                 variant="outline"
                 className="w-full justify-start text-destructive hover:text-destructive"
                 size="sm"
-                onClick={() => setDeactivateOpen(true)}
+                disabled={!canManage} onClick={() => setDeactivateOpen(true)}
               >
                 <PowerOff className="mr-2 h-3.5 w-3.5" /> Deactivate Device
               </Button>
@@ -250,7 +252,7 @@ export function DeviceDetailView({ id }: { id: string }) {
       </div>
 
       <ConfirmDialog
-        open={deactivateOpen}
+        open={canManage && deactivateOpen}
         onOpenChange={setDeactivateOpen}
         title="Deactivate Device"
         description={`Deactivate device ${device.device_id}? It will stop reporting data until reactivated.`}

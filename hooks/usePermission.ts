@@ -1,6 +1,7 @@
 'use client'
 
 import { useAuthStore } from '@/stores/auth.store'
+import type { AdminUser } from '@/types/api'
 
 /**
  * Permission strings used throughout the app (aligned with docs/backoffice-build-prompt.md).
@@ -41,6 +42,10 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
 // Superadmin bypasses all permission checks.
 export function usePermission(permission: string): boolean {
   const user = useAuthStore((s) => s.user)
+  return hasPermission(user, permission)
+}
+
+export function hasPermission(user: AdminUser | null, permission: string): boolean {
   if (!user) return false
   if (user.role === 'super_admin') return true
   if (user.permissions?.includes(permission)) return true

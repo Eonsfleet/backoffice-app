@@ -6,6 +6,7 @@ import { ThemeProvider } from 'next-themes'
 import { Toaster } from 'sonner'
 import { getAuthCookie, getAdminProfile } from '@/features/auth/api'
 import { useAuthStore } from '@/stores/auth.store'
+import { useUIStore } from '@/stores/ui.store'
 
 function makeQueryClient() {
   return new QueryClient({
@@ -37,8 +38,9 @@ function AuthBootstrap({ children }: { children: React.ReactNode }) {
         .then((user) => setAuth(token, user))
         .catch(() => clearAuth())
         .finally(() => setBootstrapped())
+    } else {
+      setBootstrapped()
     }
-    // No token — nothing to bootstrap, isBootstrapping is already false.
   }, [setAuth, clearAuth, setBootstrapped])
 
   return <>{children}</>
@@ -47,6 +49,7 @@ function AuthBootstrap({ children }: { children: React.ReactNode }) {
 export function Providers({ children }: { children: React.ReactNode }) {
   // useState ensures each browser session gets its own QueryClient instance
   const [queryClient] = useState(() => makeQueryClient())
+  useEffect(() => { void useUIStore.persist.rehydrate() }, [])
 
   return (
     <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>

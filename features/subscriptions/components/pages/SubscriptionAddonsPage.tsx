@@ -1,4 +1,6 @@
 'use client'
+import { usePermission } from '@/hooks/usePermission'
+import { QueryError } from '@/components/shared/QueryError'
 
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -90,12 +92,13 @@ function AddonForm({ addon, onSubmit, isPending, onCancel }: {
 }
 
 export default function AddonsPage() {
+  const canManage = usePermission('admin.billing.manage_catalog')
   const qc = useQueryClient()
   const [formOpen, setFormOpen]         = useState(false)
   const [editAddon, setEditAddon]       = useState<Addon | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<Addon | null>(null)
 
-  const { data: addons, isLoading } = useQuery({
+  const { data: addons, isLoading, error, refetch } = useQuery({
     queryKey: ['addons'],
     queryFn: listAddons,
     staleTime: 60_000,
@@ -125,11 +128,13 @@ export default function AddonsPage() {
   const openCreate = () => { setEditAddon(null); setFormOpen(true) }
   const openEdit   = (a: Addon) => { setEditAddon(a); setFormOpen(true) }
 
+  if (error) return <QueryError error={error} retry={() => void refetch()} label="add-ons" />
+
   return (
     <SubscriptionWorkspace
       title="Add-ons"
       description={addons ? `${addons.length} optional feature extensions` : 'Optional feature extensions for subscription packaging.'}
-      actions={<Button onClick={openCreate}><Plus className="mr-2 h-4 w-4" /> New Add-on</Button>}
+      actions={<Button disabled={!canManage} onClick={openCreate}><Plus className="mr-2 h-4 w-4" /> New Add-on</Button>}
     >
 
       {isLoading ? (
@@ -140,7 +145,7 @@ export default function AddonsPage() {
         <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-border py-20 text-center">
           <PlusCircle className="h-10 w-10 text-muted-foreground/40" />
           <p className="text-sm text-muted-foreground">No add-ons yet.</p>
-          <Button onClick={openCreate}><Plus className="mr-2 h-4 w-4" /> New Add-on</Button>
+          <Button disabled={!canManage} onClick={openCreate}><Plus className="mr-2 h-4 w-4" /> New Add-on</Button>
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -158,13 +163,13 @@ export default function AddonsPage() {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={() => openEdit(addon)}>
+                    <DropdownMenuItem disabled={!canManage} onClick={() => openEdit(addon)}>
                       <Pencil className="mr-2 h-4 w-4" /> Edit
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem
                       className="text-destructive focus:text-destructive"
-                      onClick={() => setDeleteTarget(addon)}
+                      disabled={!canManage} onClick={() => setDeleteTarget(addon)}
                     >
                       <Trash2 className="mr-2 h-4 w-4" /> Delete
                     </DropdownMenuItem>

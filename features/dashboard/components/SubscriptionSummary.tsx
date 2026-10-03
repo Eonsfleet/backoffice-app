@@ -1,5 +1,7 @@
 'use client'
 
+import { QueryError } from '@/components/shared/QueryError'
+
 import { useQuery } from '@tanstack/react-query'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -7,11 +9,13 @@ import { getSubscriptionMetrics } from '@/features/dashboard/api'
 import { CheckCircle2, XCircle, LayoutList } from 'lucide-react'
 
 export function SubscriptionSummary() {
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['dashboard-subscription-metrics'],
     queryFn: getSubscriptionMetrics,
     staleTime: 60_000,
   })
+
+  if (error) return <QueryError error={error} retry={() => void refetch()} />
 
   const metrics = [
     {

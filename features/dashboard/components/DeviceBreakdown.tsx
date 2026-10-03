@@ -1,5 +1,7 @@
 'use client'
 
+import { QueryError } from '@/components/shared/QueryError'
+
 import { useQuery } from '@tanstack/react-query'
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
@@ -7,15 +9,13 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { getDashboardDevices } from '@/features/dashboard/api'
 
 const COLORS: Record<string, string> = {
-  online:     '#10b981',
-  offline:    '#6b7280',
-  unassigned: '#3b82f6',
+  online:     'var(--status-success)',
+  offline:    'var(--status-error)',
 }
 
 const LABELS: Record<string, string> = {
   online:     'Online',
   offline:    'Offline',
-  unassigned: 'Unassigned',
 }
 
 type DeviceData = {
@@ -26,15 +26,18 @@ type DeviceData = {
 }
 
 export function DeviceBreakdown() {
-  const { data, isLoading } = useQuery<DeviceData>({
+  const { data, isLoading, error, refetch } = useQuery<DeviceData>({
     queryKey: ['dashboard-devices'],
     queryFn: getDashboardDevices,
     staleTime: 60_000,
   })
 
+  if (error) return <QueryError error={error} retry={() => void refetch()} />
+
   const chartData = data
     ? Object.entries(data)
-        .filter(([, v]) => typeof v === 'number')
+        // Assignment and connectivity overlap; only connectivity belongs in this total.
+        .filter(([key, v]) => (key === 'online' || key === 'offline') && typeof v === 'number')
         .map(([key, value]) => ({
           name: LABELS[key] ?? key,
           value: value as number,
@@ -48,7 +51,7 @@ export function DeviceBreakdown() {
     <Card className="flex flex-col">
       <CardHeader>
         <CardTitle className="text-base">Device Status</CardTitle>
-        <CardDescription>Breakdown of all registered devices</CardDescription>
+        <CardDescription>Reported online and offline device counts</CardDescription>
       </CardHeader>
       <CardContent className="flex-1">
         {isLoading ? (
@@ -56,10 +59,11 @@ export function DeviceBreakdown() {
             <Skeleton className="mx-auto h-40 w-40 rounded-full" />
             <Skeleton className="h-4 w-3/4 mx-auto" />
           </div>
-        ) : chartData.length === 0 ? (
+        ) : total === 0 ? (
           <p className="text-center text-sm text-muted-foreground py-10">No device data available</p>
         ) : (
           <div>
+            <div aria-hidden="true">
             <ResponsiveContainer width="100%" height={200}>
               <PieChart>
                 <Pie
@@ -70,6 +74,7 @@ export function DeviceBreakdown() {
                   outerRadius={85}
                   paddingAngle={3}
                   dataKey="value"
+                  isAnimationActive={false}
                 >
                   {chartData.map((entry, index) => (
                     <Cell key={index} fill={entry.color} />
@@ -90,11 +95,13 @@ export function DeviceBreakdown() {
                 />
               </PieChart>
             </ResponsiveContainer>
+            </div>
             <p className="mt-1 text-center text-sm text-muted-foreground">
-              {total} total devices
+              {total.toLocaleString()} devices in returned connectivity counts
             </p>
           </div>
         )}
+        {!isLoading && <dl className="mt-4 space-y-2 border-t pt-3 text-sm">{(['online', 'offline'] as const).map(key => <div key={key} className="flex justify-between gap-3"><dt>{LABELS[key]}</dt><dd className="font-medium tabular-nums">{data?.[key]?.toLocaleString() ?? 'Unavailable'}</dd></div>)}</dl>}
       </CardContent>
     </Card>
   )

@@ -324,13 +324,13 @@ export interface AuditLogFilters {
 // ─── Dashboard ────────────────────────────────────────────────────────────────
 
 export interface DashboardMetrics {
-  total_organizations:  number
-  total_vehicles:       number
-  total_users:          number
-  total_devices:        number
-  active_subscriptions: number
+  total_organizations?:  number
+  total_vehicles?:       number
+  total_users?:          number
+  total_devices?:        number
+  active_subscriptions?: number
   online_devices?:      number
-  revenue_this_month:   number
+  revenue_this_month?:   number
   organizations_growth?: number
 }
 

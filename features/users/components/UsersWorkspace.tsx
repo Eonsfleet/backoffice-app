@@ -1,4 +1,7 @@
 'use client'
+import { useUrlListState } from '@/hooks/useUrlListState'
+import { useDebounce } from '@/hooks/useDebounce'
+
 
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -7,8 +10,8 @@ import { type ColumnDef } from '@tanstack/react-table'
 import { format, formatDistanceToNow } from 'date-fns'
 import {
   Users, Search, MoreHorizontal, Eye, Pencil, Trash2,
-  UserCheck, UserX, TrendingUp, Plus, ShieldCheck,
-  KeyRound, UserCog, Download, Upload,
+  UserCheck, UserX, TrendingUp, Plus,
+  KeyRound, Download, Upload,
 } from 'lucide-react'
 
 import { PageHeader }   from '@/components/shared/PageHeader'
@@ -21,7 +24,6 @@ import { Button }       from '@/components/ui/button'
 import { Input }        from '@/components/ui/input'
 import { Badge }        from '@/components/ui/badge'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
   DropdownMenuSeparator, DropdownMenuTrigger,
@@ -82,10 +84,11 @@ const PER_PAGE = 15
 function TenantUsersTab() {
   const qc = useQueryClient()
 
-  const [search, setSearch]   = useState('')
-  const [status, setStatus]   = useState('all')
-  const [orgFilter, setOrgFilter] = useState('all')
-  const [page, setPage]       = useState(1)
+  const urlState = useUrlListState()
+  const { search, status, page, setSearch, setStatus, setPage } = urlState
+  const debouncedSearch = useDebounce(search, 300)
+  const orgFilter = urlState.getFilter('organization')
+  const setOrgFilter = (value: string) => urlState.setFilter('organization', value)
 
   const [createOpen, setCreateOpen] = useState(false)
   const [viewUser, setViewUser]     = useState<TenantUser | null>(null)
@@ -137,10 +140,10 @@ function TenantUsersTab() {
     }
   }
 
-  const { data, isLoading, isFetching } = useQuery({
-    queryKey: ['users', { search, status, orgFilter, page }],
+  const { data, isLoading, isFetching, error, refetch } = useQuery({
+    queryKey: ['users', { search: debouncedSearch, status, orgFilter, page }],
     queryFn: () => listUsers({
-      q:               search || undefined,
+      q:               debouncedSearch || undefined,
       status:          status !== 'all' ? status : undefined,
       organization_id: orgFilter !== 'all' ? orgFilter : undefined,
       page,
@@ -342,6 +345,8 @@ function TenantUsersTab() {
       </div>
 
       <DataTable
+        error={error}
+        onRetry={() => void refetch()}
         data={data?.data ?? []}
         columns={columns}
         isLoading={isLoading}
@@ -497,19 +502,19 @@ function TenantUsersTab() {
 
 // ─── Admin Users Tab ──────────────────────────────────────────────────────────
 
-function AdminUsersTab() {
+export function AdminUsersTab() {
   const qc = useQueryClient()
 
-  const [search, setSearch]   = useState('')
-  const [page, setPage]       = useState(1)
+  const { search, page, setSearch, setPage } = useUrlListState()
+  const debouncedSearch = useDebounce(search, 300)
 
   const [formOpen, setFormOpen]             = useState(false)
   const [editUser, setEditUser]             = useState<AdminUser | null>(null)
   const [deleteTarget, setDeleteTarget]     = useState<AdminUser | null>(null)
 
-  const { data, isLoading, isFetching } = useQuery({
-    queryKey: ['admin-users', { page, search }],
-    queryFn: () => listAdminUsers({ page, per_page: PER_PAGE, q: search || undefined }),
+  const { data, isLoading, isFetching, error, refetch } = useQuery({
+    queryKey: ['admin-users', { page, search: debouncedSearch }],
+    queryFn: () => listAdminUsers({ page, per_page: PER_PAGE, q: debouncedSearch || undefined }),
     staleTime: 30_000,
   })
 
@@ -649,6 +654,8 @@ function AdminUsersTab() {
   return (
     <div className="space-y-4">
       <DataTable
+        error={error}
+        onRetry={() => void refetch()}
         data={data?.data ?? []}
         columns={columns}
         isLoading={isLoading}
@@ -694,40 +701,5 @@ function AdminUsersTab() {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function UsersPage() {
-  return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Users"
-        description="Manage tenant users and platform administrators"
-        icon={UserCog}
-      />
-
-      <Tabs defaultValue="tenant">
-        <TabsList className="w-full justify-start border-b rounded-none bg-transparent p-0 h-auto">
-          <TabsTrigger
-            value="tenant"
-            className="rounded-none border-b-2 border-transparent px-4 pb-3 pt-1 text-sm font-medium text-muted-foreground data-[state=active]:border-primary data-[state=active]:text-foreground data-[state=active]:shadow-none bg-transparent"
-          >
-            <Users className="mr-2 h-4 w-4" />
-            Tenant Users
-          </TabsTrigger>
-          <TabsTrigger
-            value="admins"
-            className="rounded-none border-b-2 border-transparent px-4 pb-3 pt-1 text-sm font-medium text-muted-foreground data-[state=active]:border-primary data-[state=active]:text-foreground data-[state=active]:shadow-none bg-transparent"
-          >
-            <ShieldCheck className="mr-2 h-4 w-4" />
-            Administrators
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="tenant" className="mt-6">
-          <TenantUsersTab />
-        </TabsContent>
-
-        <TabsContent value="admins" className="mt-6">
-          <AdminUsersTab />
-        </TabsContent>
-      </Tabs>
-    </div>
-  )
+  return <div className="space-y-6"><PageHeader title="Customer users" description="Manage people and account access within customer organizations." icon={Users} /><TenantUsersTab /></div>
 }

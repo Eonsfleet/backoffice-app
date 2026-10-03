@@ -1,3 +1,5 @@
+import { useUrlListState } from '@/hooks/useUrlListState'
+import { useDebounce } from '@/hooks/useDebounce'
 import { useCallback, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
@@ -19,10 +21,11 @@ import type { Vehicle } from '@/types/api'
 export function useVehiclesWorkspace() {
   const qc = useQueryClient()
 
-  const [search, setSearch] = useState('')
-  const [status, setStatus] = useState('all')
-  const [orgFilter, setOrgFilter] = useState('all')
-  const [page, setPage] = useState(1)
+  const urlState = useUrlListState()
+  const { search, status, page, setSearch, setStatus, setPage } = urlState
+  const debouncedSearch = useDebounce(search, 300)
+  const orgFilter = urlState.getFilter('organization')
+  const setOrgFilter = (value: string) => urlState.setFilter('organization', value)
   const perPage = DEFAULT_PAGE_SIZE
 
   const [createOpen, setCreateOpen] = useState(false)
@@ -37,9 +40,9 @@ export function useVehiclesWorkspace() {
   const [deleteTarget, setDeleteTarget] = useState<Vehicle | null>(null)
 
   const vehiclesQuery = useQuery({
-    queryKey: ['vehicles', { search, status, orgFilter, page }],
+    queryKey: ['vehicles', { search: debouncedSearch, status, orgFilter, page }],
     queryFn: () => listVehicles({
-      q: search || undefined,
+      q: debouncedSearch || undefined,
       status: status !== 'all' ? status : undefined,
       organization_id: orgFilter !== 'all' ? orgFilter : undefined,
       page,

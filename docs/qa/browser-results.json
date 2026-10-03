@@ -1,0 +1,552 @@
+{
+  "fixtureOnly": true,
+  "results": [
+    {
+      "route": "/platform-health",
+      "width": 1440,
+      "theme": "light",
+      "state": "normal",
+      "pageOverflow": false,
+      "contrast": [
+        {
+          "pair": "foreground/background",
+          "ratio": 15.03
+        },
+        {
+          "pair": "muted-foreground/card",
+          "ratio": 4.74
+        },
+        {
+          "pair": "primary-foreground/primary",
+          "ratio": 4.65
+        },
+        {
+          "pair": "status-success/status-success-surface",
+          "ratio": 6.49
+        },
+        {
+          "pair": "status-warning/status-warning-surface",
+          "ratio": 6.38
+        },
+        {
+          "pair": "status-error/status-error-surface",
+          "ratio": 6.8
+        },
+        {
+          "pair": "status-info/status-info-surface",
+          "ratio": 7.15
+        },
+        {
+          "pair": "status-neutral/status-neutral-surface",
+          "ratio": 6.92
+        }
+      ],
+      "screenshot": "platform-health-1440-light-normal.png"
+    },
+    {
+      "route": "/platform-health",
+      "width": 390,
+      "theme": "dark",
+      "state": "normal",
+      "pageOverflow": false,
+      "contrast": [
+        {
+          "pair": "foreground/background",
+          "ratio": 18.97
+        },
+        {
+          "pair": "muted-foreground/card",
+          "ratio": 6.94
+        },
+        {
+          "pair": "primary-foreground/primary",
+          "ratio": 4.65
+        },
+        {
+          "pair": "status-success/status-success-surface",
+          "ratio": 9.91
+        },
+        {
+          "pair": "status-warning/status-warning-surface",
+          "ratio": 10.46
+        },
+        {
+          "pair": "status-error/status-error-surface",
+          "ratio": 8
+        },
+        {
+          "pair": "status-info/status-info-surface",
+          "ratio": 7.92
+        },
+        {
+          "pair": "status-neutral/status-neutral-surface",
+          "ratio": 8.83
+        }
+      ],
+      "screenshot": "platform-health-390-dark-normal.png"
+    },
+    {
+      "route": "/notification-templates",
+      "width": 1440,
+      "theme": "light",
+      "state": "normal",
+      "pageOverflow": false,
+      "contrast": [
+        {
+          "pair": "foreground/background",
+          "ratio": 15.03
+        },
+        {
+          "pair": "muted-foreground/card",
+          "ratio": 4.74
+        },
+        {
+          "pair": "primary-foreground/primary",
+          "ratio": 4.65
+        },
+        {
+          "pair": "status-success/status-success-surface",
+          "ratio": 6.49
+        },
+        {
+          "pair": "status-warning/status-warning-surface",
+          "ratio": 6.38
+        },
+        {
+          "pair": "status-error/status-error-surface",
+          "ratio": 6.8
+        },
+        {
+          "pair": "status-info/status-info-surface",
+          "ratio": 7.15
+        },
+        {
+          "pair": "status-neutral/status-neutral-surface",
+          "ratio": 6.92
+        }
+      ],
+      "screenshot": "notification-templates-1440-light-normal.png"
+    },
+    {
+      "route": "/notification-templates",
+      "width": 390,
+      "theme": "light",
+      "state": "normal",
+      "pageOverflow": false,
+      "contrast": [
+        {
+          "pair": "foreground/background",
+          "ratio": 15.03
+        },
+        {
+          "pair": "muted-foreground/card",
+          "ratio": 4.74
+        },
+        {
+          "pair": "primary-foreground/primary",
+          "ratio": 4.65
+        },
+        {
+          "pair": "status-success/status-success-surface",
+          "ratio": 6.49
+        },
+        {
+          "pair": "status-warning/status-warning-surface",
+          "ratio": 6.38
+        },
+        {
+          "pair": "status-error/status-error-surface",
+          "ratio": 6.8
+        },
+        {
+          "pair": "status-info/status-info-surface",
+          "ratio": 7.15
+        },
+        {
+          "pair": "status-neutral/status-neutral-surface",
+          "ratio": 6.92
+        }
+      ],
+      "screenshot": "notification-templates-390-light-normal.png"
+    },
+    {
+      "route": "/organizations",
+      "width": 768,
+      "theme": "light",
+      "state": "normal",
+      "pageOverflow": false,
+      "contrast": [
+        {
+          "pair": "foreground/background",
+          "ratio": 15.03
+        },
+        {
+          "pair": "muted-foreground/card",
+          "ratio": 4.74
+        },
+        {
+          "pair": "primary-foreground/primary",
+          "ratio": 4.65
+        },
+        {
+          "pair": "status-success/status-success-surface",
+          "ratio": 6.49
+        },
+        {
+          "pair": "status-warning/status-warning-surface",
+          "ratio": 6.38
+        },
+        {
+          "pair": "status-error/status-error-surface",
+          "ratio": 6.8
+        },
+        {
+          "pair": "status-info/status-info-surface",
+          "ratio": 7.15
+        },
+        {
+          "pair": "status-neutral/status-neutral-surface",
+          "ratio": 6.92
+        }
+      ],
+      "screenshot": "organizations-768-light-normal.png"
+    },
+    {
+      "route": "/drivers",
+      "width": 1280,
+      "theme": "light",
+      "state": "normal",
+      "pageOverflow": false,
+      "contrast": [
+        {
+          "pair": "foreground/background",
+          "ratio": 15.03
+        },
+        {
+          "pair": "muted-foreground/card",
+          "ratio": 4.74
+        },
+        {
+          "pair": "primary-foreground/primary",
+          "ratio": 4.65
+        },
+        {
+          "pair": "status-success/status-success-surface",
+          "ratio": 6.49
+        },
+        {
+          "pair": "status-warning/status-warning-surface",
+          "ratio": 6.38
+        },
+        {
+          "pair": "status-error/status-error-surface",
+          "ratio": 6.8
+        },
+        {
+          "pair": "status-info/status-info-surface",
+          "ratio": 7.15
+        },
+        {
+          "pair": "status-neutral/status-neutral-surface",
+          "ratio": 6.92
+        }
+      ],
+      "screenshot": "drivers-1280-light-normal.png"
+    },
+    {
+      "route": "/installers",
+      "width": 390,
+      "theme": "light",
+      "state": "normal",
+      "pageOverflow": false,
+      "contrast": [
+        {
+          "pair": "foreground/background",
+          "ratio": 15.03
+        },
+        {
+          "pair": "muted-foreground/card",
+          "ratio": 4.74
+        },
+        {
+          "pair": "primary-foreground/primary",
+          "ratio": 4.65
+        },
+        {
+          "pair": "status-success/status-success-surface",
+          "ratio": 6.49
+        },
+        {
+          "pair": "status-warning/status-warning-surface",
+          "ratio": 6.38
+        },
+        {
+          "pair": "status-error/status-error-surface",
+          "ratio": 6.8
+        },
+        {
+          "pair": "status-info/status-info-surface",
+          "ratio": 7.15
+        },
+        {
+          "pair": "status-neutral/status-neutral-surface",
+          "ratio": 6.92
+        }
+      ],
+      "screenshot": "installers-390-light-normal.png"
+    },
+    {
+      "route": "/vehicles/10",
+      "width": 1440,
+      "theme": "light",
+      "state": "normal",
+      "pageOverflow": false,
+      "contrast": [
+        {
+          "pair": "foreground/background",
+          "ratio": 15.03
+        },
+        {
+          "pair": "muted-foreground/card",
+          "ratio": 4.74
+        },
+        {
+          "pair": "primary-foreground/primary",
+          "ratio": 4.65
+        },
+        {
+          "pair": "status-success/status-success-surface",
+          "ratio": 6.49
+        },
+        {
+          "pair": "status-warning/status-warning-surface",
+          "ratio": 6.38
+        },
+        {
+          "pair": "status-error/status-error-surface",
+          "ratio": 6.8
+        },
+        {
+          "pair": "status-info/status-info-surface",
+          "ratio": 7.15
+        },
+        {
+          "pair": "status-neutral/status-neutral-surface",
+          "ratio": 6.92
+        }
+      ],
+      "screenshot": "vehicles-10-1440-light-normal.png"
+    },
+    {
+      "route": "/installers",
+      "width": 768,
+      "theme": "light",
+      "state": "unloaded-relationships",
+      "pageOverflow": false,
+      "contrast": [
+        {
+          "pair": "foreground/background",
+          "ratio": 15.03
+        },
+        {
+          "pair": "muted-foreground/card",
+          "ratio": 4.74
+        },
+        {
+          "pair": "primary-foreground/primary",
+          "ratio": 4.65
+        },
+        {
+          "pair": "status-success/status-success-surface",
+          "ratio": 6.49
+        },
+        {
+          "pair": "status-warning/status-warning-surface",
+          "ratio": 6.38
+        },
+        {
+          "pair": "status-error/status-error-surface",
+          "ratio": 6.8
+        },
+        {
+          "pair": "status-info/status-info-surface",
+          "ratio": 7.15
+        },
+        {
+          "pair": "status-neutral/status-neutral-surface",
+          "ratio": 6.92
+        }
+      ],
+      "screenshot": "installers-768-light-unloaded-relationships.png"
+    },
+    {
+      "route": "/platform-health",
+      "width": 1280,
+      "theme": "dark",
+      "state": "saved-collapsed-sidebar",
+      "pageOverflow": false,
+      "contrast": [
+        {
+          "pair": "foreground/background",
+          "ratio": 18.97
+        },
+        {
+          "pair": "muted-foreground/card",
+          "ratio": 6.94
+        },
+        {
+          "pair": "primary-foreground/primary",
+          "ratio": 4.65
+        },
+        {
+          "pair": "status-success/status-success-surface",
+          "ratio": 9.91
+        },
+        {
+          "pair": "status-warning/status-warning-surface",
+          "ratio": 10.46
+        },
+        {
+          "pair": "status-error/status-error-surface",
+          "ratio": 8
+        },
+        {
+          "pair": "status-info/status-info-surface",
+          "ratio": 7.92
+        },
+        {
+          "pair": "status-neutral/status-neutral-surface",
+          "ratio": 8.83
+        }
+      ],
+      "screenshot": "platform-health-1280-dark-saved-collapsed-sidebar.png"
+    },
+    {
+      "route": "/platform-health",
+      "width": 1024,
+      "theme": "light",
+      "state": "unhealthy",
+      "pageOverflow": false,
+      "contrast": [
+        {
+          "pair": "foreground/background",
+          "ratio": 15.03
+        },
+        {
+          "pair": "muted-foreground/card",
+          "ratio": 4.74
+        },
+        {
+          "pair": "primary-foreground/primary",
+          "ratio": 4.65
+        },
+        {
+          "pair": "status-success/status-success-surface",
+          "ratio": 6.49
+        },
+        {
+          "pair": "status-warning/status-warning-surface",
+          "ratio": 6.38
+        },
+        {
+          "pair": "status-error/status-error-surface",
+          "ratio": 6.8
+        },
+        {
+          "pair": "status-info/status-info-surface",
+          "ratio": 7.15
+        },
+        {
+          "pair": "status-neutral/status-neutral-surface",
+          "ratio": 6.92
+        }
+      ],
+      "screenshot": "platform-health-1024-light-unhealthy.png"
+    },
+    {
+      "route": "/notification-templates",
+      "width": 768,
+      "theme": "light",
+      "state": "empty",
+      "pageOverflow": false,
+      "contrast": [
+        {
+          "pair": "foreground/background",
+          "ratio": 15.03
+        },
+        {
+          "pair": "muted-foreground/card",
+          "ratio": 4.74
+        },
+        {
+          "pair": "primary-foreground/primary",
+          "ratio": 4.65
+        },
+        {
+          "pair": "status-success/status-success-surface",
+          "ratio": 6.49
+        },
+        {
+          "pair": "status-warning/status-warning-surface",
+          "ratio": 6.38
+        },
+        {
+          "pair": "status-error/status-error-surface",
+          "ratio": 6.8
+        },
+        {
+          "pair": "status-info/status-info-surface",
+          "ratio": 7.15
+        },
+        {
+          "pair": "status-neutral/status-neutral-surface",
+          "ratio": 6.92
+        }
+      ],
+      "screenshot": "notification-templates-768-light-empty.png"
+    },
+    {
+      "route": "/installers",
+      "width": 1280,
+      "theme": "light",
+      "state": "error",
+      "pageOverflow": false,
+      "contrast": [
+        {
+          "pair": "foreground/background",
+          "ratio": 15.03
+        },
+        {
+          "pair": "muted-foreground/card",
+          "ratio": 4.74
+        },
+        {
+          "pair": "primary-foreground/primary",
+          "ratio": 4.65
+        },
+        {
+          "pair": "status-success/status-success-surface",
+          "ratio": 6.49
+        },
+        {
+          "pair": "status-warning/status-warning-surface",
+          "ratio": 6.38
+        },
+        {
+          "pair": "status-error/status-error-surface",
+          "ratio": 6.8
+        },
+        {
+          "pair": "status-info/status-info-surface",
+          "ratio": 7.15
+        },
+        {
+          "pair": "status-neutral/status-neutral-surface",
+          "ratio": 6.92
+        }
+      ],
+      "screenshot": "installers-1280-light-error.png"
+    }
+  ],
+  "pageErrors": []
+}

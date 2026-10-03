@@ -1,4 +1,5 @@
 import { format } from 'date-fns'
+import Link from 'next/link'
 import { type ColumnDef } from '@tanstack/react-table'
 import {
   CircleDashed, Cpu, Link2Off, MoreHorizontal, Pencil, Trash2, Truck,
@@ -38,7 +39,7 @@ export function createVehicleColumns({
               <Truck className="h-4 w-4 text-primary" />
             </div>
             <div className="min-w-0">
-              <p className="truncate font-mono font-semibold uppercase text-foreground">{vehicle.plate_number}</p>
+              <Link href={`/vehicles/${vehicle.id}`} className="font-mono font-semibold uppercase text-foreground hover:text-primary">{vehicle.plate_number}</Link>
               <p className="truncate text-xs text-muted-foreground">
                 {[vehicle.make, vehicle.model, vehicle.year].filter(Boolean).join(' ') || '—'}
               </p>

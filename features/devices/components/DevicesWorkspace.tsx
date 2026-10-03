@@ -1,4 +1,9 @@
 'use client'
+import { useAuthStore } from '@/stores/auth.store'
+import { useSearchParams } from 'next/navigation'
+import { useUrlListState } from '@/hooks/useUrlListState'
+import { useDebounce } from '@/hooks/useDebounce'
+
 
 import { useState, useCallback } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -76,12 +81,12 @@ function StatusIcon({ status }: { status: Device['status'] }) {
 // ─── Devices Tab ──────────────────────────────────────────────────────────────
 
 function DevicesTab() {
+  const canManage = useAuthStore(s => s.user?.role === 'super_admin')
   const router = useRouter()
   const qc = useQueryClient()
 
-  const [search, setSearch] = useState('')
-  const [status, setStatus] = useState('all')
-  const [page, setPage]     = useState(1)
+  const { search, status, page, setSearch, setStatus, setPage } = useUrlListState()
+  const debouncedSearch = useDebounce(search, 300)
   const [createOpen, setCreateOpen]             = useState(false)
   const [importOpen, setImportOpen]             = useState(false)
   const [deactivateTarget, setDeactivateTarget] = useState<Device | null>(null)
@@ -91,10 +96,10 @@ function DevicesTab() {
   const [exportOrgId, setExportOrgId]           = useState('all')
   const [exportStatus, setExportStatus]         = useState('all')
 
-  const { data, isLoading } = useQuery({
-    queryKey: ['devices', { search, status, page }],
+  const { data, isLoading, error, refetch } = useQuery({
+    queryKey: ['devices', { search: debouncedSearch, status, page }],
     queryFn: () => listDevices({
-      q:        search || undefined,
+      q:        debouncedSearch || undefined,
       status:   status === 'all' ? undefined : status,
       page,
       per_page: PER_PAGE,
@@ -104,6 +109,7 @@ function DevicesTab() {
 
   const { data: orgsData } = useQuery({
     queryKey: ['orgs-dropdown'],
+    enabled: canManage,
     queryFn: () => listOrganizations({ per_page: 100 }),
     staleTime: 120_000,
   })
@@ -247,13 +253,13 @@ function DevicesTab() {
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 className="text-destructive focus:text-destructive"
-                onClick={() => setDeactivateTarget(d)}
+                disabled={!canManage} onClick={() => setDeactivateTarget(d)}
               >
                 <PowerOff className="mr-2 h-4 w-4" /> Deactivate
               </DropdownMenuItem>
               <DropdownMenuItem
                 className="text-destructive focus:text-destructive"
-                onClick={() => setDeleteDeviceTarget(d)}
+                disabled={!canManage} onClick={() => setDeleteDeviceTarget(d)}
               >
                 <Trash2 className="mr-2 h-4 w-4" /> Delete
               </DropdownMenuItem>
@@ -286,14 +292,14 @@ function DevicesTab() {
         </Select>
       </div>
       <div className="flex gap-2">
-        <Button variant="outline" onClick={() => setExportOpen(true)} disabled={exporting}>
+        <Button variant="outline" onClick={() => setExportOpen(true)} disabled={exporting || !canManage}>
           <Download className="mr-2 h-4 w-4" />
           {exporting ? 'Exporting…' : 'Export CSV'}
         </Button>
-        <Button variant="outline" onClick={() => setImportOpen(true)}>
+        <Button variant="outline" disabled={!canManage} onClick={() => setImportOpen(true)}>
           <Upload className="mr-2 h-4 w-4" /> Import
         </Button>
-        <Button onClick={() => setCreateOpen(true)}>
+        <Button disabled={!canManage} onClick={() => setCreateOpen(true)}>
           <Plus className="mr-2 h-4 w-4" /> Add Device
         </Button>
       </div>
@@ -303,6 +309,8 @@ function DevicesTab() {
   return (
     <div className="space-y-4">
       <DataTable
+        error={error}
+        onRetry={() => void refetch()}
         data={data?.data ?? []}
         columns={columns}
         isLoading={isLoading}
@@ -397,16 +405,18 @@ function DevicesTab() {
 function HardwareTab() {
   const qc = useQueryClient()
 
-  const [search, setSearch] = useState('')
+  const urlFilters = useSearchParams()
+  const [search, setSearch] = useState(urlFilters.get('q') ?? '')
+  const debouncedSearch = useDebounce(search, 300)
   const [page, setPage]     = useState(1)
 
   const [formOpen, setFormOpen]         = useState(false)
   const [editTarget, setEditTarget]     = useState<Hardware | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<Hardware | null>(null)
 
-  const { data, isLoading } = useQuery({
-    queryKey: ['hardware', { search, page }],
-    queryFn: () => listHardware({ q: search || undefined, per_page: PER_PAGE, page }),
+  const { data, isLoading, error, refetch } = useQuery({
+    queryKey: ['hardware', { search: debouncedSearch, page }],
+    queryFn: () => listHardware({ q: debouncedSearch || undefined, per_page: PER_PAGE, page }),
     staleTime: 60_000,
   })
 
@@ -544,6 +554,8 @@ function HardwareTab() {
   return (
     <div className="space-y-4">
       <DataTable
+        error={error}
+        onRetry={() => void refetch()}
         data={data?.data ?? []}
         columns={columns}
         isLoading={isLoading}
@@ -587,15 +599,17 @@ function HardwareTab() {
 function ApnTab() {
   const qc = useQueryClient()
 
-  const [search, setSearch]         = useState('')
+  const urlFilters = useSearchParams()
+  const [search, setSearch]         = useState(urlFilters.get('q') ?? '')
+  const debouncedSearch = useDebounce(search, 300)
   const [page, setPage]             = useState(1)
   const [formOpen, setFormOpen]     = useState(false)
   const [editTarget, setEditTarget] = useState<Apn | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<Apn | null>(null)
 
-  const { data, isLoading } = useQuery({
-    queryKey: ['apns', { search, page }],
-    queryFn: () => listApns({ q: search || undefined, per_page: PER_PAGE, page }),
+  const { data, isLoading, error, refetch } = useQuery({
+    queryKey: ['apns', { search: debouncedSearch, page }],
+    queryFn: () => listApns({ q: debouncedSearch || undefined, per_page: PER_PAGE, page }),
     staleTime: 60_000,
   })
 
@@ -711,6 +725,8 @@ function ApnTab() {
   return (
     <div className="space-y-4">
       <DataTable
+        error={error}
+        onRetry={() => void refetch()}
         data={data?.data ?? []}
         columns={columns}
         isLoading={isLoading}
@@ -752,6 +768,7 @@ function ApnTab() {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function DevicesPage() {
+  const canManage = useAuthStore(s => s.user?.role === 'super_admin')
   return (
     <div className="space-y-6">
       <PageHeader
@@ -771,6 +788,7 @@ export default function DevicesPage() {
           </TabsTrigger>
           <TabsTrigger
             value="hardware"
+            disabled={!canManage}
             className="rounded-none border-b-2 border-transparent px-4 pb-3 pt-1 text-sm font-medium text-muted-foreground data-[state=active]:border-primary data-[state=active]:text-foreground data-[state=active]:shadow-none bg-transparent"
           >
             <CircuitBoard className="mr-2 h-4 w-4" />
@@ -778,6 +796,7 @@ export default function DevicesPage() {
           </TabsTrigger>
           <TabsTrigger
             value="apn"
+            disabled={!canManage}
             className="rounded-none border-b-2 border-transparent px-4 pb-3 pt-1 text-sm font-medium text-muted-foreground data-[state=active]:border-primary data-[state=active]:text-foreground data-[state=active]:shadow-none bg-transparent"
           >
             <Signal className="mr-2 h-4 w-4" />
@@ -790,11 +809,11 @@ export default function DevicesPage() {
         </TabsContent>
 
         <TabsContent value="hardware" className="mt-6">
-          <HardwareTab />
+          {canManage && <HardwareTab />}
         </TabsContent>
 
         <TabsContent value="apn" className="mt-6">
-          <ApnTab />
+          {canManage && <ApnTab />}
         </TabsContent>
       </Tabs>
     </div>

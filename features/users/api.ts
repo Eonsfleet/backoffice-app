@@ -35,6 +35,8 @@ type RawUser = {
       id: string | number
       attributes: { name: string; [key: string]: unknown }
     }
+    current_vehicle?: { id: string | number; attributes: { registration_number?: string } } | null
+    cluster?: { id: string | number; name: string } | null
   }
 }
 
@@ -55,7 +57,7 @@ function normalizeUser(raw: RawUser): TenantUser {
     phone:            a.phone_number ?? null,
     avatar:           a.avatar ?? null,
     role,
-    status:           (a.status as TenantUser['status']) ?? 'active',
+    status:           (a.status as TenantUser['status']) ?? 'unknown',
     employee_number:  a.employee_number ?? null,
     date_of_birth:    a.date_of_birth ?? null,
     last_login:       a.last_login ?? null,
@@ -230,4 +232,23 @@ export interface UserMetrics {
 export const getUserMetrics = async (): Promise<UserMetrics> => {
   const { data: res } = await api.get('/admin/analytics/users/summary')
   return res.data
+}
+
+export type DriverProfile = TenantUser & {
+  vehicle?: { id: string | number; plate_number?: string } | null
+  cluster?: { id: string | number; name: string } | null
+}
+
+export async function listDrivers(params: { q?: string; page: number; per_page: number }, signal?: AbortSignal): Promise<PaginatedResponse<DriverProfile>> {
+  const { data } = await api.get('/admin/users/role/driver', { params, signal })
+  const inner = data.data
+  if (!Array.isArray(inner?.users) || !inner.pagination) throw new Error('Invalid driver directory response')
+  const records: RawUser[] = inner.users
+  return {
+    data: records.map(raw => ({ ...normalizeUser(raw),
+      vehicle: raw.relationships?.current_vehicle ? { id: raw.relationships.current_vehicle.id, plate_number: raw.relationships.current_vehicle.attributes.registration_number } : null,
+      cluster: raw.relationships?.cluster,
+    })),
+    meta: { current_page: inner.pagination.current, last_page: inner.pagination.lastPage, per_page: inner.pagination.perPage, total: inner.pagination.total },
+  }
 }

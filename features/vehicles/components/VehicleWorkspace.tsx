@@ -87,6 +87,8 @@ export function VehicleWorkspace() {
       <VehicleMetrics metrics={queries.metrics.data} isLoading={queries.metrics.isLoading} />
 
       <DataTable
+        error={queries.vehicles.error}
+        onRetry={() => void queries.vehicles.refetch()}
         data={data?.data ?? []}
         columns={columns}
         isLoading={queries.vehicles.isLoading}

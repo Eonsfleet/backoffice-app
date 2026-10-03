@@ -10,7 +10,7 @@ describe('auth store', () => {
     useAuthStore.setState({ token: null, user: null, isBootstrapping: false })
   })
 
-  it('starts with no token and not bootstrapping when no cookie is set', () => {
+  it('has no token and no bootstrap work after an ended session is reset', () => {
     const state = useAuthStore.getState()
     expect(state.token).toBeNull()
     expect(state.isBootstrapping).toBe(false)
@@ -85,7 +85,7 @@ describe('auth bootstrap isBootstrapping flag', () => {
     clearAuthCookie()
   })
 
-  it('isBootstrapping is false when there is no cookie on store creation', () => {
+  it('can reset a no-cookie session to a completed bootstrap', () => {
     // Simulate fresh store with no cookie (token will be null)
     useAuthStore.setState({ token: null, isBootstrapping: false })
     expect(useAuthStore.getState().isBootstrapping).toBe(false)
@@ -95,6 +95,10 @@ describe('auth bootstrap isBootstrapping flag', () => {
     useAuthStore.setState({ token: 'tok', isBootstrapping: true })
     useAuthStore.getState().setBootstrapped()
     expect(useAuthStore.getState().isBootstrapping).toBe(false)
+  })
+  it('uses a consistent pending initial snapshot for server and browser hydration', () => {
+    expect(useAuthStore.getInitialState().isBootstrapping).toBe(true)
+    expect(useAuthStore.getInitialState().user).toBeNull()
   })
 
   it('clearAuth also resets isBootstrapping', () => {

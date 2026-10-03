@@ -47,6 +47,7 @@ const config = [
   {
     ignores: [
       '.next/**',
+      '.agents/**',
       'node_modules/**',
       '_reference/**',
       'public/**',

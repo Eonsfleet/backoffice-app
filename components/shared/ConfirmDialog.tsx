@@ -29,24 +29,29 @@ export function ConfirmDialog({
   variant = 'destructive',
 }: ConfirmDialogProps) {
   const [loading, setLoading] = useState(false)
+  const [failed, setFailed] = useState(false)
 
   const handleConfirm = async () => {
     setLoading(true)
+    setFailed(false)
     try {
       await onConfirm()
       onOpenChange(false)
+    } catch {
+      setFailed(true)
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <AlertDialog open={open} onOpenChange={onOpenChange}>
+    <AlertDialog open={open} onOpenChange={value => { if (!loading) { setFailed(false); onOpenChange(value) } }}>
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>{title}</AlertDialogTitle>
           <AlertDialogDescription>{description}</AlertDialogDescription>
         </AlertDialogHeader>
+        {failed && <p role="alert" className="text-sm text-status-error">The action failed. Your selection is preserved. Try again or cancel.</p>}
         <AlertDialogFooter>
           <AlertDialogCancel disabled={loading}>Cancel</AlertDialogCancel>
           <Button

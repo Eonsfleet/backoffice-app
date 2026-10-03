@@ -1,4 +1,5 @@
 'use client'
+import { useState } from 'react'
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
@@ -7,7 +8,7 @@ import { Bell, CheckCheck, Inbox, Moon, Sun, Menu } from 'lucide-react'
 import { useTheme } from 'next-themes'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
-import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
+import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetDescription } from '@/components/ui/sheet'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -29,7 +30,12 @@ import { cn } from '@/lib/utils'
 import { Sidebar } from './Sidebar'
 
 const ROUTE_LABELS: Record<string, string> = {
-  '/dashboard':               'Dashboard',
+  '/installers': 'Installers',
+  '/drivers': 'Drivers',
+  '/platform-health': 'Service health',
+  '/notification-templates': 'Notification templates',
+  '/dashboard':               'Platform overview',
+  '/customer-health': 'Customer health',
   '/organizations':           'Organizations',
   '/organization-requests':   'Organization Requests',
   '/devices':                 'Devices',
@@ -263,17 +269,20 @@ function NotificationBell() {
 }
 
 export function Topbar() {
+  const [menuOpen, setMenuOpen] = useState(false)
   return (
-    <header className="flex h-14 items-center gap-2 border-b border-border bg-background px-3 sm:gap-3 sm:px-4">
+    <header className="flex h-16 shrink-0 items-center gap-2 border-b border-border bg-card px-3 sm:gap-3 sm:px-4">
       {/* Mobile: hamburger → sheet sidebar */}
-      <Sheet>
+      <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
         <SheetTrigger asChild>
           <Button variant="ghost" size="icon" className="md:hidden" aria-label="Open menu">
             <Menu className="h-5 w-5" />
           </Button>
         </SheetTrigger>
-        <SheetContent side="left" className="w-60 p-0">
-          <Sidebar />
+        <SheetContent side="left" className="w-64 p-0 [&>button]:flex [&>button]:size-11 [&>button]:items-center [&>button]:justify-center [&>button]:bg-sidebar-accent [&>button]:text-sidebar-foreground [&>button]:opacity-100">
+          <SheetTitle className="sr-only">Main navigation</SheetTitle>
+          <SheetDescription className="sr-only">Navigate Eonsfleet workspaces and your administrator account.</SheetDescription>
+          <Sidebar onNavigate={() => setMenuOpen(false)} />
         </SheetContent>
       </Sheet>
 

@@ -2,23 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import {
-  LayoutDashboard,
-  Building2,
-  Cpu,
-  Map,
-  CreditCard,
-  ScrollText,
-  BarChart3,
-  Settings,
-  Bell,
-  ClipboardList,
-  Truck,
-  ChevronLeft,
-  ChevronRight,
-  LogOut,
-  UserCircle,
-} from 'lucide-react'
+import { Truck, ChevronLeft, ChevronRight, LogOut } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { getInitials } from '@/lib/string-utils'
 import { useUIStore } from '@/stores/ui.store'
@@ -29,21 +13,8 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { Separator } from '@/components/ui/separator'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Badge } from '@/components/ui/badge'
+import { NAV_GROUPS, canAccessNavigation } from '@/lib/navigation'
 
-const NAV_ITEMS = [
-  { href: '/dashboard',              label: 'Dashboard',        icon: LayoutDashboard },
-  { href: '/organizations',          label: 'Organizations',    icon: Building2 },
-  { href: '/organization-requests',  label: 'Requests',         icon: ClipboardList },
-  { href: '/users',                  label: 'Users',            icon: UserCircle },
-  { href: '/vehicles',               label: 'Vehicles',         icon: Truck },
-  { href: '/devices',                label: 'Devices',          icon: Cpu },
-  { href: '/fleet-map',              label: 'Fleet Map',        icon: Map,        badge: 'Live' },
-  { href: '/subscriptions',          label: 'Subscriptions',    icon: CreditCard },
-  { href: '/audit-logs',             label: 'Audit Logs',       icon: ScrollText },
-  { href: '/analytics',              label: 'Analytics',        icon: BarChart3 },
-  { href: '/notifications',          label: 'Notifications',    icon: Bell },
-  { href: '/settings',               label: 'Settings',         icon: Settings },
-]
 
 function NavItem({
   href,
@@ -52,6 +23,7 @@ function NavItem({
   badge,
   collapsed,
   active,
+  onNavigate,
 }: {
   href: string
   label: string
@@ -59,10 +31,14 @@ function NavItem({
   badge?: string
   collapsed: boolean
   active: boolean
+  onNavigate?: () => void
 }) {
   const item = (
     <Link
       href={href}
+      onClick={onNavigate}
+      aria-current={active ? "page" : undefined}
+      aria-label={collapsed ? label : undefined}
       className={cn(
         'group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150',
         active
@@ -71,7 +47,7 @@ function NavItem({
         collapsed && 'justify-center px-2'
       )}
     >
-      <Icon className={cn('h-[18px] w-[18px] shrink-0', active && 'text-sidebar-primary-foreground')} />
+      <Icon aria-hidden="true" className={cn('h-[18px] w-[18px] shrink-0', active && 'text-sidebar-primary-foreground')} />
       {!collapsed && (
         <>
           <span className="flex-1 truncate">{label}</span>
@@ -101,10 +77,11 @@ function NavItem({
 }
 
 
-export function Sidebar() {
+export function Sidebar({ onNavigate }: { onNavigate?: () => void } = {}) {
   const pathname = usePathname()
   const router = useRouter()
-  const collapsed = useUIStore((s) => s.sidebarCollapsed)
+  const collapsedPreference = useUIStore((s) => s.sidebarCollapsed)
+  const collapsed = !onNavigate && collapsedPreference
   const toggleSidebar = useUIStore((s) => s.toggleSidebar)
   const user = useAuthStore((s) => s.user)
   const clearAuth = useAuthStore((s) => s.clearAuth)
@@ -125,42 +102,42 @@ export function Sidebar() {
     <TooltipProvider delayDuration={0}>
       <aside
         className={cn(
-          'relative flex h-screen flex-col border-r border-sidebar-border bg-sidebar transition-all duration-300',
-          collapsed ? 'w-16' : 'w-60'
+          'relative flex h-dvh min-h-0 flex-col border-r border-sidebar-border bg-sidebar transition-all duration-300',
+          collapsed ? 'w-16' : 'w-64'
         )}
       >
         {/* Logo */}
-        <div className={cn('flex h-14 items-center border-b border-sidebar-border px-4', collapsed && 'justify-center px-0')}>
+        <div className={cn('flex h-16 shrink-0 items-center border-b border-sidebar-border px-4', collapsed && 'justify-center px-0')}>
           <Link href="/dashboard" className="flex items-center gap-2.5">
             <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary">
               <Truck className="h-4 w-4 text-white" />
             </div>
             {!collapsed && (
               <span className="text-sm font-bold tracking-tight text-sidebar-foreground">
-                EonsFleet<span className="text-primary"> Admin</span>
+                Eonsfleet<span className="block text-[10px] font-medium tracking-[0.16em] text-sidebar-foreground/70 uppercase">{onNavigate ? 'Operations' : 'Operations console'}</span>
               </span>
             )}
           </Link>
         </div>
 
         {/* Nav */}
-        <ScrollArea className="flex-1 py-3">
+        <ScrollArea className="min-h-0 flex-1 py-3">
           <nav className={cn('flex flex-col gap-0.5 px-2')}>
-            {NAV_ITEMS.map((item) => (
-              <NavItem
-                key={item.href}
-                {...item}
-                collapsed={collapsed}
-                active={isActive(item.href)}
-              />
-            ))}
+            {NAV_GROUPS.map(group => {
+              const items = group.items.filter(item => canAccessNavigation(user, item))
+              if (!items.length) return null
+              return <div key={group.label} className="mb-3">
+                {!collapsed && <p className="px-3 pb-2 pt-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-sidebar-foreground/70">{group.label}</p>}
+                {items.map(item => <NavItem onNavigate={onNavigate} key={item.href} {...item} collapsed={collapsed} active={isActive(item.href) && !items.some(other => other.href !== item.href && other.href.startsWith(item.href + '/') && isActive(other.href))} />)}
+              </div>
+            })}
           </nav>
         </ScrollArea>
 
         <Separator className="bg-sidebar-border" />
 
         {/* User footer */}
-        <div className={cn('flex items-center gap-3 p-3', collapsed && 'justify-center')}>
+        <div className={cn('flex shrink-0 items-center gap-3 p-3', collapsed && 'justify-center')}>
           <Avatar className="h-8 w-8 shrink-0">
             <AvatarFallback className="bg-primary/10 text-xs font-semibold text-primary">
               {user ? getInitials(user.name) : 'A'}
@@ -169,14 +146,14 @@ export function Sidebar() {
           {!collapsed && (
             <div className="min-w-0 flex-1">
               <p className="truncate text-xs font-semibold text-sidebar-foreground">{user?.name ?? 'Admin'}</p>
-              <p className="truncate text-[10px] text-sidebar-foreground/50 capitalize">{user?.role?.replace('_', ' ')}</p>
+              <p className="truncate text-[10px] text-sidebar-foreground/70 capitalize">{user?.role?.replace('_', ' ')}</p>
             </div>
           )}
           <Tooltip>
             <TooltipTrigger asChild>
               <button
                 onClick={handleLogout}
-                className="shrink-0 rounded-md p-1.5 text-sidebar-foreground/50 transition-colors hover:bg-sidebar-accent hover:text-destructive"
+                className="shrink-0 rounded-md p-1.5 text-sidebar-foreground/70 transition-colors hover:bg-sidebar-accent hover:text-destructive"
                 aria-label="Sign out"
               >
                 <LogOut className="h-4 w-4" />
@@ -187,13 +164,13 @@ export function Sidebar() {
         </div>
 
         {/* Collapse toggle */}
-        <button
+        {!onNavigate && <button
           onClick={toggleSidebar}
-          className="absolute -right-3 top-[72px] z-10 flex h-6 w-6 items-center justify-center rounded-full border border-sidebar-border bg-sidebar text-sidebar-foreground/50 shadow-sm transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground"
+          className="absolute -right-3 top-[72px] z-10 flex h-6 w-6 items-center justify-center rounded-full border border-sidebar-border bg-sidebar text-sidebar-foreground/70 shadow-sm transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground"
           aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
         >
           {collapsed ? <ChevronRight className="h-3 w-3" /> : <ChevronLeft className="h-3 w-3" />}
-        </button>
+        </button>}
       </aside>
     </TooltipProvider>
   )

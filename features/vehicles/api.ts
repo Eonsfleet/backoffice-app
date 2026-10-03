@@ -119,7 +119,7 @@ function normalizeVehicle(raw: RawVehicle): Vehicle {
     device_status:       ((a.device_status ?? a.deviceStatus) as string) ?? null,
     total_odometer:      (a.total_odometer as number) ?? null,
     last_odometer_value: (a.last_odometer_value as string) ?? null,
-    status:              (a.status as string) ?? 'active',
+    status:              (a.status as string) ?? 'unknown',
     created_at:          (a.created_at as string) ?? undefined,
     organization:        org,
     driver:              normalizeDriver(rel.current_driver as RawDriver),
@@ -212,6 +212,8 @@ export interface VehicleSensorHealth {
     name: string
     health_score?: number
     status?: string
+    description?: string
+    suggested_action?: string | null
     anomalies?: string[]
     suggested_actions?: string[]
   }>

@@ -1,268 +1,71 @@
-'use client'
+﻿'use client'
 
-import { useEffect, useState, useCallback, useRef } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Search, Building2, Cpu, Users, ArrowRight, Loader2 } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
-import { Dialog, DialogContent } from '@/components/ui/dialog'
+import { Search, ArrowRight, Loader2, Building2, Cpu, Users, Truck, Shield } from 'lucide-react'
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { listOrganizations } from '@/features/organizations/api'
 import { listDevices } from '@/features/devices/api'
+import { listUsers } from '@/features/users/api'
+import { listVehicles } from '@/features/vehicles/api'
 import { listAdminUsers } from '@/features/admin-users/api'
+import { useAuthStore } from '@/stores/auth.store'
 import { useDebounce } from '@/hooks/useDebounce'
+import { NAV_GROUPS, canAccessNavigation, getRouteItem } from '@/lib/navigation'
+import { QueryError } from './QueryError'
 import { cn } from '@/lib/utils'
 
-interface CommandResult {
-  id: string
-  label: string
-  sublabel?: string
-  href: string
-  icon: React.ElementType
-  group: string
-}
-
-const CMD_LIMIT = 5
-
-function useCommandResults(query: string) {
-  const enabled = query.trim().length >= 2
-
-  const orgsQ = useQuery({
-    queryKey: ['cmd-orgs', query],
-    queryFn: () => listOrganizations({ q: query, per_page: CMD_LIMIT }),
-    enabled,
-    staleTime: 10_000,
-  })
-
-  const devicesQ = useQuery({
-    queryKey: ['cmd-devices', query],
-    queryFn: () => listDevices({ q: query, per_page: CMD_LIMIT }),
-    enabled,
-    staleTime: 10_000,
-  })
-
-  const usersQ = useQuery({
-    queryKey: ['cmd-users', query],
-    queryFn: () => listAdminUsers({ q: query, per_page: CMD_LIMIT }),
-    enabled,
-    staleTime: 10_000,
-  })
-
-  const results: CommandResult[] = []
-  // Track which groups have more results than the display limit
-  const truncated: Record<string, boolean> = {}
-
-  const orgData = orgsQ.data?.data ?? []
-  truncated['Organizations'] = (orgsQ.data?.meta?.total ?? 0) > CMD_LIMIT
-  orgData.forEach((org) => {
-    results.push({
-      id: `org-${org.id}`,
-      label: org.name,
-      sublabel: org.owner_email ?? org.identifier,
-      href: `/organizations/${org.id}`,
-      icon: Building2,
-      group: 'Organizations',
-    })
-  })
-
-  const deviceData = devicesQ.data?.data ?? []
-  truncated['Devices'] = (devicesQ.data?.meta?.total ?? 0) > CMD_LIMIT
-  deviceData.forEach((device) => {
-    results.push({
-      id: `dev-${device.id}`,
-      label: device.device_id,
-      sublabel: device.organization?.name ?? 'Unassigned',
-      href: `/devices/${device.id}`,
-      icon: Cpu,
-      group: 'Devices',
-    })
-  })
-
-  const userData = usersQ.data?.data ?? []
-  truncated['Admin Users'] = (usersQ.data?.meta?.total ?? 0) > CMD_LIMIT
-  userData.forEach((user) => {
-    results.push({
-      id: `user-${user.id}`,
-      label: user.name,
-      sublabel: user.email,
-      href: `/admin-users`,
-      icon: Users,
-      group: 'Admin Users',
-    })
-  })
-
-  const isLoading = enabled && (orgsQ.isLoading || devicesQ.isLoading || usersQ.isLoading)
-
-  return { results, isLoading, truncated }
-}
-
-const QUICK_LINKS: CommandResult[] = [
-  { id: 'q-dashboard',     label: 'Dashboard',        href: '/dashboard',             icon: ArrowRight, group: 'Quick Links' },
-  { id: 'q-orgs',          label: 'Organizations',    href: '/organizations',          icon: ArrowRight, group: 'Quick Links' },
-  { id: 'q-devices',       label: 'Devices',          href: '/devices',                icon: ArrowRight, group: 'Quick Links' },
-  { id: 'q-fleet',         label: 'Fleet Map',        href: '/fleet-map',              icon: ArrowRight, group: 'Quick Links' },
-  { id: 'q-subscriptions', label: 'Subscriptions',    href: '/subscriptions/plans',    icon: ArrowRight, group: 'Quick Links' },
-  { id: 'q-audit',         label: 'Audit Logs',       href: '/audit-logs',             icon: ArrowRight, group: 'Quick Links' },
-]
+type Result = { id: string; label: string; detail: string; href: string; group: string; icon: React.ElementType }
 
 export function CommandPalette() {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
-  const [activeIndex, setActiveIndex] = useState(0)
+  const [active, setActive] = useState(0)
+  const user = useAuthStore(s => s.user)
   const router = useRouter()
-  const inputRef = useRef<HTMLInputElement>(null)
-  const debouncedQuery = useDebounce(query, 300)
-
-  const { results, isLoading, truncated } = useCommandResults(debouncedQuery)
-  const items = query.trim().length >= 2 ? results : QUICK_LINKS
-
-  // Cmd/Ctrl+K to open
+  const term = useDebounce(query.trim(), 300)
+  const enabled = open && term.length >= 2
+  const allowed = (path: string) => { const item = getRouteItem(path); return !!item && canAccessNavigation(user, item) }
+  const orgs = useQuery({ queryKey: ['cmd-orgs', term], queryFn: () => listOrganizations({ q: term, per_page: 5 }), enabled: enabled && allowed('/organizations'), staleTime: 10000 })
+  const devices = useQuery({ queryKey: ['cmd-devices', term], queryFn: () => listDevices({ q: term, per_page: 5 }), enabled: enabled && allowed('/devices'), staleTime: 10000 })
+  const users = useQuery({ queryKey: ['cmd-users', term], queryFn: () => listUsers({ q: term, per_page: 5 }), enabled: enabled && allowed('/users'), staleTime: 10000 })
+  const vehicles = useQuery({ queryKey: ['cmd-vehicles', term], queryFn: () => listVehicles({ q: term, per_page: 5 }), enabled: enabled && allowed('/vehicles'), staleTime: 10000 })
+  const admins = useQuery({ queryKey: ['cmd-admins', term], queryFn: () => listAdminUsers({ q: term, per_page: 5 }), enabled: enabled && allowed('/admin-users'), staleTime: 10000 })
+  const queries = [{ q: orgs, name: 'organizations', allowed: allowed('/organizations') }, { q: devices, name: 'devices', allowed: allowed('/devices') }, { q: users, name: 'customer users', allowed: allowed('/users') }, { q: vehicles, name: 'vehicles', allowed: allowed('/vehicles') }, { q: admins, name: 'internal admins', allowed: allowed('/admin-users') }]
+  const loading = open && query.trim().length >= 2 && (term !== query.trim() || queries.some(x => x.allowed && x.q.isFetching))
+  const results: Result[] = []
+  if (allowed('/organizations')) orgs.data?.data.forEach(o => results.push({ id: `org-${o.id}`, label: o.name, detail: `${o.identifier ?? o.id} · ${o.owner_email ?? o.email ?? o.status}`, href: `/organizations/${o.id}`, group: 'Organizations', icon: Building2 }))
+  if (allowed('/devices')) devices.data?.data.forEach(d => results.push({ id: `dev-${d.id}`, label: d.device_id, detail: `${d.organization?.name ?? 'Unassigned'} · ${d.vehicle?.plate_number ?? d.status}`, href: `/devices/${d.id}`, group: 'Devices', icon: Cpu }))
+  if (allowed('/users')) users.data?.data.forEach(u => results.push({ id: `user-${u.id}`, label: u.name, detail: `${u.email} · ${u.organization?.name ?? 'No organization'}`, href: `/users?q=${encodeURIComponent(u.email)}`, group: 'Customer users', icon: Users }))
+  if (allowed('/vehicles')) vehicles.data?.data.forEach(v => results.push({ id: `vehicle-${v.id}`, label: v.plate_number, detail: `${v.organization?.name ?? 'Unassigned'} · ${[v.make, v.model].filter(Boolean).join(' ')}`, href: `/vehicles?q=${encodeURIComponent(v.plate_number)}`, group: 'Vehicles', icon: Truck }))
+  if (allowed('/admin-users')) admins.data?.data.forEach(a => results.push({ id: `admin-${a.id}`, label: a.name, detail: `${a.email} · ${a.role}`, href: `/admin-users?q=${encodeURIComponent(a.email)}`, group: 'Internal administrators', icon: Shield }))
+  const links: Result[] = NAV_GROUPS.flatMap(g => g.items).filter(i => canAccessNavigation(user, i)).map(i => ({ id: i.href, label: i.label, detail: 'Open workspace', href: i.href, group: 'Quick navigation', icon: i.icon }))
+  const items = query.trim().length >= 2 ? (term === query.trim() ? results : []) : links
+  const groups = [...new Set(items.map(i => i.group))]
   useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-        e.preventDefault()
-        setOpen((o) => !o)
-      }
-    }
+    const handler = (event: KeyboardEvent) => { if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') { event.preventDefault(); setOpen(o => !o) } }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
   }, [])
-
-  // Reset state on close
-  useEffect(() => {
-    if (!open) {
-      setQuery('')
-      setActiveIndex(0)
-    } else {
-      setTimeout(() => inputRef.current?.focus(), 50)
-    }
-  }, [open])
-
-  // Reset active index when items change
-  useEffect(() => {
-    setActiveIndex(0)
-  }, [items.length])
-
-  const navigate = useCallback(
-    (href: string) => {
-      router.push(href)
-      setOpen(false)
-    },
-    [router]
-  )
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'ArrowDown') {
-      e.preventDefault()
-      setActiveIndex((i) => Math.min(i + 1, items.length - 1))
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault()
-      setActiveIndex((i) => Math.max(i - 1, 0))
-    } else if (e.key === 'Enter' && items[activeIndex]) {
-      navigate(items[activeIndex].href)
-    }
-  }
-
-  // Group items by group name
-  const grouped: Record<string, CommandResult[]> = {}
-  items.forEach((item) => {
-    if (!grouped[item.group]) grouped[item.group] = []
-    grouped[item.group].push(item)
-  })
-
-  let flatIndex = 0
-
-  return (
-    <>
-      {/* Trigger button shown in Topbar */}
-      <button
-        onClick={() => setOpen(true)}
-        className="hidden md:flex items-center gap-2 rounded-lg border border-border bg-muted/50 px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-        aria-label="Open command palette"
-      >
-        <Search className="h-3.5 w-3.5" />
-        <span>Search…</span>
-        <kbd className="ml-2 pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border border-border bg-background px-1.5 text-[10px] font-mono font-medium opacity-60">
-          ⌘K
-        </kbd>
-      </button>
-
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-xl p-0 overflow-hidden" onKeyDown={handleKeyDown}>
-          {/* Search input */}
-          <div className="flex items-center gap-3 border-b border-border px-4 py-3">
-            {isLoading ? (
-              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground shrink-0" />
-            ) : (
-              <Search className="h-4 w-4 text-muted-foreground shrink-0" />
-            )}
-            <Input
-              ref={inputRef}
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search organizations, devices, users…"
-              className="border-0 bg-transparent p-0 text-sm shadow-none focus-visible:ring-0 placeholder:text-muted-foreground/60"
-            />
-          </div>
-
-          {/* Results */}
-          <div className="max-h-[380px] overflow-y-auto py-2">
-            {items.length === 0 && !isLoading ? (
-              <p className="px-4 py-8 text-center text-sm text-muted-foreground">
-                No results for &quot;{query}&quot;
-              </p>
-            ) : (
-              Object.entries(grouped).map(([group, groupItems]) => (
-                <div key={group} className="mb-1">
-                  <p className="px-4 py-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/60">
-                    {group}
-                  </p>
-                  {groupItems.map((item) => {
-
-                    const idx = flatIndex++
-                    const Icon = item.icon
-                    return (
-                      <button
-                        key={item.id}
-                        onClick={() => navigate(item.href)}
-                        onMouseEnter={() => setActiveIndex(idx)}
-                        className={cn(
-                          'flex w-full items-center gap-3 px-4 py-2.5 text-sm transition-colors text-left',
-                          idx === activeIndex
-                            ? 'bg-accent text-accent-foreground'
-                            : 'text-foreground hover:bg-accent/50'
-                        )}
-                      >
-                        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-muted">
-                          <Icon className="h-3.5 w-3.5 text-muted-foreground" />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate font-medium">{item.label}</p>
-                          {item.sublabel && (
-                            <p className="truncate text-xs text-muted-foreground">{item.sublabel}</p>
-                          )}
-                        </div>
-                        <ArrowRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground opacity-0 group-hover:opacity-100" />
-                      </button>
-                    )
-                  })}
-                  {truncated[group] && (
-                    <p className="px-4 py-1.5 text-[11px] text-muted-foreground/50 italic">
-                      Showing top {CMD_LIMIT} — refine your search to see more
-                    </p>
-                  )}
-                </div>
-              ))
-            )}
-          </div>
-
-          {/* Footer hint */}
-          <div className="flex items-center gap-3 border-t border-border px-4 py-2 text-[11px] text-muted-foreground/60">
-            <span><kbd className="font-mono">↑↓</kbd> navigate</span>
-            <span><kbd className="font-mono">↵</kbd> select</span>
-            <span><kbd className="font-mono">Esc</kbd> close</span>
-          </div>
-        </DialogContent>
-      </Dialog>
-    </>
-  )
+  const navigate = (href: string) => { router.push(href); setOpen(false); setQuery(''); setActive(0) }
+  return <>
+    <button onClick={() => setOpen(true)} aria-label="Search the platform" className="flex items-center gap-2 rounded-lg border bg-muted/40 px-3 py-2 text-xs text-muted-foreground transition-colors hover:bg-muted"><Search className="h-4 w-4" /><span className="hidden sm:inline">Search the platform...</span><kbd className="ml-8 hidden rounded border bg-card px-1.5 text-[10px] sm:inline">Ctrl K</kbd></button>
+    <Dialog open={open} onOpenChange={value => { setOpen(value); if (!value) { setQuery(''); setActive(0) } }}>
+      <DialogContent className="max-w-xl overflow-hidden p-0" onKeyDown={e => {
+        if (e.key === 'ArrowDown') { e.preventDefault(); setActive(i => Math.max(0, Math.min(i + 1, items.length - 1))) }
+        if (e.key === 'ArrowUp') { e.preventDefault(); setActive(i => Math.max(i - 1, 0)) }
+        if (e.key === 'Enter' && items[active]) { e.preventDefault(); navigate(items[active].href) }
+      }}>
+        <DialogTitle className="sr-only">Global platform search</DialogTitle><DialogDescription className="sr-only">Search accessible organizations, devices, customer users, vehicles and internal administrators.</DialogDescription>
+        <div className="flex items-center gap-3 border-b p-4">{loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}<Input autoFocus aria-label="Global search" value={query} onChange={e => { setQuery(e.target.value); setActive(0) }} placeholder="Name, email, registration or IMEI..." className="border-0 shadow-none focus-visible:ring-0" /></div>
+        <div className="max-h-[420px] overflow-y-auto p-2" aria-live="polite">
+          {enabled && queries.filter(x => x.allowed && x.q.isError).map(x => <div className="mb-2" key={x.name}><QueryError error={x.q.error} retry={() => void x.q.refetch()} label={x.name} /></div>)}
+          {!items.length && !loading && <p className="p-8 text-center text-sm text-muted-foreground">{query.trim().length >= 2 ? `No matching records for "${query}". Try an email, name or identifier.` : 'No workspaces are available for your role.'}</p>}
+          {groups.map(group => <div key={group}><p className="px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{group}</p>{items.filter(i => i.group === group).map(item => { const index = items.indexOf(item); const Icon = item.icon; return <button key={item.id} onMouseEnter={() => setActive(index)} onFocus={() => setActive(index)} onClick={() => navigate(item.href)} className={cn('flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left', index === active ? 'bg-accent' : 'hover:bg-muted')}><Icon className="h-4 w-4 shrink-0 text-primary" /><span className="min-w-0 flex-1"><span className="block truncate text-sm font-medium">{item.label}</span><span className="block truncate text-xs text-muted-foreground">{item.detail}</span></span><ArrowRight className="h-3 w-3 text-muted-foreground" /></button> })}</div>)}
+        </div><div className="border-t px-4 py-3 text-[11px] text-muted-foreground">Arrow keys to navigate · Enter to open · Esc to close · Up to 5 records per category</div>
+      </DialogContent>
+    </Dialog>
+  </>
 }

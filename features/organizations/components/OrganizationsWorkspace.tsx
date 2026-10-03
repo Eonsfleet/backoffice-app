@@ -1,12 +1,18 @@
 'use client'
+import { usePermission } from '@/hooks/usePermission'
+
+import { useUrlListState } from '@/hooks/useUrlListState'
+import { FilterBar } from '@/components/shared/FilterBar'
+import { Timestamp } from '@/components/shared/Timestamp'
+import { useDebounce } from '@/hooks/useDebounce'
+
 
 import { useState, useCallback } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
 import { type ColumnDef } from '@tanstack/react-table'
 import { toast } from 'sonner'
-import { Building2, Plus, Search, MoreHorizontal, Eye, Pencil, ShieldOff, ShieldCheck, Trash2 } from 'lucide-react'
-import { formatDistanceToNow } from 'date-fns'
+import { Building2, Plus, MoreHorizontal, Eye, Pencil, ShieldOff, ShieldCheck, Trash2 } from 'lucide-react'
 
 import { PageHeader } from '@/components/shared/PageHeader'
 import { DataTable } from '@/components/shared/DataTable'
@@ -14,7 +20,6 @@ import { StatusBadge } from '@/components/shared/StatusBadge'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { OrgFormSlideOver } from '@/features/organizations/components/OrgFormSlideOver'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
   DropdownMenuSeparator, DropdownMenuTrigger,
@@ -46,13 +51,15 @@ const STATUS_OPTIONS = [
 ]
 
 export default function OrganizationsPage() {
+  const canManage = usePermission('admin.organizations.manage')
+  const canSuspend = usePermission('admin.organizations.suspend')
+  const canDelete = usePermission('admin.organizations.delete')
   const router = useRouter()
   const qc = useQueryClient()
 
   // Filters & pagination
-  const [search, setSearch]   = useState('')
-  const [status, setStatus]   = useState('all')
-  const [page, setPage]       = useState(1)
+  const { search, status, page, setSearch, setStatus, setPage, reset } = useUrlListState()
+  const debouncedSearch = useDebounce(search, 300)
   const perPage               = DEFAULT_PAGE_SIZE
 
   // UI state
@@ -61,10 +68,10 @@ export default function OrganizationsPage() {
   const [suspendTarget, setSuspendTarget] = useState<Organization | null>(null)
   const [deleteTarget, setDeleteTarget]   = useState<Organization | null>(null)
 
-  const { data, isLoading, isFetching } = useQuery({
-    queryKey: ['organizations', { search, status, page, perPage }],
+  const { data, isLoading, isFetching, error, refetch } = useQuery({
+    queryKey: ['organizations', { search: debouncedSearch, status, page, perPage }],
     queryFn: () => listOrganizations({
-      q: search || undefined,
+      q: debouncedSearch || undefined,
       status: status === 'all' ? undefined : status,
       page,
       per_page: perPage,
@@ -114,7 +121,7 @@ export default function OrganizationsPage() {
               {org.name?.[0] ?? '?'}
             </div>
             <div className="min-w-0">
-              <p className="truncate font-medium text-foreground">{org.name}</p>
+              <p className="max-w-72 whitespace-normal break-words font-medium text-foreground">{org.name}</p>
               {org.identifier && (
                 <p className="text-xs text-muted-foreground">{org.identifier}</p>
               )}
@@ -173,7 +180,7 @@ export default function OrganizationsPage() {
         const date = row.original.joined_date ?? row.original.created_at
         return (
           <span className="text-sm text-muted-foreground">
-            {date ? formatDistanceToNow(new Date(date), { addSuffix: true }) : '—'}
+            <Timestamp value={date} />
           </span>
         )
       },
@@ -196,11 +203,11 @@ export default function OrganizationsPage() {
               <DropdownMenuItem onClick={() => router.push(`/organizations/${org.id}`)}>
                 <Eye className="mr-2 h-4 w-4" /> View Details
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => openEdit(org)}>
+              <DropdownMenuItem disabled={!canManage} onClick={() => openEdit(org)}>
                 <Pencil className="mr-2 h-4 w-4" /> Edit
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => setSuspendTarget(org)}>
+              <DropdownMenuItem disabled={!canSuspend} onClick={() => setSuspendTarget(org)}>
                 {isSuspended
                   ? <><ShieldCheck className="mr-2 h-4 w-4" /> Reactivate</>
                   : <><ShieldOff className="mr-2 h-4 w-4" /> Suspend</>
@@ -208,7 +215,7 @@ export default function OrganizationsPage() {
               </DropdownMenuItem>
               <DropdownMenuItem
                 className="text-destructive focus:text-destructive"
-                onClick={() => setDeleteTarget(org)}
+                disabled={!canDelete} onClick={() => setDeleteTarget(org)}
               >
                 <Trash2 className="mr-2 h-4 w-4" /> Delete
               </DropdownMenuItem>
@@ -223,27 +230,13 @@ export default function OrganizationsPage() {
   const pageCount = data?.meta?.last_page ?? 1
 
   const toolbar = (
-    <div className="flex flex-wrap items-center gap-2">
-      <div className="relative min-w-full flex-1 sm:min-w-[200px] sm:max-w-sm">
-        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-        <Input
-          placeholder="Search organizations…"
-          value={search}
-          onChange={(e) => { setSearch(e.target.value); setPage(1) }}
-          className="pl-8"
-        />
-      </div>
-      <Select value={status} onValueChange={(v) => { setStatus(v); setPage(1) }}>
-        <SelectTrigger className="w-full sm:w-40">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          {STATUS_OPTIONS.map((o) => (
-            <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </div>
+    <FilterBar search={search} onSearchChange={setSearch} searchLabel="Search organizations" placeholder="Organization name or identifier" onReset={reset} filters={status !== 'all' ? [{ key: 'status', label: `Status: ${status}`, onRemove: () => setStatus('all') }] : []}>
+      <div><label id="organization-status-label" className="mb-1.5 block text-xs font-medium">Status</label>
+      <Select value={status} onValueChange={setStatus}>
+        <SelectTrigger aria-labelledby="organization-status-label" className="w-40"><SelectValue /></SelectTrigger>
+        <SelectContent>{STATUS_OPTIONS.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
+      </Select></div>
+    </FilterBar>
   )
 
   return (
@@ -253,13 +246,15 @@ export default function OrganizationsPage() {
         description={data?.meta?.total != null ? `${data.meta.total} organizations` : 'Manage fleet organizations'}
         icon={Building2}
         actions={
-          <Button onClick={openCreate}>
+          <Button disabled={!canManage} onClick={openCreate}>
             <Plus className="mr-2 h-4 w-4" /> New Organization
           </Button>
         }
       />
 
       <DataTable
+        error={error}
+        onRetry={() => void refetch()}
         data={orgs}
         columns={columns}
         isLoading={isLoading}
@@ -271,14 +266,14 @@ export default function OrganizationsPage() {
       />
 
       {/* Create / Edit slide-over */}
-      <OrgFormSlideOver
+      {canManage && <OrgFormSlideOver
         open={formOpen}
         onOpenChange={setFormOpen}
         org={editOrg}
-      />
+      />}
 
       {/* Suspend / Reactivate confirm */}
-      {suspendTarget && (
+      {canSuspend && suspendTarget && (
         <ConfirmDialog
           open={!!suspendTarget}
           onOpenChange={(o) => !o && setSuspendTarget(null)}
@@ -295,7 +290,7 @@ export default function OrganizationsPage() {
       )}
 
       {/* Delete confirm */}
-      {deleteTarget && (
+      {canDelete && deleteTarget && (
         <ConfirmDialog
           open={!!deleteTarget}
           onOpenChange={(o) => !o && setDeleteTarget(null)}

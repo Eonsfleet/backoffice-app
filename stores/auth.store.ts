@@ -18,9 +18,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   // Read synchronously so the token is available before React effects fire.
   token: getAuthCookie(),
   user: null,
-  // Bootstrapping starts as true only when a token exists — otherwise there's
-  // nothing to resolve and pages can render immediately.
-  isBootstrapping: getAuthCookie() !== null,
+  // Server and first browser render must agree. The bootstrap effect resolves
+  // both cookie and no-cookie sessions after hydration.
+  isBootstrapping: true,
   setAuth: (token, user) => {
     set({ token, user })
     if (user) setMonitoringUser({ id: user.id, email: user.email, name: user.name })

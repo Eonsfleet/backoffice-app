@@ -1,4 +1,6 @@
 'use client'
+import { usePermission } from '@/hooks/usePermission'
+import { QueryError } from '@/components/shared/QueryError'
 
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -34,13 +36,14 @@ function planState(plan: SubscriptionPlan) {
 }
 
 export default function PlansPage() {
+  const canManage = usePermission('admin.billing.manage_catalog')
   const qc = useQueryClient()
   const [formOpen, setFormOpen] = useState(false)
   const [editPlan, setEditPlan] = useState<SubscriptionPlan | null>(null)
   const [toggleTarget, setToggleTarget] = useState<SubscriptionPlan | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<SubscriptionPlan | null>(null)
 
-  const { data: plans, isLoading } = useQuery({
+  const { data: plans, isLoading, error, refetch } = useQuery({
     queryKey: ['plans'],
     queryFn: listPlans,
     staleTime: 60_000,
@@ -125,6 +128,8 @@ export default function PlansPage() {
   }
 
   const activePlans = plans?.filter((plan) => plan.is_active).length ?? 0
+  if (error) return <QueryError error={error} retry={() => void refetch()} label="plans" />
+
   const subscribers = plans?.reduce((sum, plan) => sum + (plan.subscriber_count ?? 0), 0) ?? 0
   const customPlans = plans?.filter((plan) => plan.has_custom_pricing).length ?? 0
   const hiddenPlans = plans?.filter((plan) => !plan.is_public).length ?? 0
@@ -134,7 +139,7 @@ export default function PlansPage() {
       title="Plans"
       description="Design, compare, and maintain the pricing tiers available to organizations."
       actions={
-        <Button onClick={openCreate}>
+        <Button disabled={!canManage} onClick={openCreate}>
           <Plus className="mr-2 h-4 w-4" /> New Plan
         </Button>
       }
@@ -186,7 +191,7 @@ export default function PlansPage() {
         <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-border py-20 text-center">
           <Layers className="h-10 w-10 text-muted-foreground/40" />
           <p className="text-sm text-muted-foreground">No plans yet. Create your first plan.</p>
-          <Button onClick={openCreate}><Plus className="mr-2 h-4 w-4" /> New Plan</Button>
+          <Button disabled={!canManage} onClick={openCreate}><Plus className="mr-2 h-4 w-4" /> New Plan</Button>
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
@@ -223,10 +228,10 @@ export default function PlansPage() {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-40">
-                    <DropdownMenuItem onClick={() => openEdit(plan)}>
+                    <DropdownMenuItem disabled={!canManage} onClick={() => openEdit(plan)}>
                       <Pencil className="mr-2 h-4 w-4" /> Edit
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => setToggleTarget(plan)}>
+                    <DropdownMenuItem disabled={!canManage} onClick={() => setToggleTarget(plan)}>
                       {plan.is_active
                         ? <><ToggleLeft className="mr-2 h-4 w-4" /> Deactivate</>
                         : <><ToggleRight className="mr-2 h-4 w-4" /> Activate</>
@@ -234,7 +239,7 @@ export default function PlansPage() {
                     </DropdownMenuItem>
                     <DropdownMenuItem
                       className="text-destructive focus:text-destructive"
-                      onClick={() => setDeleteTarget(plan)}
+                      disabled={!canManage} onClick={() => setDeleteTarget(plan)}
                     >
                       <Trash2 className="mr-2 h-4 w-4" /> Delete
                     </DropdownMenuItem>

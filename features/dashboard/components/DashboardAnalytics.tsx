@@ -37,7 +37,7 @@ import {
 } from '@/features/analytics/api'
 
 const COLORS = {
-  primary: 'hsl(var(--primary))',
+  primary: 'var(--primary)',
   emerald: '#10b981',
   amber: '#f59e0b',
   red: '#ef4444',

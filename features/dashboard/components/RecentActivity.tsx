@@ -1,5 +1,7 @@
 'use client'
 
+import { QueryError } from '@/components/shared/QueryError'
+
 import { useQuery } from '@tanstack/react-query'
 import { formatDistanceToNow } from 'date-fns'
 import Link from 'next/link'
@@ -10,11 +12,13 @@ import { listAuditLogs } from '@/features/audit-logs/api'
 import { Shield } from 'lucide-react'
 
 export function RecentActivity() {
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['dashboard-recent-activity'],
     queryFn: () => listAuditLogs({ per_page: 8 }),
     staleTime: 30_000,
   })
+
+  if (error) return <QueryError error={error} retry={() => void refetch()} />
 
   const logs = data?.data ?? []
 

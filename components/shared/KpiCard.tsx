@@ -2,6 +2,7 @@ import { TrendingUp, TrendingDown, Minus, type LucideIcon } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
+import Link from 'next/link'
 
 interface KpiCardProps {
   label: string
@@ -11,6 +12,7 @@ interface KpiCardProps {
   trendLabel?: string   // e.g. "vs last month"
   isLoading?: boolean
   iconClassName?: string
+  href?: string
 }
 
 export function KpiCard({
@@ -21,11 +23,12 @@ export function KpiCard({
   trendLabel = 'vs last month',
   isLoading,
   iconClassName,
+  href,
 }: KpiCardProps) {
   if (isLoading) {
     return (
-      <Card>
-        <CardContent className="pt-5">
+      <Card className="py-0">
+        <CardContent className="py-5">
           <div className="flex items-start justify-between">
             <div className="space-y-2">
               <Skeleton className="h-3 w-24" />
@@ -42,14 +45,14 @@ export function KpiCard({
   const isPositive = trend !== undefined && trend > 0
   const isNegative = trend !== undefined && trend < 0
 
-  return (
-    <Card className="transition-shadow hover:shadow-md">
+  const card = (
+    <Card className="py-0 transition-colors hover:border-primary/40">
       <CardContent className="pt-5">
         <div className="flex items-start justify-between">
           <div className="space-y-1">
             <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
             <p className="text-2xl font-bold tracking-tight text-foreground">
-              {value ?? '—'}
+              {typeof value === 'number' ? value.toLocaleString() : value ?? '—'}
             </p>
             {trend !== undefined && (
               <div className={cn(
@@ -75,4 +78,5 @@ export function KpiCard({
       </CardContent>
     </Card>
   )
+  return href ? <Link href={href} className="block rounded-xl focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary">{card}</Link> : card
 }

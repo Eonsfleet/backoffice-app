@@ -23,6 +23,7 @@ import {
   DropdownMenuContent, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
+import { QueryError } from '@/components/shared/QueryError'
 
 interface DataTableProps<T> {
   data: T[]
@@ -35,6 +36,10 @@ interface DataTableProps<T> {
   isFetching?: boolean
   skeletonRows?: number
   toolbar?: React.ReactNode
+  error?: unknown
+  onRetry?: () => void
+  emptyMessage?: string
+  caption?: string
 }
 
 export function DataTable<T>({
@@ -47,9 +52,14 @@ export function DataTable<T>({
   isFetching,
   skeletonRows = 8,
   toolbar,
+  error,
+  onRetry,
+  emptyMessage = 'No records match your filters. Try changing your search or clearing the filters.',
+  caption = 'Records',
 }: DataTableProps<T>) {
   const [sorting, setSorting] = useState<SortingState>([])
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
+  const [density, setDensity] = useState<'compact' | 'comfortable'>('compact')
 
   // eslint-disable-next-line react-hooks/incompatible-library -- TanStack Table returns APIs React Compiler cannot memoize safely.
   const table = useReactTable({
@@ -75,6 +85,10 @@ export function DataTable<T>({
       {/* Toolbar slot + column visibility toggle */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0 flex-1">{toolbar}</div>
+        <div className="flex shrink-0 items-center gap-2">
+        <Button variant="outline" size="sm" aria-pressed={density === 'comfortable'} onClick={() => setDensity(density === 'compact' ? 'comfortable' : 'compact')}>
+          {density === 'compact' ? 'Compact rows' : 'Comfortable rows'}
+        </Button>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="sm" className="w-full shrink-0 sm:w-auto">
@@ -91,17 +105,21 @@ export function DataTable<T>({
                   key={col.id}
                   className="capitalize"
                   checked={col.getIsVisible()}
+                  disabled={col.getIsVisible() && table.getVisibleLeafColumns().length === 1}
                   onCheckedChange={(val) => col.toggleVisibility(val)}
                 >
-                  {col.id}
+                  {typeof col.columnDef.header === 'string' ? col.columnDef.header : col.id.replace(/_/g, ' ')}
                 </DropdownMenuCheckboxItem>
               ))}
           </DropdownMenuContent>
         </DropdownMenu>
+        </div>
       </div>
 
+      {sorting.length > 0 && <p role="status" className="text-xs text-muted-foreground">Sorted within this page of results.</p>}
+
       {/* Table */}
-      <div className="relative overflow-hidden rounded-lg border border-border bg-card">
+      {error ? <QueryError error={error} retry={onRetry} label="these records" /> : <div aria-busy={!!(isLoading || isFetching)} className="relative rounded-lg border border-border bg-card [&_[data-slot=table-container]]:max-h-[65vh] [&_[data-slot=table-container]]:overflow-auto [&_[data-slot=table-container]]:overscroll-contain">
         {/* Refetch progress bar — shown while background data refresh is in flight */}
         {isFetching && !isLoading && (
           <div className="absolute inset-x-0 top-0 z-10 h-0.5 bg-primary/20 overflow-hidden">
@@ -109,23 +127,21 @@ export function DataTable<T>({
           </div>
         )}
         <Table className="min-w-max">
-          <TableHeader>
+          <caption className="sr-only">{caption}</caption>
+          <TableHeader className="sticky top-0 z-[1] bg-card">
             {table.getHeaderGroups().map((hg) => (
               <TableRow key={hg.id} className="bg-muted/40 hover:bg-muted/40">
                 {hg.headers.map((h) => (
                   <TableHead
                     key={h.id}
-                    className={cn('text-xs font-semibold uppercase tracking-wide text-muted-foreground', h.column.getCanSort() && 'cursor-pointer select-none')}
-                    onClick={h.column.getToggleSortingHandler()}
+                    scope="col"
+                    aria-sort={h.column.getCanSort() ? (h.column.getIsSorted() === 'asc' ? 'ascending' : h.column.getIsSorted() === 'desc' ? 'descending' : 'none') : undefined}
+                    className="text-xs font-semibold text-muted-foreground"
                   >
-                    <div className="flex items-center gap-1">
+                    {h.isPlaceholder ? null : h.column.getCanSort() ? <button type="button" onClick={h.column.getToggleSortingHandler()} className="flex min-h-10 items-center gap-1 rounded focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2">
                       {flexRender(h.column.columnDef.header, h.getContext())}
-                      {h.column.getCanSort() && (
-                        h.column.getIsSorted() === 'asc' ? <ChevronUp className="h-3 w-3" />
-                        : h.column.getIsSorted() === 'desc' ? <ChevronDown className="h-3 w-3" />
-                        : <ChevronsUpDown className="h-3 w-3 opacity-40" />
-                      )}
-                    </div>
+                      {h.column.getIsSorted() === 'asc' ? <ChevronUp aria-hidden="true" className="h-3 w-3" /> : h.column.getIsSorted() === 'desc' ? <ChevronDown aria-hidden="true" className="h-3 w-3" /> : <ChevronsUpDown aria-hidden="true" className="h-3 w-3 opacity-40" />}
+                    </button> : flexRender(h.column.columnDef.header, h.getContext())}
                   </TableHead>
                 ))}
               </TableRow>
@@ -135,7 +151,7 @@ export function DataTable<T>({
             {isLoading ? (
               Array.from({ length: skeletonRows }).map((_, i) => (
                 <TableRow key={i}>
-                  {columns.map((_, j) => (
+                  {table.getVisibleLeafColumns().map((_, j) => (
                     <TableCell key={j}>
                       <Skeleton className="h-4 w-full" />
                     </TableCell>
@@ -144,15 +160,15 @@ export function DataTable<T>({
               ))
             ) : table.getRowModel().rows.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={columns.length} className="py-16 text-center text-sm text-muted-foreground">
-                  No records found.
+                <TableCell colSpan={Math.max(1, table.getVisibleLeafColumns().length)} className="py-16 text-center text-sm text-muted-foreground">
+                  {emptyMessage}
                 </TableCell>
               </TableRow>
             ) : (
               table.getRowModel().rows.map((row) => (
                 <TableRow key={row.id} className="transition-colors hover:bg-muted/30">
                   {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id} className="text-sm">
+                    <TableCell key={cell.id} className={cn('text-sm', density === 'comfortable' ? 'py-4' : 'py-2', typeof cell.getValue() === 'number' && 'text-right tabular-nums')}>
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
                     </TableCell>
                   ))}
@@ -161,13 +177,13 @@ export function DataTable<T>({
             )}
           </TableBody>
         </Table>
-      </div>
+      </div>}
 
       {/* Pagination */}
-      {pagination && onPaginationChange && (
+      {!error && pagination && onPaginationChange && (
         <div className="flex flex-col gap-3 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
           <span>
-            Page {pagination.pageIndex + 1} of {pageCount ?? '?'}
+            Page {pagination.pageIndex + 1} of {Math.max(1, pageCount ?? 1)}
           </span>
           <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center">
             <Button

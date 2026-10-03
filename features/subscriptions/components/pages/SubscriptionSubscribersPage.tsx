@@ -1,4 +1,7 @@
 'use client'
+import { useUrlListState } from '@/hooks/useUrlListState'
+import { useDebounce } from '@/hooks/useDebounce'
+
 
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -1021,12 +1024,15 @@ const PER_PAGE = 15
 export default function SubscribersPage() {
   const qc = useQueryClient()
 
-  const [status, setStatus]   = useState('all')
-  const [cycle, setCycle]     = useState('all')
-  const [type, setType]       = useState('all')
-  const [paymentState, setPaymentState] = useState('all')
-  const [search, setSearch]   = useState('')
-  const [page, setPage]       = useState(1)
+  const urlState = useUrlListState()
+  const { search, status, page, setSearch, setStatus, setPage } = urlState
+  const cycle = urlState.getFilter('cycle')
+  const setCycle = (value: string) => urlState.setFilter('cycle', value)
+  const type = urlState.getFilter('type')
+  const setType = (value: string) => urlState.setFilter('type', value)
+  const paymentState = urlState.getFilter('payment')
+  const setPaymentState = (value: string) => urlState.setFilter('payment', value)
+  const debouncedSearch = useDebounce(search, 300)
 
   const [viewSub, setViewSub]       = useState<Subscription | null>(null)
   const [editSub, setEditSub]       = useState<Subscription | null>(null)
@@ -1040,10 +1046,10 @@ export default function SubscribersPage() {
   const canManageMoney = usePermission('admin.billing.money')
   const canManageCatalog = usePermission('admin.billing.manage_catalog')
 
-  const { data, isLoading } = useQuery({
-    queryKey: ['subscribers', { status, cycle, type, paymentState, search, page }],
+  const { data, isLoading, error, refetch } = useQuery({
+    queryKey: ['subscribers', { status, cycle, type, paymentState, search: debouncedSearch, page }],
     queryFn:  () => listSubscribers({
-      q:             search || undefined,
+      q:             debouncedSearch || undefined,
       status:        status !== 'all' ? status : undefined,
       billing_cycle: cycle  !== 'all' ? cycle  : undefined,
       subscription_type: type !== 'all' ? type : undefined,
@@ -1389,6 +1395,8 @@ export default function SubscribersPage() {
       </div>
 
       <DataTable
+        error={error}
+        onRetry={() => void refetch()}
         data={subscribers}
         columns={columns}
         isLoading={isLoading}
