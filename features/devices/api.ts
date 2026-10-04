@@ -1,4 +1,7 @@
 import { api } from '@/lib/api/client'
+export const bulkDeleteDevices = async (ids: Array<string | number>): Promise<void> => {
+  await api.delete('/admin/devices/bulk', { data: { ids } })
+}
 import type { Apn, Device, Hardware, PaginatedResponse } from '@/types/api'
 import type { ImportStartedResponse } from '@/features/imports/api'
 

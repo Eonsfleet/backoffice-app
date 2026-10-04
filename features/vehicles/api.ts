@@ -333,6 +333,10 @@ export const exportVehicles = async (filters?: VehicleFilters): Promise<void> =>
   downloadBlob(response.data, `vehicles-${Date.now()}.csv`, 'text/csv')
 }
 
+export const bulkDeleteVehicles = async (ids: Array<string | number>): Promise<void> => {
+  await api.delete('/admin/vehicles/bulk', { data: { ids } })
+}
+
 export const importVehicles = async (
   file: File,
   organizationId: string | number

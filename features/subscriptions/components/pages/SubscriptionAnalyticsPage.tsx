@@ -171,7 +171,7 @@ export default function SubscriptionAnalyticsPage() {
           <KpiCard label="Total"    value={summary?.total}    icon={CreditCard} />
           <KpiCard label="Active"   value={summary?.active}   icon={Users}      iconClass="bg-emerald-500/10" />
           <KpiCard label="Inactive" value={summary?.inactive} icon={XCircle}    iconClass="bg-yellow-500/10" />
-          <KpiCard label="Canceled" value={summary?.canceled} icon={Ban}        iconClass="bg-red-500/10" />
+          <KpiCard label="Cancelled" value={summary?.cancelled} icon={Ban}        iconClass="bg-red-500/10" />
         </div>
       )}
 

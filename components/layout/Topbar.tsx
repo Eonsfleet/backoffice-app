@@ -53,6 +53,7 @@ const ROUTE_LABELS: Record<string, string> = {
   '/admin-users':             'Admin Users',
   '/audit-logs':              'Audit Logs',
   '/users':                   'Users',
+  '/users/deleted':           'Deleted users',
   '/vehicles':                'Vehicles',
   '/analytics':               'Analytics',
   '/notifications':           'Notifications',

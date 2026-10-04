@@ -520,12 +520,12 @@ export const anonymizeOrganization = async (organizationId: string | number): Pr
 
 export const getSubscriptionSummary = async (): Promise<SubscriptionSummary> => {
   const { data } = await api.get('/admins/subscriptions/analytics/summary')
-  // Stats live in `message`, not `data`
-  const msg = data.message
-  if (!msg || typeof msg !== 'object') {
+  const summary = data.data
+  if (!summary || typeof summary !== 'object' || Array.isArray(summary) ||
+      !['total', 'active', 'inactive', 'cancelled'].every(key => typeof summary[key] === 'number')) {
     throw new Error('Unexpected response shape from subscription summary endpoint.')
   }
-  return msg as SubscriptionSummary
+  return summary as SubscriptionSummary
 }
 
 export interface StatusDistributionItem {
