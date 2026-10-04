@@ -14,8 +14,9 @@ import {
   Building2, Mail, Phone, MapPin, Briefcase, Calendar,
   Pencil, ShieldOff, ShieldCheck, Trash2, ArrowLeft, Loader2,
   Shield, Truck, Route, AlertTriangle, Bell, MapPinned, ChevronRight,
-  CreditCard,
+  CreditCard, Globe, UserPlus,
 } from 'lucide-react'
+import { onboardingSourceLabel, trialSummary } from '@/features/organizations/onboarding'
 
 import { PageHeader } from '@/components/shared/PageHeader'
 import { StatusBadge } from '@/components/shared/StatusBadge'
@@ -574,6 +575,11 @@ export function OrgDetailView({ id }: { id: string }) {
                           {org.current_plan?.plan?.name ?? org.subscription_plan}
                         </span>
                       )}
+                      {trialSummary(org.current_plan) && (
+                        <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
+                          {trialSummary(org.current_plan)}
+                        </span>
+                      )}
                     </div>
                   </div>
                 </CardHeader>
@@ -587,6 +593,8 @@ export function OrgDetailView({ id }: { id: string }) {
                   <InfoRow icon={Briefcase} label="Industry"        value={org.industry} />
                   <InfoRow icon={Mail}      label="Fleet Size"     value={org.fleet_size} />
                   <InfoRow icon={MapPin}    label="Address"         value={org.address} />
+                  <InfoRow icon={Globe}     label="Slug"            value={org.slug} />
+                  <InfoRow icon={UserPlus}  label="Onboarded via"   value={onboardingSourceLabel(org.onboarding_source) ?? 'Unknown'} />
                   <InfoRow icon={Calendar}  label="Joined"
                     value={org.joined_date ?? org.created_at
                       ? format(new Date((org.joined_date ?? org.created_at)!), 'MMM d, yyyy')
@@ -604,6 +612,9 @@ export function OrgDetailView({ id }: { id: string }) {
                   <div className="grid gap-3 min-[420px]:grid-cols-2 sm:grid-cols-4">
                     <StatCard label="Vehicles"      value={org.total_vehicles ?? org.vehicle_count ?? org.fleet_size} />
                     <StatCard label="Vehicle Limit" value={!org.current_plan?.plan ? 'Unavailable' : org.current_plan.plan.vehicle_limit === null ? 'Unlimited' : org.current_plan.plan.vehicle_limit} />
+                    {org.current_plan?.in_trial && (
+                      <StatCard label="Trial Asset Limit" value={org.current_plan.trial_asset_limit ?? 'Uncapped'} />
+                    )}
                   </div>
                 </CardContent>
               </Card>

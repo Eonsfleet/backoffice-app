@@ -1,5 +1,5 @@
 import { api } from '@/lib/api/client'
-import type { Organization, PaginatedResponse } from '@/types/api'
+import type { OnboardingSource, Organization, PaginatedResponse } from '@/types/api'
 import { normalizePaginated } from '@/lib/api/utils'
 
 /**
@@ -58,6 +58,7 @@ export interface OrgFilters {
   plan?: string
   from_date?: string
   to_date?: string
+  onboarding_source?: OnboardingSource
 }
 
 export interface OrganizationPayload {
@@ -71,6 +72,8 @@ export interface OrganizationPayload {
   state?: string
   country?: string
   zipcode?: string
+  /** Edit only; the server generates it on create and ignores any sent. */
+  slug?: string
   billing_type?: 'poc' | 'production'
   plan_id?: number
   billing_cycle?: 'monthly' | 'yearly'

@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { organizationCreateSchema, organizationDetailsSchema, organizationCreatePayload, type OrganizationFormValues } from '@/features/organizations/form-schema'
+import { organizationCreateSchema, organizationEditSchema, organizationCreatePayload, type OrganizationFormValues } from '@/features/organizations/form-schema'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { Loader2 } from 'lucide-react'
@@ -20,7 +20,12 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
 
-type FormValues = OrganizationFormValues
+type FormValues = OrganizationFormValues & { slug?: string }
+
+type ApiErrorBody = {
+  message?: string
+  errors?: Array<{ detail?: string; source?: { pointer?: string } }>
+}
 
 interface OrgFormSlideOverProps {
   open: boolean
@@ -53,9 +58,9 @@ export function OrgFormSlideOver({ open, onOpenChange, org }: OrgFormSlideOverPr
     onOpenChange(next)
   }
 
-  const { register, handleSubmit, reset, setValue, control, formState: { errors } } = useForm<FormValues>({
+  const { register, handleSubmit, reset, setValue, setError, control, formState: { errors } } = useForm<FormValues>({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    resolver: zodResolver(isEdit ? organizationDetailsSchema : organizationCreateSchema) as any,
+    resolver: zodResolver(isEdit ? organizationEditSchema : organizationCreateSchema) as any,
     defaultValues: { billing_type: 'poc', evaluation_days: 30, billing_cycle: 'monthly' },
   })
   const billingType = useWatch({ control, name: 'billing_type' }) ?? 'poc'
@@ -85,7 +90,8 @@ export function OrgFormSlideOver({ open, onOpenChange, org }: OrgFormSlideOverPr
         city:         org.city ?? '',
         state:        org.state ?? '',
         country:      org.country ?? '',
-        plan_id:      String(org.current_plan?.plan?.id ?? ''),
+        slug:         org.slug ?? '',
+        plan_id:     String(org.current_plan?.plan?.id ?? ''),
         billing_cycle: (org.current_plan?.billing_cycle as 'monthly' | 'yearly') ?? 'monthly',
         billing_type: 'poc', evaluation_days: 30,
       })
@@ -100,7 +106,12 @@ export function OrgFormSlideOver({ open, onOpenChange, org }: OrgFormSlideOverPr
 
   const mutation = useMutation({
     mutationFn: (values: FormValues) => {
-      if (isEdit) return updateOrganization(org!.id, organizationDetailsSchema.parse(values))
+      if (isEdit) {
+        const { slug, ...details } = organizationEditSchema.parse(values)
+        // Send the slug only when it changed, so saving other details never
+        // trips the slug's uniqueness or reserved-word checks.
+        return updateOrganization(org!.id, slug && slug !== org!.slug ? { ...details, slug } : details)
+      }
       return createOrganization(organizationCreatePayload(values))
     },
     onSuccess: (saved) => {
@@ -117,8 +128,10 @@ export function OrgFormSlideOver({ open, onOpenChange, org }: OrgFormSlideOverPr
     onError: (err) => {
       // Surface the API's own validation message (e.g. "The email has already
       // been taken.") instead of a generic failure the admin can't act on.
-      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
-      toast.error(msg ?? (isEdit ? 'Failed to update organization' : 'Failed to create organization'))
+      const data = (err as { response?: { data?: ApiErrorBody } })?.response?.data
+      const slugError = data?.errors?.find((e) => e.source?.pointer === '/data/attributes/slug')
+      if (slugError?.detail) setError('slug', { message: slugError.detail })
+      toast.error(data?.message ?? (isEdit ? 'Failed to update organization' : 'Failed to create organization'))
     },
   })
 
@@ -152,6 +165,15 @@ export function OrgFormSlideOver({ open, onOpenChange, org }: OrgFormSlideOverPr
         <Field label="Organization Name *" error={errors.name?.message}>
           <Input {...register('name')} placeholder="Sahara Transport" />
         </Field>
+
+        {isEdit ? (
+          <Field label="Slug" error={errors.slug?.message}>
+            <Input {...register('slug')} placeholder="sahara-transport" className="font-mono" autoComplete="off" />
+            <p className="text-xs text-muted-foreground">Also the organization&apos;s subdomain. Changing it changes their sign-in address.</p>
+          </Field>
+        ) : (
+          <p className="text-xs text-muted-foreground">The slug and subdomain are generated from the name.</p>
+        )}
 
         {/* Email + Phone */}
         <div className="grid gap-4 sm:grid-cols-2">
