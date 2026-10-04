@@ -1,6 +1,7 @@
 import { LayoutDashboard, Building2, Users, Truck, Cpu, Map, CreditCard, ScrollText, BarChart3, Settings, Bell, ClipboardList, Shield, Layers, Wrench, Activity, FileText } from 'lucide-react'
 import type { AdminUser } from '@/types/api'
 import { hasPermission } from '@/hooks/usePermission'
+import { COMMERCIAL_SECTIONS, LEGACY_BILLING_ROUTES } from './commercial-navigation'
 
 export const NAV_GROUPS = [
   { label: 'Overview', items: [
@@ -11,7 +12,9 @@ export const NAV_GROUPS = [
     { href: '/customer-health', label: 'Customer health', icon: BarChart3, permission: 'admin.organizations.view' },
     { href: '/organization-requests', label: 'Onboarding requests', icon: ClipboardList, permission: 'admin.organizations.manage' },
     { href: '/users', label: 'Customer users', icon: Users, superOnly: true },
-    { href: '/subscriptions', label: 'Subscriptions', icon: CreditCard, permission: 'admin.subscriptions.view' },
+  ] },
+  { label: 'Commercial', items: [
+    { href: '/subscriptions', label: 'Subscriptions', icon: Layers, permission: 'admin.subscriptions.view' },
     { href: '/billing', label: 'Billing & payments', icon: CreditCard, permission: 'admin.billing.view' },
   ] },
   { label: 'Fleet operations', items: [
@@ -48,6 +51,11 @@ export function canAccessNavigation(user: AdminUser | null, item: NavigationItem
 }
 
 export function getRouteItem(path: string): NavigationItem | undefined {
+  const canonicalPath = LEGACY_BILLING_ROUTES[path] ?? path
+  const commercial = [...COMMERCIAL_SECTIONS.subscriptions, ...COMMERCIAL_SECTIONS.billing]
+    .sort((a, b) => b.href.length - a.href.length)
+    .find(item => canonicalPath === item.href || canonicalPath.startsWith(`${item.href}/`))
+  if (commercial) return commercial
   return NAV_GROUPS.flatMap(group => group.items).sort((a, b) => b.href.length - a.href.length)
     .find(item => path === item.href || path.startsWith(`${item.href}/`))
 }

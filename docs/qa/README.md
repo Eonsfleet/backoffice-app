@@ -21,3 +21,7 @@ node scripts/qa/rebuild-browser.mjs
 ```
 
 The local preview checks compiled pages. Deployment must follow the repository's existing standalone output configuration. Real authentication/permissions, backend database state, template catalogue synchronization and notification delivery remain live integration checks.
+
+The subsequent organization billing update uses `node scripts/qa/organization-billing.mjs`. Its separate `organization-billing-results.json` and `organization-create-*-blue.png` screenshots cover a 15-day POC, monthly production, yearly production, and the updated blue primary tokens in both themes. The earlier rebuild screenshots remain a historical record of the preceding palette.
+
+The status/activity update uses `node scripts/qa/organization-status-activity.mjs`. Its results and screenshots verify unset organization status, failed-save recovery, two actors in a scoped feed, switching organizations, and an activity request error that displays retry rather than an empty feed. These are intercepted browser fixtures; backend database persistence remains an integration check.

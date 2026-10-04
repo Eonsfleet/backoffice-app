@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useUrlListState } from '@/hooks/useUrlListState'
 import { useQuery } from '@tanstack/react-query'
 import { type ColumnDef } from '@tanstack/react-table'
 import { format } from 'date-fns'
@@ -12,7 +12,7 @@ import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 import { listReconciliationMismatches } from '@/features/subscriptions/api'
-import { SubscriptionWorkspace } from '@/features/subscriptions/components/SubscriptionWorkspace'
+import { BillingWorkspace } from '@/features/billing/components/BillingWorkspace'
 import type { ReconciliationMismatch } from '@/types/api'
 
 const STATUS_OPTIONS = [
@@ -28,12 +28,11 @@ function fmtMinor(v: number) {
 const PER_PAGE = 25
 
 function ReconciliationTable() {
-  const [status, setStatus] = useState('all')
-  const [page, setPage] = useState(1)
+  const { status, page, setStatus, setPage } = useUrlListState()
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isFetching, error, refetch } = useQuery({
     queryKey: ['reconciliation-mismatches', { status, page }],
-    queryFn: () => listReconciliationMismatches({ status: status !== 'all' ? status : undefined }),
+    queryFn: () => listReconciliationMismatches({ status: status !== 'all' ? status : undefined, page }),
     staleTime: 30_000,
   })
 
@@ -78,7 +77,7 @@ function ReconciliationTable() {
 
   const toolbar = (
     <Select value={status} onValueChange={(v) => { setStatus(v); setPage(1) }}>
-      <SelectTrigger className="w-full sm:w-40"><SelectValue /></SelectTrigger>
+      <SelectTrigger aria-label="Reconciliation status" className="w-full sm:w-40"><SelectValue /></SelectTrigger>
       <SelectContent>
         {STATUS_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
       </SelectContent>
@@ -90,6 +89,9 @@ function ReconciliationTable() {
       data={data?.data ?? []}
       columns={columns}
       isLoading={isLoading}
+      isFetching={isFetching}
+      error={error}
+      onRetry={() => void refetch()}
       toolbar={toolbar}
       pagination={{ pageIndex: page - 1, pageSize: PER_PAGE }}
       pageCount={data?.meta?.last_page ?? 1}
@@ -100,7 +102,7 @@ function ReconciliationTable() {
 
 export default function ReconciliationPage() {
   return (
-    <SubscriptionWorkspace
+    <BillingWorkspace
       title="Reconciliation"
       description="Provider settlement mismatches flagged for finance review."
     >
@@ -115,6 +117,6 @@ export default function ReconciliationPage() {
       >
         <ReconciliationTable />
       </PermissionGate>
-    </SubscriptionWorkspace>
+    </BillingWorkspace>
   )
 }

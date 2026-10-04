@@ -71,12 +71,7 @@ export interface OrganizationPayload {
   state?: string
   country?: string
   zipcode?: string
-  // POC is the only billing type the backend provisions for manual org
-  // creation (StoreOrganizationRequest `in:poc`, and
-  // OrganizationProvisioningService::BILLING_TYPES). Anything else is a 422.
-  // The plan is still required: provisioning binds the POC subscription to it,
-  // and that subscription is what later billing actions are addressed by.
-  billing_type?: 'poc'
+  billing_type?: 'poc' | 'production'
   plan_id?: number
   billing_cycle?: 'monthly' | 'yearly'
   evaluation_days?: number
@@ -119,6 +114,14 @@ export const suspendOrganization = async (id: string | number): Promise<void> =>
 
 export const unsuspendOrganization = async (id: string | number): Promise<void> => {
   await api.post(`/admin/organizations/${id}/unsuspend`)
+}
+
+export const setOrganizationStatus = async (
+  id: string | number,
+  status: 'active' | 'inactive' | 'suspended',
+): Promise<Organization> => {
+  const { data } = await api.patch(`/admin/organizations/${id}/status`, { status })
+  return unwrapOrganization(data.data)
 }
 
 export const deleteOrganization = async (id: string | number): Promise<void> => {

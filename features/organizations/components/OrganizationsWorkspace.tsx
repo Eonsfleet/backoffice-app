@@ -19,6 +19,7 @@ import { DataTable } from '@/components/shared/DataTable'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { OrgFormSlideOver } from '@/features/organizations/components/OrgFormSlideOver'
+import { OrgStatusSlideOver } from '@/features/organizations/components/OrgStatusSlideOver'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
@@ -66,6 +67,7 @@ export default function OrganizationsPage() {
   const [formOpen, setFormOpen]         = useState(false)
   const [editOrg, setEditOrg]           = useState<Organization | null>(null)
   const [suspendTarget, setSuspendTarget] = useState<Organization | null>(null)
+  const [statusTarget, setStatusTarget] = useState<Organization | null>(null)
   const [deleteTarget, setDeleteTarget]   = useState<Organization | null>(null)
 
   const { data, isLoading, isFetching, error, refetch } = useQuery({
@@ -147,7 +149,7 @@ export default function OrganizationsPage() {
       id: 'status',
       header: 'Status',
       cell: ({ row }) => {
-        const status = row.original.current_plan?.status ?? row.original.status
+        const status = row.original.status ?? 'Not set'
         return <StatusBadge status={status} />
       },
     },
@@ -207,6 +209,7 @@ export default function OrganizationsPage() {
                 <Pencil className="mr-2 h-4 w-4" /> Edit
               </DropdownMenuItem>
               <DropdownMenuSeparator />
+              <DropdownMenuItem disabled={!canSuspend} onClick={() => setStatusTarget(org)}>Change status</DropdownMenuItem>
               <DropdownMenuItem disabled={!canSuspend} onClick={() => setSuspendTarget(org)}>
                 {isSuspended
                   ? <><ShieldCheck className="mr-2 h-4 w-4" /> Reactivate</>
@@ -266,6 +269,7 @@ export default function OrganizationsPage() {
       />
 
       {/* Create / Edit slide-over */}
+      <OrgStatusSlideOver org={statusTarget} open={canSuspend && !!statusTarget} onOpenChange={open => { if (!open) setStatusTarget(null) }} />
       {canManage && <OrgFormSlideOver
         open={formOpen}
         onOpenChange={setFormOpen}

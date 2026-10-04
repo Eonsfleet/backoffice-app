@@ -5,17 +5,19 @@ import { useQuery } from '@tanstack/react-query'
 import { type ColumnDef } from '@tanstack/react-table'
 import { format } from 'date-fns'
 import { toast } from 'sonner'
-import { Search, Download, CheckCircle2, XCircle, AlertCircle } from 'lucide-react'
+import { Download, CheckCircle2, XCircle, AlertCircle } from 'lucide-react'
 
 import { DataTable }   from '@/components/shared/DataTable'
 import { Button }      from '@/components/ui/button'
-import { Input }       from '@/components/ui/input'
+import { FilterBar } from '@/components/shared/FilterBar'
 import { Badge }       from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 import { listInvoices, downloadInvoice } from '@/features/subscriptions/api'
-import { SubscriptionWorkspace } from '@/features/subscriptions/components/SubscriptionWorkspace'
+import { BillingWorkspace } from '@/features/billing/components/BillingWorkspace'
 import type { Invoice } from '@/types/api'
+import { useUrlListState } from '@/hooks/useUrlListState'
+import { useDebounce } from '@/hooks/useDebounce'
 
 const STATUS_OPTIONS = [
   { value: 'all',    label: 'All Statuses' },
@@ -49,15 +51,15 @@ function fmt(v: number) {
 const PER_PAGE = 15
 
 export default function InvoicesPage() {
-  const [search, setSearch] = useState('')
-  const [status, setStatus] = useState('all')
-  const [page, setPage]     = useState(1)
+  const { search, status, page, setSearch, setStatus, setPage, update } = useUrlListState()
+  const debouncedSearch = useDebounce(search, 300)
   const [downloading, setDownloading] = useState<string | number | null>(null)
 
-  const { data, isLoading } = useQuery({
-    queryKey: ['invoices', { status, page }],
+  const { data, isLoading, isFetching, error, refetch } = useQuery({
+    queryKey: ['invoices', { status, page, q: debouncedSearch }],
     queryFn:  () => listInvoices({
       status:   status !== 'all' ? status : undefined,
+      q: debouncedSearch || undefined,
       page,
       per_page: PER_PAGE,
     }),
@@ -75,11 +77,7 @@ export default function InvoicesPage() {
     }
   }
 
-  const invoices = (data?.data ?? []).filter((inv) =>
-    !search ||
-    inv.organization?.name?.toLowerCase().includes(search.toLowerCase()) ||
-    inv.invoice_number?.toLowerCase().includes(search.toLowerCase())
-  )
+  const invoices = data?.data ?? []
 
   const columns: ColumnDef<Invoice, unknown>[] = [
     {
@@ -160,39 +158,31 @@ export default function InvoicesPage() {
   ]
 
   const toolbar = (
-    <div className="flex flex-wrap items-center gap-2">
-      <div className="relative min-w-full flex-1 sm:min-w-[200px] sm:max-w-sm">
-        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-        <Input
-          placeholder="Search org or invoice #…"
-          value={search}
-          onChange={(e) => { setSearch(e.target.value); setPage(1) }}
-          className="pl-8"
-        />
-      </div>
-      <Select value={status} onValueChange={(v) => { setStatus(v); setPage(1) }}>
-        <SelectTrigger className="w-full sm:w-36"><SelectValue /></SelectTrigger>
-        <SelectContent>
-          {STATUS_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
-        </SelectContent>
-      </Select>
-    </div>
+    <FilterBar search={search} onSearchChange={setSearch} searchLabel="Search invoices" placeholder="Organization or invoice number" onReset={() => update({ q: null, status: null, page: null })} filters={status !== 'all' ? [{ key: 'status', label: `Status: ${status}`, onRemove: () => setStatus('all') }] : []}>
+      <div><label id="invoice-status-label" className="mb-1.5 block text-xs font-medium">Status</label><Select value={status} onValueChange={setStatus}>
+        <SelectTrigger aria-labelledby="invoice-status-label" className="w-36"><SelectValue /></SelectTrigger>
+        <SelectContent>{STATUS_OPTIONS.map(option => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}</SelectContent>
+      </Select></div>
+    </FilterBar>
   )
-
   return (
-    <SubscriptionWorkspace
+    <BillingWorkspace
       title="Invoices"
       description={data?.meta?.total != null ? `${data.meta.total} billing documents available` : 'Billing documents with status filters and PDF downloads.'}
     >
+      <p className="text-xs text-muted-foreground">Search and status filters apply across all invoices.</p>
       <DataTable
         data={invoices}
         columns={columns}
         isLoading={isLoading}
+        isFetching={isFetching}
+        error={error}
+        onRetry={() => void refetch()}
         toolbar={toolbar}
         pagination={{ pageIndex: page - 1, pageSize: PER_PAGE }}
         pageCount={data?.meta?.last_page ?? 1}
         onPaginationChange={(s) => setPage(s.pageIndex + 1)}
       />
-    </SubscriptionWorkspace>
+    </BillingWorkspace>
   )
 }

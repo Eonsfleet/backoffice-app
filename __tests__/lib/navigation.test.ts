@@ -11,7 +11,7 @@ describe('workspace access', () => {
   it('matches detail routes and the most specific nested workspace', () => {
     expect(getRouteItem('/devices/123')?.href).toBe('/devices')
     expect(getRouteItem('/admin-users/roles')?.href).toBe('/admin-users/roles')
-    expect(getRouteItem('/subscriptions/reconciliation')?.href).toBe('/subscriptions')
+    expect(getRouteItem('/subscriptions/reconciliation')?.href).toBe('/billing/reconciliation')
     expect(getRouteItem('/devices-unrelated')).toBeUndefined()
   })
   it('limits finance to authorized commercial workspaces', () => {

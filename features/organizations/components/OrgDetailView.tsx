@@ -22,6 +22,7 @@ import { StatusBadge } from '@/components/shared/StatusBadge'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { SlideOver } from '@/components/shared/SlideOver'
 import { OrgFormSlideOver } from '@/features/organizations/components/OrgFormSlideOver'
+import { OrgStatusSlideOver } from '@/features/organizations/components/OrgStatusSlideOver'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -159,6 +160,9 @@ function OrgActivityTab({ identifier }: { identifier: string | number }) {
     isFetchingNextPage,
     hasNextPage,
     fetchNextPage,
+    error,
+    isFetchNextPageError,
+    refetch,
   } = useInfiniteQuery({
     queryKey: ['org-activity', identifier],
     queryFn: ({ pageParam = 1 }) =>
@@ -177,7 +181,7 @@ function OrgActivityTab({ identifier }: { identifier: string | number }) {
     if (!el) return
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting && hasNextPage && !isFetchingNextPage) {
+        if (entries[0].isIntersecting && hasNextPage && !isFetchingNextPage && !isFetchNextPageError) {
           fetchNextPage()
         }
       },
@@ -185,12 +189,14 @@ function OrgActivityTab({ identifier }: { identifier: string | number }) {
     )
     observer.observe(el)
     return () => observer.disconnect()
-  }, [hasNextPage, isFetchingNextPage, fetchNextPage])
+  }, [hasNextPage, isFetchingNextPage, isFetchNextPageError, fetchNextPage])
 
   const logs = data?.pages.flatMap((p) => p.data) ?? []
   const total = data?.pages[0]?.meta.total
 
   if (isLoading) return <ActivitySkeleton />
+
+  if (error && logs.length === 0) return <QueryError error={error} retry={() => void refetch()} label="organization activity" />
 
   if (logs.length === 0) {
     return (
@@ -241,6 +247,8 @@ function OrgActivityTab({ identifier }: { identifier: string | number }) {
           </li>
         ))}
       </ul>
+
+      {isFetchNextPageError && <QueryError error={error} retry={() => void fetchNextPage()} label="more organization activity" />}
 
       {/* Sentinel — triggers next page load when scrolled into view */}
       <div ref={sentinelRef} className="py-2 flex justify-center">
@@ -435,6 +443,7 @@ export function OrgDetailView({ id }: { id: string }) {
   const qc = useQueryClient()
 
   const [editOpen, setEditOpen]       = useState(false)
+  const [statusOpen, setStatusOpen]   = useState(false)
   const [suspendOpen, setSuspendOpen] = useState(false)
   const [deleteOpen, setDeleteOpen]   = useState(false)
   const [planOpen, setPlanOpen]       = useState(false)
@@ -520,6 +529,7 @@ export function OrgDetailView({ id }: { id: string }) {
               <Button variant="outline" size="sm" disabled={!canManage} onClick={() => setEditOpen(true)}>
                 <Pencil className="mr-1.5 h-3.5 w-3.5" /> Edit
               </Button>
+              <Button variant="outline" size="sm" disabled={!canSuspend} onClick={() => setStatusOpen(true)}>Change status</Button>
               <Button variant="outline" size="sm" disabled={!canSuspend} onClick={() => setSuspendOpen(true)}>
                 {isSuspended
                   ? <><ShieldCheck className="mr-1.5 h-3.5 w-3.5" /> Reactivate</>
@@ -558,7 +568,7 @@ export function OrgDetailView({ id }: { id: string }) {
                   <div className="min-w-0">
                     <h2 className="text-lg font-semibold leading-tight text-foreground">{org.name}</h2>
                     <div className="mt-1 flex flex-wrap items-center gap-2">
-                      <StatusBadge status={org.current_plan?.status ?? org.status} />
+                      <StatusBadge status={org.status ?? 'Not set'} />
                       {(org.current_plan?.plan?.name ?? org.subscription_plan) && (
                         <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
                           {org.current_plan?.plan?.name ?? org.subscription_plan}
@@ -676,7 +686,8 @@ export function OrgDetailView({ id }: { id: string }) {
               <CardTitle className="text-base">Activity Log</CardTitle>
             </CardHeader>
             <CardContent>
-              <OrgActivityTab identifier={org.identifier ?? org.slug ?? id} />
+              <p className="mb-4 text-sm text-muted-foreground">Events recorded for this organization, including the actor who made each change.</p>
+              <OrgActivityTab key={org.id} identifier={org.id} />
             </CardContent>
           </Card>
         </TabsContent>}
@@ -710,6 +721,7 @@ export function OrgDetailView({ id }: { id: string }) {
       </SlideOver>
 
       {/* Suspend confirm */}
+      <OrgStatusSlideOver org={org} open={canSuspend && statusOpen} onOpenChange={setStatusOpen} />
       <ConfirmDialog
         open={canSuspend && suspendOpen}
         onOpenChange={setSuspendOpen}

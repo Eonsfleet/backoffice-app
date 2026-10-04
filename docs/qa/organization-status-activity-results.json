@@ -1,0 +1,17 @@
+{
+  "fixtureOnly": true,
+  "pageErrors": [],
+  "statusRequests": [
+    {
+      "status": "active"
+    },
+    {
+      "status": "active"
+    }
+  ],
+  "activityRequests": [
+    "/v1/admin/organizations/42/activity-log",
+    "/v1/admin/organizations/43/activity-log",
+    "/v1/admin/organizations/43/activity-log"
+  ]
+}

@@ -66,7 +66,7 @@ export interface Organization {
   country?: string
   zipcode?: string
   logo: string | null
-  status: OrgStatus
+  status: OrgStatus | null
   subscription_plan?: string | null
   vehicle_count?: number
   vehicle_limit?: number

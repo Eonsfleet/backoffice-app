@@ -295,7 +295,8 @@ export const listTransactions = async (params?: {
   page?:     number
   per_page?: number
   status?:   string
-  gateway?:  string
+  payment_method?: string
+  q?: string
 }): Promise<PaginatedResponse<Transaction>> => {
   const { data } = await api.get('/admins/subscriptions/transactions', { params })
   const inner = data.data
@@ -316,6 +317,7 @@ export const listInvoices = async (params?: {
   page?:     number
   per_page?: number
   status?:   string
+  q?: string
 }): Promise<PaginatedResponse<Invoice>> => {
   const { data } = await api.get('/admins/subscriptions/invoices', { params })
   return normalizePaginated<Invoice>(data)
@@ -482,8 +484,16 @@ export const validateLegacyAssets = async (
 
 export const listReconciliationMismatches = async (params?: {
   status?: string
+  page?: number
 }): Promise<PaginatedResponse<ReconciliationMismatch>> => {
   const { data } = await api.get('/admins/billing/reconciliation/mismatches', { params })
+  const paginator = data.data
+  if (paginator && Array.isArray(paginator.data) && typeof paginator.current_page === 'number') {
+    return {
+      data: paginator.data,
+      meta: { current_page: paginator.current_page, last_page: paginator.last_page, per_page: paginator.per_page, total: paginator.total },
+    }
+  }
   return normalizePaginated<ReconciliationMismatch>(data)
 }
 

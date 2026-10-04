@@ -5,17 +5,19 @@ import { useQuery } from '@tanstack/react-query'
 import { type ColumnDef } from '@tanstack/react-table'
 import { format } from 'date-fns'
 import { toast } from 'sonner'
-import { Search, Download, CheckCircle2, XCircle, Clock } from 'lucide-react'
+import { Download, CheckCircle2, XCircle, Clock } from 'lucide-react'
 
 import { DataTable }   from '@/components/shared/DataTable'
 import { Button }      from '@/components/ui/button'
-import { Input }       from '@/components/ui/input'
+import { FilterBar } from '@/components/shared/FilterBar'
 import { Badge }       from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 import { listTransactions, exportTransactions } from '@/features/subscriptions/api'
-import { SubscriptionWorkspace } from '@/features/subscriptions/components/SubscriptionWorkspace'
+import { BillingWorkspace } from '@/features/billing/components/BillingWorkspace'
 import type { Transaction } from '@/types/api'
+import { useUrlListState } from '@/hooks/useUrlListState'
+import { useDebounce } from '@/hooks/useDebounce'
 
 const STATUS_OPTIONS = [
   { value: 'all',        label: 'All Statuses' },
@@ -55,17 +57,18 @@ function fmt(v: number) {
 const PER_PAGE = 15
 
 export default function TransactionsPage() {
-  const [search, setSearch]   = useState('')
-  const [status, setStatus]   = useState('all')
-  const [gateway, setGateway] = useState('all')
-  const [page, setPage]       = useState(1)
+  const { search, status, page, setSearch, setStatus, setPage, getFilter, update } = useUrlListState()
+  const gateway = getFilter('payment_method', getFilter('gateway'))
+  const setGateway = (value: string) => update({ payment_method: value === 'all' ? null : value, gateway: null, page: null })
+  const debouncedSearch = useDebounce(search, 300)
   const [exporting, setExporting] = useState(false)
 
-  const { data, isLoading } = useQuery({
-    queryKey: ['transactions', { status, gateway, page }],
+  const { data, isLoading, isFetching, error, refetch } = useQuery({
+    queryKey: ['transactions', { status, gateway, page, q: debouncedSearch }],
     queryFn:  () => listTransactions({
       status:  status  !== 'all' ? status  : undefined,
-      gateway: gateway !== 'all' ? gateway : undefined,
+      payment_method: gateway !== 'all' ? gateway : undefined,
+      q: debouncedSearch || undefined,
       page,
       per_page: PER_PAGE,
     }),
@@ -84,10 +87,7 @@ export default function TransactionsPage() {
     }
   }
 
-  const transactions = (data?.data ?? []).filter((t) =>
-    !search || t.organization?.name?.toLowerCase().includes(search.toLowerCase()) ||
-    t.reference?.toLowerCase().includes(search.toLowerCase())
-  )
+  const transactions = data?.data ?? []
 
   const columns: ColumnDef<Transaction, unknown>[] = [
     {
@@ -158,51 +158,41 @@ export default function TransactionsPage() {
   ]
 
   const toolbar = (
-    <div className="flex flex-wrap items-center justify-between gap-2">
-      <div className="flex w-full flex-wrap items-center gap-2">
-        <div className="relative min-w-full flex-1 sm:min-w-[200px] sm:max-w-sm">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search org or reference…"
-            value={search}
-            onChange={(e) => { setSearch(e.target.value); setPage(1) }}
-            className="pl-8"
-          />
-        </div>
-        <Select value={status} onValueChange={(v) => { setStatus(v); setPage(1) }}>
-          <SelectTrigger className="w-full sm:w-36"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            {STATUS_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
-          </SelectContent>
-        </Select>
-        <Select value={gateway} onValueChange={(v) => { setGateway(v); setPage(1) }}>
-          <SelectTrigger className="w-full sm:w-36"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            {GATEWAY_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
-          </SelectContent>
-        </Select>
-      </div>
-      <Button variant="outline" onClick={handleExport} disabled={exporting}>
-        <Download className="mr-2 h-4 w-4" />
-        {exporting ? 'Exporting…' : 'Export CSV'}
-      </Button>
+    <div className="space-y-3">
+      <FilterBar search={search} onSearchChange={setSearch} searchLabel="Search payments" placeholder="Organization or payment reference" onReset={() => update({ q: null, status: null, payment_method: null, gateway: null, page: null })} filters={[
+        ...(status !== 'all' ? [{ key: 'status', label: `Status: ${status}`, onRemove: () => setStatus('all') }] : []),
+        ...(gateway !== 'all' ? [{ key: 'method', label: `Method: ${gateway}`, onRemove: () => setGateway('all') }] : []),
+      ]}>
+        <div><label id="payment-status-label" className="mb-1.5 block text-xs font-medium">Status</label><Select value={status} onValueChange={setStatus}>
+          <SelectTrigger aria-labelledby="payment-status-label" className="w-36"><SelectValue /></SelectTrigger>
+          <SelectContent>{STATUS_OPTIONS.map(option => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}</SelectContent>
+        </Select></div>
+        <div><label id="payment-method-label" className="mb-1.5 block text-xs font-medium">Payment method</label><Select value={gateway} onValueChange={setGateway}>
+          <SelectTrigger aria-labelledby="payment-method-label" className="w-36"><SelectValue /></SelectTrigger>
+          <SelectContent>{GATEWAY_OPTIONS.map(option => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}</SelectContent>
+        </Select></div>
+      </FilterBar>
+      <Button variant="outline" onClick={handleExport} disabled={exporting}><Download className="mr-2 h-4 w-4" />{exporting ? 'Exporting…' : 'Export all payments'}</Button>
     </div>
   )
-
   return (
-    <SubscriptionWorkspace
-      title="Transactions"
+    <BillingWorkspace
+      title="Payments"
       description={data?.meta?.total != null ? `${data.meta.total} payment records with filters and export` : 'Payment transaction history with filters and export.'}
     >
+      <p className="text-xs text-muted-foreground">Search and filters apply across payment records. The CSV export includes all payments.</p>
       <DataTable
         data={transactions}
         columns={columns}
         isLoading={isLoading}
+        isFetching={isFetching}
+        error={error}
+        onRetry={() => void refetch()}
         toolbar={toolbar}
         pagination={{ pageIndex: page - 1, pageSize: PER_PAGE }}
         pageCount={data?.meta?.last_page ?? 1}
         onPaginationChange={(s) => setPage(s.pageIndex + 1)}
       />
-    </SubscriptionWorkspace>
+    </BillingWorkspace>
   )
 }

@@ -1,0 +1,142 @@
+{
+  "fixtureOnly": true,
+  "checks": [
+    "subscriptions-overview-separated",
+    "billing-overview-separated",
+    "billing-payments-filtered",
+    "billing-invoices-filtered",
+    "billing-reconciliation-page-two",
+    "billing-overview-mobile-dark",
+    "billing-reconciliation-support-denied",
+    "billing-overview-empty",
+    "billing-payments-request-error"
+  ],
+  "pageErrors": [],
+  "requests": [
+    {
+      "path": "/v1/admins/subscriptions/transactions",
+      "params": {
+        "page": "1",
+        "per_page": "5"
+      }
+    },
+    {
+      "path": "/v1/admins/subscriptions/invoices",
+      "params": {
+        "page": "1",
+        "per_page": "5"
+      }
+    },
+    {
+      "path": "/v1/admins/billing/reconciliation/mismatches",
+      "params": {
+        "status": "open",
+        "page": "1"
+      }
+    },
+    {
+      "path": "/v1/admins/subscriptions/transactions",
+      "params": {
+        "status": "failed",
+        "payment_method": "manual",
+        "q": "Fleet",
+        "page": "2",
+        "per_page": "15"
+      }
+    },
+    {
+      "path": "/v1/admins/subscriptions/transactions",
+      "params": {
+        "q": "Fleet",
+        "page": "1",
+        "per_page": "15"
+      }
+    },
+    {
+      "path": "/v1/admins/subscriptions/invoices",
+      "params": {
+        "status": "issued",
+        "q": "INV-FLEET-42",
+        "page": "2",
+        "per_page": "15"
+      }
+    },
+    {
+      "path": "/v1/admins/billing/reconciliation/mismatches",
+      "params": {
+        "status": "open",
+        "page": "2"
+      }
+    },
+    {
+      "path": "/v1/admins/subscriptions/transactions",
+      "params": {
+        "page": "1",
+        "per_page": "5"
+      }
+    },
+    {
+      "path": "/v1/admins/subscriptions/invoices",
+      "params": {
+        "page": "1",
+        "per_page": "5"
+      }
+    },
+    {
+      "path": "/v1/admins/billing/reconciliation/mismatches",
+      "params": {
+        "status": "open",
+        "page": "1"
+      }
+    },
+    {
+      "path": "/v1/admins/subscriptions/transactions",
+      "params": {
+        "page": "1",
+        "per_page": "5"
+      }
+    },
+    {
+      "path": "/v1/admins/subscriptions/invoices",
+      "params": {
+        "page": "1",
+        "per_page": "5"
+      }
+    },
+    {
+      "path": "/v1/admins/subscriptions/transactions",
+      "params": {
+        "page": "1",
+        "per_page": "5"
+      }
+    },
+    {
+      "path": "/v1/admins/subscriptions/invoices",
+      "params": {
+        "page": "1",
+        "per_page": "5"
+      }
+    },
+    {
+      "path": "/v1/admins/billing/reconciliation/mismatches",
+      "params": {
+        "status": "open",
+        "page": "1"
+      }
+    },
+    {
+      "path": "/v1/admins/subscriptions/transactions",
+      "params": {
+        "page": "1",
+        "per_page": "15"
+      }
+    },
+    {
+      "path": "/v1/admins/subscriptions/transactions",
+      "params": {
+        "page": "1",
+        "per_page": "15"
+      }
+    }
+  ]
+}

@@ -1,2 +1,1 @@
-import { redirect } from 'next/navigation'
-export default function BillingPage() { redirect('/subscriptions/transactions') }
+export { default } from '@/features/billing/components/BillingOverview'

@@ -1,5 +1,6 @@
-import SubscriptionTransactionsPage from '@/features/subscriptions/components/pages/SubscriptionTransactionsPage'
+import { redirect } from 'next/navigation'
+import { legacyBillingDestination } from '@/lib/commercial-navigation'
 
-export default function TransactionsPage() {
-  return <SubscriptionTransactionsPage />
+export default async function LegacyBillingPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  redirect(legacyBillingDestination('/subscriptions/transactions', await searchParams))
 }

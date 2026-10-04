@@ -3,7 +3,7 @@
 import { useEffect } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { z } from 'zod'
+import { organizationCreateSchema, organizationDetailsSchema, organizationCreatePayload, type OrganizationFormValues } from '@/features/organizations/form-schema'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { Loader2 } from 'lucide-react'
@@ -18,27 +18,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
 
-const schema = z.object({
-  name:         z.string().min(2, 'Name is required'),
-  email:        z.string().email('Invalid email'),
-  phone_number: z.string().optional(),
-  fleet_size:   z.coerce.number().int().min(1, 'Fleet size is required'),
-  industry:     z.string().min(1, 'Industry is required'),
-  street:       z.string().optional(),
-  city:         z.string().optional(),
-  state:        z.string().optional(),
-  country:      z.string().optional(),
-  // Manual org creation is POC-only on the backend — StoreOrganizationRequest
-  // validates `billing_type` as `in:poc` and OrganizationProvisioningService
-  // only knows how to provision a POC lifecycle. The plan is still required:
-  // provisioning binds the new POC subscription to it, and that subscription is
-  // what the change-plan, extend and convert actions are addressed by later.
-  plan_id:      z.string().min(1, 'Plan is required'),
-  billing_cycle: z.enum(['monthly', 'yearly']).default('monthly'),
-  evaluation_days: z.coerce.number().int().min(1).default(30),
-})
-
-type FormValues = z.infer<typeof schema>
+type FormValues = OrganizationFormValues
 
 interface OrgFormSlideOverProps {
   open: boolean
@@ -62,9 +42,10 @@ export function OrgFormSlideOver({ open, onOpenChange, org }: OrgFormSlideOverPr
 
   const { register, handleSubmit, reset, setValue, control, formState: { errors } } = useForm<FormValues>({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    resolver: zodResolver(schema) as any,
-    defaultValues: { evaluation_days: 30, billing_cycle: 'monthly' },
+    resolver: zodResolver(isEdit ? organizationDetailsSchema : organizationCreateSchema) as any,
+    defaultValues: { billing_type: 'poc', evaluation_days: 30, billing_cycle: 'monthly' },
   })
+  const billingType = useWatch({ control, name: 'billing_type' }) ?? 'poc'
   const planId = useWatch({ control, name: 'plan_id' }) ?? ''
   const billingCycle = useWatch({ control, name: 'billing_cycle' }) ?? 'monthly'
 
@@ -93,31 +74,21 @@ export function OrgFormSlideOver({ open, onOpenChange, org }: OrgFormSlideOverPr
         country:      org.country ?? '',
         plan_id:      String(org.current_plan?.plan?.id ?? ''),
         billing_cycle: (org.current_plan?.billing_cycle as 'monthly' | 'yearly') ?? 'monthly',
-        evaluation_days: 30,
+        billing_type: 'poc', evaluation_days: 30,
       })
     } else {
       reset({
         name: '', email: '', phone_number: '', industry: '',
         street: '', city: '', state: '', country: '',
-        plan_id: '', billing_cycle: 'monthly', evaluation_days: 30,
+        plan_id: '', billing_type: 'poc', billing_cycle: 'monthly', evaluation_days: 30,
       })
     }
   }, [org, reset, open])
 
   const mutation = useMutation({
-    mutationFn: ({ evaluation_days, plan_id, billing_cycle, ...details }: FormValues) => {
-      // Plan, cycle and evaluation window drive POC provisioning, which only
-      // happens at creation — the update endpoint ignores them. Reassigning a
-      // plan afterwards goes through the billing change-plan action instead.
-      if (isEdit) return updateOrganization(org!.id, details)
-
-      return createOrganization({
-        ...details,
-        billing_type: 'poc',
-        plan_id: Number(plan_id),
-        billing_cycle,
-        evaluation_days,
-      })
+    mutationFn: (values: FormValues) => {
+      if (isEdit) return updateOrganization(org!.id, organizationDetailsSchema.parse(values))
+      return createOrganization(organizationCreatePayload(values))
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['organizations'] })
@@ -144,6 +115,7 @@ export function OrgFormSlideOver({ open, onOpenChange, org }: OrgFormSlideOverPr
       <form onSubmit={handleSubmit((v) => mutation.mutate(v))} className="space-y-5 px-5">
 
         {/* Name */}
+        {!isEdit && <p className="text-sm text-muted-foreground">New organizations are created with an active account status.</p>}
         <Field label="Organization Name *" error={errors.name?.message}>
           <Input {...register('name')} placeholder="Sahara Transport" />
         </Field>
@@ -189,10 +161,21 @@ export function OrgFormSlideOver({ open, onOpenChange, org }: OrgFormSlideOverPr
         {!isEdit && (
           <div className="space-y-4 rounded-md border border-border p-4">
             <p className="text-xs text-muted-foreground">
-              New organizations start on a POC (proof-of-concept) evaluation of
-              the selected plan. Convert them to a paid subscription from
-              Billing once the POC completes.
+              Choose a POC evaluation or a production subscription for the selected plan.
             </p>
+            {billingType === 'production' && <p className="text-xs text-muted-foreground">
+              The production plan is assigned now. Purchase asset capacity from the subscriber account before onboarding vehicles.
+            </p>}
+
+            <Field label="Plan Type *" error={errors.billing_type?.message}>
+              <Select value={billingType} onValueChange={(value) => setValue('billing_type', value as FormValues['billing_type'], { shouldValidate: true })}>
+                <SelectTrigger aria-label="Plan type"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="poc">POC (proof of concept)</SelectItem>
+                  <SelectItem value="production">Production</SelectItem>
+                </SelectContent>
+              </Select>
+            </Field>
 
             <Field label="Plan *" error={errors.plan_id?.message}>
               <Select
@@ -200,7 +183,7 @@ export function OrgFormSlideOver({ open, onOpenChange, org }: OrgFormSlideOverPr
                 onValueChange={(value) => setValue('plan_id', value, { shouldValidate: true })}
                 disabled={plansFetching}
               >
-                <SelectTrigger>
+                <SelectTrigger aria-label="Plan">
                   <SelectValue placeholder={plansFetching ? 'Loading plans…' : 'Select plan'} />
                 </SelectTrigger>
                 <SelectContent>
@@ -212,12 +195,12 @@ export function OrgFormSlideOver({ open, onOpenChange, org }: OrgFormSlideOverPr
             </Field>
 
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Billing Cycle" error={errors.billing_cycle?.message}>
+              {billingType === 'production' && <Field label="Billing Cycle *" error={errors.billing_cycle?.message}>
                 <Select
                   value={billingCycle}
                   onValueChange={(value) => setValue('billing_cycle', value as FormValues['billing_cycle'], { shouldValidate: true })}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger aria-label="Billing cycle">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -225,11 +208,12 @@ export function OrgFormSlideOver({ open, onOpenChange, org }: OrgFormSlideOverPr
                     <SelectItem value="yearly">Yearly</SelectItem>
                   </SelectContent>
                 </Select>
-              </Field>
+              </Field>}
 
-              <Field label="Evaluation Days" error={errors.evaluation_days?.message}>
-                <Input {...register('evaluation_days')} type="number" min={1} placeholder="30" />
-              </Field>
+              {billingType === 'poc' && <Field label="POC Period (days) *" error={errors.evaluation_days?.message}>
+                <Input {...register('evaluation_days')} aria-label="POC period in days" type="number" min={15} max={30} step={1} placeholder="30" />
+                <p className="text-xs text-muted-foreground">15–30 days. POC evaluations are measured in days.</p>
+              </Field>}
             </div>
           </div>
         )}
