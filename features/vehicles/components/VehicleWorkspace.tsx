@@ -8,6 +8,7 @@ import { BulkRecordsTable } from '@/components/shared/BulkRecordsTable'
 import { bulkDeleteVehicles } from '@/features/vehicles/api'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { SlideOver } from '@/components/shared/SlideOver'
+import { StepIndicator } from '@/components/shared/StepIndicator'
 import { Button } from '@/components/ui/button'
 import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
@@ -24,6 +25,9 @@ import { VehicleMetrics } from '@/features/vehicles/components/VehicleMetrics'
 import { VehicleToolbar } from '@/features/vehicles/components/VehicleToolbar'
 import { useVehiclesWorkspace } from '@/features/vehicles/hooks/useVehiclesWorkspace'
 import { createVehicleColumns } from '@/features/vehicles/utils/vehicle-columns'
+
+// The vehicle exists once step 1 succeeds, so step 2 can be skipped but not undone.
+const ADD_VEHICLE_STEPS = ['Vehicle', 'Device'] as const
 
 const VEHICLE_EXPORT_STATUS_OPTIONS = [
   { value: 'all',            label: 'All Statuses' },
@@ -107,13 +111,27 @@ export function VehicleWorkspace() {
         open={panels.createOpen}
         onOpenChange={panels.setCreateOpen}
         title="Add Vehicle"
-        description="Register a new vehicle to an organization."
+        description={panels.createdVehicle
+          ? `Step 2 of 2: assign a tracker to ${panels.createdVehicle.plate_number}.`
+          : 'Step 1 of 2: register a new vehicle to an organization.'}
       >
-        <VehicleFormFields
-          onSubmit={(vehicle) => mutations.create.mutate({ ...vehicle, organization_id: vehicle.organization_id })}
-          isPending={mutations.create.isPending}
-          onCancel={() => panels.setCreateOpen(false)}
-        />
+        <div className="space-y-5">
+          <StepIndicator steps={ADD_VEHICLE_STEPS} current={panels.createdVehicle ? 2 : 1} />
+          {panels.createdVehicle ? (
+            <AssignDeviceForm
+              vehicle={panels.createdVehicle}
+              cancelLabel="Skip for now"
+              onSuccess={() => panels.setCreateOpen(false)}
+              onCancel={() => panels.setCreateOpen(false)}
+            />
+          ) : (
+            <VehicleFormFields
+              onSubmit={(vehicle) => mutations.create.mutate({ ...vehicle, organization_id: vehicle.organization_id })}
+              isPending={mutations.create.isPending}
+              onCancel={() => panels.setCreateOpen(false)}
+            />
+          )}
+        </div>
       </SlideOver>
 
       <SlideOver
