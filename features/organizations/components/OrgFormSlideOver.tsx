@@ -1,12 +1,14 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { organizationCreateSchema, organizationDetailsSchema, organizationCreatePayload, type OrganizationFormValues } from '@/features/organizations/form-schema'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { Loader2 } from 'lucide-react'
+import { StepIndicator } from '@/components/shared/StepIndicator'
+import { UserCreateForm } from '@/features/users/components/UserCreateForm'
 import { SlideOver } from '@/components/shared/SlideOver'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -36,9 +38,20 @@ function Field({ label, error, children }: { label: string; error?: string; chil
   )
 }
 
+// The administrator is created after the organization exists, so step 2 can
+// only be skipped, not undone — going back would create a second organization.
+const ONBOARDING_STEPS = ['Organization', 'Administrator'] as const
+
 export function OrgFormSlideOver({ open, onOpenChange, org }: OrgFormSlideOverProps) {
   const qc = useQueryClient()
   const isEdit = !!org
+  const [createdOrg, setCreatedOrg] = useState<Organization | null>(null)
+  const step: 1 | 2 = createdOrg ? 2 : 1
+
+  const handleOpenChange = (next: boolean) => {
+    if (!next) setCreatedOrg(null)
+    onOpenChange(next)
+  }
 
   const { register, handleSubmit, reset, setValue, control, formState: { errors } } = useForm<FormValues>({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -90,11 +103,16 @@ export function OrgFormSlideOver({ open, onOpenChange, org }: OrgFormSlideOverPr
       if (isEdit) return updateOrganization(org!.id, organizationDetailsSchema.parse(values))
       return createOrganization(organizationCreatePayload(values))
     },
-    onSuccess: () => {
+    onSuccess: (saved) => {
       qc.invalidateQueries({ queryKey: ['organizations'] })
-      if (isEdit) qc.invalidateQueries({ queryKey: ['organization', String(org!.id)] })
-      toast.success(isEdit ? 'Organization updated' : 'Organization created')
-      onOpenChange(false)
+      if (isEdit) {
+        qc.invalidateQueries({ queryKey: ['organization', String(org!.id)] })
+        toast.success('Organization updated')
+        onOpenChange(false)
+        return
+      }
+      toast.success('Organization created')
+      setCreatedOrg(saved)
     },
     onError: (err) => {
       // Surface the API's own validation message (e.g. "The email has already
@@ -107,11 +125,26 @@ export function OrgFormSlideOver({ open, onOpenChange, org }: OrgFormSlideOverPr
   return (
     <SlideOver
       open={open}
-      onOpenChange={onOpenChange}
+      onOpenChange={handleOpenChange}
       title={isEdit ? 'Edit Organization' : 'New Organization'}
-      description={isEdit ? 'Update organization details.' : 'Add a new organization to the platform.'}
+      description={isEdit
+        ? 'Update organization details.'
+        : step === 1
+          ? 'Step 1 of 2: add the organization to the platform.'
+          : `Step 2 of 2: create the administrator for ${createdOrg!.name}.`}
       width="md"
     >
+      {!isEdit && <div className="px-5 pb-5"><StepIndicator steps={ONBOARDING_STEPS} current={step} /></div>}
+
+      {step === 2 && createdOrg ? (
+        <UserCreateForm
+          organization={{ id: createdOrg.id, name: createdOrg.name }}
+          role={{ name: 'administrator', label: 'Administrator' }}
+          cancelLabel="Skip for now"
+          onSuccess={() => handleOpenChange(false)}
+          onCancel={() => handleOpenChange(false)}
+        />
+      ) : (
       <form onSubmit={handleSubmit((v) => mutation.mutate(v))} className="space-y-5 px-5">
 
         {/* Name */}
@@ -219,15 +252,16 @@ export function OrgFormSlideOver({ open, onOpenChange, org }: OrgFormSlideOverPr
         )}
 
         <div className="flex justify-end gap-2 pt-2">
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={mutation.isPending}>
+          <Button type="button" variant="outline" onClick={() => handleOpenChange(false)} disabled={mutation.isPending}>
             Cancel
           </Button>
           <Button type="submit" disabled={mutation.isPending}>
             {mutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {isEdit ? 'Save Changes' : 'Create Organization'}
+            {isEdit ? 'Save Changes' : 'Create & Continue'}
           </Button>
         </div>
       </form>
+      )}
     </SlideOver>
   )
 }

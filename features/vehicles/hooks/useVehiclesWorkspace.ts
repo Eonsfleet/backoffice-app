@@ -28,7 +28,13 @@ export function useVehiclesWorkspace() {
   const setOrgFilter = (value: string) => urlState.setFilter('organization', value)
   const perPage = DEFAULT_PAGE_SIZE
 
-  const [createOpen, setCreateOpen] = useState(false)
+  const [createOpen, setCreateOpenState] = useState(false)
+  // Set once step 1 of "Add Vehicle" succeeds; step 2 assigns its device.
+  const [createdVehicle, setCreatedVehicle] = useState<Vehicle | null>(null)
+  const setCreateOpen = useCallback((open: boolean) => {
+    if (!open) setCreatedVehicle(null)
+    setCreateOpenState(open)
+  }, [])
   const [importOpen, setImportOpen] = useState(false)
   const [exportOpen, setExportOpen] = useState(false)
   const [exportOrgId, setExportOrgId] = useState('all')
@@ -70,12 +76,25 @@ export function useVehiclesWorkspace() {
 
   const createMutation = useMutation({
     mutationFn: createVehicle,
-    onSuccess: () => {
+    onSuccess: (vehicle, payload) => {
       toast.success('Vehicle created')
       invalidateVehicles()
-      setCreateOpen(false)
+      // The create response may omit the organization relationship; the
+      // device step needs it, so fall back to the one the admin picked.
+      const picked = organizationsQuery.data?.data.find(
+        (org) => String(org.identifier ?? org.id) === String(payload.organization_id),
+      )
+      setCreatedVehicle({
+        ...vehicle,
+        plate_number: vehicle.plate_number || payload.registration_number,
+        organization: vehicle.organization
+          ?? (picked ? { id: picked.id, name: picked.name, identifier: picked.identifier } : null),
+      })
     },
-    onError: () => toast.error('Failed to create vehicle'),
+    onError: (err) => {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
+      toast.error(msg ?? 'Failed to create vehicle')
+    },
   })
 
   const updateMutation = useMutation({
@@ -160,6 +179,7 @@ export function useVehiclesWorkspace() {
     panels: {
       createOpen,
       setCreateOpen,
+      createdVehicle,
       importOpen,
       setImportOpen,
       exportOpen,

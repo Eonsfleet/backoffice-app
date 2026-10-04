@@ -11,6 +11,8 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { SearchableSelect } from '@/components/ui/searchable-select'
 import { createDevice, listHardware } from '@/features/devices/api'
+import { cn } from '@/lib/utils'
+import type { Device } from '@/types/api'
 import { listOrganizations } from '@/features/organizations/api'
 
 // ─── Countries ────────────────────────────────────────────────────────────────
@@ -92,7 +94,23 @@ export type CreateDeviceForm = z.infer<typeof createDeviceSchema>
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export function DeviceCreateForm({ onSuccess, onCancel }: { onSuccess: () => void; onCancel: () => void }) {
+interface DeviceCreateFormProps {
+  onSuccess: (device: Device) => void
+  onCancel: () => void
+  /** Fixes the IMEI (e.g. one the admin already typed elsewhere). */
+  imei?: string
+  /** Fixes the organization (`id` is the identifier the API expects) and hides the picker. */
+  organization?: { id: string | number; name: string }
+  submitLabel?: string
+  cancelLabel?: string
+  /** Keeps the form locked while the caller finishes follow-up work. */
+  busy?: boolean
+  className?: string
+}
+
+export function DeviceCreateForm({
+  onSuccess, onCancel, imei, organization, submitLabel = 'Create Device', cancelLabel = 'Cancel', busy = false, className = 'px-5',
+}: DeviceCreateFormProps) {
   const qc = useQueryClient()
   const prevDialRef = useRef<string>('')
 
@@ -106,6 +124,7 @@ export function DeviceCreateForm({ onSuccess, onCancel }: { onSuccess: () => voi
     queryKey: ['orgs-dropdown'],
     queryFn: () => listOrganizations({ per_page: 100 }),
     staleTime: 120_000,
+    enabled: !organization,
   })
 
   const hardwareOptions = (hardwareList?.data ?? []).map((h) => ({ value: String(h.id), label: h.name }))
@@ -113,6 +132,7 @@ export function DeviceCreateForm({ onSuccess, onCancel }: { onSuccess: () => voi
 
   const { register, handleSubmit, setValue, getValues, control, formState: { errors } } = useForm<CreateDeviceForm>({
     resolver: zodResolver(createDeviceSchema),
+    defaultValues: { device_id: imei ?? '', organization_id: organization ? String(organization.id) : '' },
   })
   const selectedHardware = useWatch({ control, name: 'hardware_id' }) ?? ''
   const selectedCountry = useWatch({ control, name: 'country' }) ?? ''
@@ -142,10 +162,10 @@ export function DeviceCreateForm({ onSuccess, onCancel }: { onSuccess: () => voi
         country:         values.country,
         organization_id: values.organization_id,
       }),
-    onSuccess: () => {
+    onSuccess: (device, values) => {
       toast.success('Device created successfully')
       qc.invalidateQueries({ queryKey: ['devices'] })
-      onSuccess()
+      onSuccess({ ...device, device_id: device.device_id || values.device_id })
     },
     onError: (err: unknown) => {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
@@ -154,10 +174,10 @@ export function DeviceCreateForm({ onSuccess, onCancel }: { onSuccess: () => voi
   })
 
   return (
-    <form onSubmit={handleSubmit((v) => mutation.mutate(v))} className="space-y-4 px-5">
+    <form onSubmit={handleSubmit((v) => mutation.mutate(v))} className={cn('space-y-4', className)}>
       <div className="space-y-1.5">
         <Label>IMEI / Device ID *</Label>
-        <Input {...register('device_id')} placeholder="e.g. 356938035643809" className="font-mono" />
+        <Input {...register('device_id')} placeholder="e.g. 356938035643809" className={cn('font-mono', imei && 'bg-muted text-muted-foreground')} readOnly={!!imei} />
         {errors.device_id && <p className="text-xs text-destructive">{errors.device_id.message}</p>}
       </div>
 
@@ -192,22 +212,24 @@ export function DeviceCreateForm({ onSuccess, onCancel }: { onSuccess: () => voi
       </div>
 
       <div className="space-y-1.5">
-        <Label>Organization *</Label>
-        <SearchableSelect
-          options={orgOptions}
-          value={selectedOrganization}
-          onValueChange={(v) => setValue('organization_id', v, { shouldValidate: true })}
-          placeholder="Select organization"
-          searchPlaceholder="Search organizations…"
-        />
+        <Label>Organization{organization ? '' : ' *'}</Label>
+        {organization ? <Input value={organization.name} disabled readOnly /> : (
+          <SearchableSelect
+            options={orgOptions}
+            value={selectedOrganization}
+            onValueChange={(v) => setValue('organization_id', v, { shouldValidate: true })}
+            placeholder="Select organization"
+            searchPlaceholder="Search organizations…"
+          />
+        )}
         {errors.organization_id && <p className="text-xs text-destructive">{errors.organization_id.message}</p>}
       </div>
 
       <div className="flex gap-2 pt-2">
-        <Button type="submit" disabled={mutation.isPending} className="flex-1">
-          {mutation.isPending ? 'Creating…' : 'Create Device'}
+        <Button type="submit" disabled={mutation.isPending || busy} className="flex-1">
+          {mutation.isPending ? 'Creating…' : busy ? 'Assigning…' : submitLabel}
         </Button>
-        <Button type="button" variant="outline" onClick={onCancel}>Cancel</Button>
+        <Button type="button" variant="outline" onClick={onCancel} disabled={mutation.isPending || busy}>{cancelLabel}</Button>
       </div>
     </form>
   )
