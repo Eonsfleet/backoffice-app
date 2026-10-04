@@ -405,6 +405,7 @@ export interface Vehicle {
   // device
   device_id?: string | null       // IMEI/device_id from attributes
   device_connected?: boolean
+  is_online?: boolean | null
   device_status?: string | null   // deviceStatus from attributes
   // odometer
   total_odometer?: number | null

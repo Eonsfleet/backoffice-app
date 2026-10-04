@@ -10,6 +10,7 @@ export interface VehicleFilters {
   device_status?: string
   organization_id?: string | number
   has_device?: boolean
+  view?: 'default' | 'map' | 'fuel'
 }
 
 export interface VehiclePayload {
@@ -66,6 +67,8 @@ function normalizeLocation(raw: RawLocation): VehicleLocation | null {
   const latitude = coords?.latitude ?? attrs.latitude
   const longitude = coords?.longitude ?? attrs.longitude
   if (latitude == null || longitude == null) return null
+  if (!Number.isFinite(Number(latitude)) || !Number.isFinite(Number(longitude)) ||
+      Math.abs(Number(latitude)) > 90 || Math.abs(Number(longitude)) > 180) return null
   return {
     latitude:  Number(latitude),
     longitude: Number(longitude),
@@ -117,13 +120,21 @@ function normalizeVehicle(raw: RawVehicle): Vehicle {
     device_id:           (a.device_id as string) ?? null,
     device_connected:    (a.device_connected as boolean) ?? false,
     device_status:       ((a.device_status ?? a.deviceStatus) as string) ?? null,
+    is_online:           (a.is_online as boolean | null) ?? null,
     total_odometer:      (a.total_odometer as number) ?? null,
     last_odometer_value: (a.last_odometer_value as string) ?? null,
     status:              (a.status as string) ?? 'unknown',
     created_at:          (a.created_at as string) ?? undefined,
     organization:        org,
     driver:              normalizeDriver(rel.current_driver as RawDriver),
-    current_location:    normalizeLocation(rel.current_location as RawLocation),
+    current_location:    normalizeLocation(rel.current_location as RawLocation) ?? normalizeLocation({
+      id: String(raw.id),
+      attributes: {
+        coordinates: (a.location ?? a.coordinates) as { latitude: number; longitude: number } | undefined,
+        speed: a.speed as number | null,
+        timestamp: a.last_packet_received_at as string | null,
+      },
+    }),
   }
 }
 

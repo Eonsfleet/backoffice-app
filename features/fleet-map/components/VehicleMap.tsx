@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
@@ -64,7 +64,7 @@ function FlyToVehicle({ vehicle }: { vehicle: Vehicle | null }) {
       map.flyTo(
         [vehicle.current_location.latitude, vehicle.current_location.longitude],
         15,
-        { animate: true, duration: 1.2 },
+        { animate: !window.matchMedia('(prefers-reduced-motion: reduce)').matches, duration: 1.2 },
       )
     }
   }, [vehicle, map])
@@ -74,6 +74,7 @@ function FlyToVehicle({ vehicle }: { vehicle: Vehicle | null }) {
 // ─── Map ──────────────────────────────────────────────────────────────────────
 
 interface VehicleMapProps {
+  fitRequest?: number
   vehicles:        Vehicle[]
   selectedVehicle: Vehicle | null
   onVehicleClick:  (v: Vehicle) => void
@@ -82,7 +83,22 @@ interface VehicleMapProps {
 // Lagos as a sensible default center
 const DEFAULT_CENTER: [number, number] = [6.5244, 3.3792]
 
-export function VehicleMap({ vehicles, selectedVehicle, onVehicleClick }: VehicleMapProps) {
+function FitFleet({ vehicles, request }: { vehicles: Vehicle[]; request: number }) {
+  const map = useMap()
+  const fitted = useRef(false)
+  const previousRequest = useRef(request)
+  useEffect(() => {
+    const requested = previousRequest.current !== request
+    previousRequest.current = request
+    if (!vehicles.length || (fitted.current && !requested)) return
+    const points = vehicles.map(v => [v.current_location!.latitude, v.current_location!.longitude] as [number, number])
+    map.fitBounds(L.latLngBounds(points), { padding: [48, 48], maxZoom: 14, animate: false })
+    fitted.current = true
+  }, [vehicles, request, map])
+  return null
+}
+
+export function VehicleMap({ vehicles, selectedVehicle, onVehicleClick, fitRequest = 0 }: VehicleMapProps) {
   const mapped = vehicles.filter((v) => v.current_location != null)
 
   const initialCenter: [number, number] = mapped[0]?.current_location
@@ -102,6 +118,7 @@ export function VehicleMap({ vehicles, selectedVehicle, onVehicleClick }: Vehicl
       />
 
       <FlyToVehicle vehicle={selectedVehicle} />
+      <FitFleet vehicles={mapped} request={fitRequest} />
 
       {mapped.map((vehicle) => {
         const loc      = vehicle.current_location!
