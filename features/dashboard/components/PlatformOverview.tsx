@@ -30,7 +30,7 @@ export function PlatformOverview() {
   const devices = useQuery({ queryKey: ['dashboard-devices'], queryFn: getDashboardDevices, enabled: deviceAccess, staleTime: 60000 })
   const subs = useQuery({ queryKey: ['dashboard-subscription-metrics'], queryFn: getSubscriptionMetrics, enabled: subscriptionAccess, staleTime: 60000 })
   const orgs = useQuery({ queryKey: ['dashboard-organizations'], queryFn: getDashboardOrganizations, enabled: orgAccess, staleTime: 60000 })
-  const hardware = useQuery({ queryKey: ['device-health-metrics'], queryFn: getDeviceHealthMetrics, enabled: superAdmin, staleTime: 60000 })
+  const hardware = useQuery({ queryKey: ['device-health-metrics'], queryFn: () => getDeviceHealthMetrics(), enabled: superAdmin, staleTime: 60000 })
   const unassigned = hardware.data?.summary?.unassigned ?? devices.data?.unassigned
   const metrics = [
     { label: 'Organizations', value: totals.data?.total_organizations, icon: Building2, href: '/organizations', loading: totals.isLoading, show: superAdmin },

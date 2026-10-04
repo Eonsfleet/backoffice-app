@@ -21,10 +21,9 @@ export interface SignalDistributionItem {
 }
 
 export interface StaleDeviceItem {
-  id:          string | number
-  device_id?:  string
-  last_seen?:  string | null
-  [key: string]: unknown
+  imei:          string
+  organization?: string | null
+  last_seen?:    string | null
 }
 
 export interface DeviceHealth {
@@ -38,8 +37,8 @@ export interface DeviceHealth {
   }
 }
 
-export const getDeviceHealthMetrics = async (): Promise<DeviceHealth> => {
-  const { data } = await api.get('/admins/analytics/device-health')
+export const getDeviceHealthMetrics = async (params?: { stale_days?: number }): Promise<DeviceHealth> => {
+  const { data } = await api.get('/admins/analytics/device-health', { params })
   return data.data as DeviceHealth
 }
 
@@ -84,9 +83,11 @@ export interface GrowthChange {
   percent: number
 }
 
+export type GrowthPeriod = '7d' | '30d' | '90d' | '1y'
+
 export interface GrowthAnalytics {
   period:   string
-  group_by: string
+  group_by: 'DAY' | 'WEEK' | 'MONTH'
   current: {
     organizations: number
     subscriptions: number
@@ -113,7 +114,7 @@ export interface GrowthAnalytics {
   }
 }
 
-export const getGrowthMetrics = async (params?: { period?: string }): Promise<GrowthAnalytics> => {
+export const getGrowthMetrics = async (params?: { period?: GrowthPeriod }): Promise<GrowthAnalytics> => {
   const { data } = await api.get('/admins/analytics/growth', { params })
   return data.data as GrowthAnalytics
 }
