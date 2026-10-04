@@ -25,7 +25,7 @@ import {
 import { cn } from '@/lib/utils'
 import { QueryError } from '@/components/shared/QueryError'
 
-interface DataTableProps<T> {
+export interface DataTableProps<T> {
   data: T[]
   columns: ColumnDef<T, unknown>[]
   pagination?: PaginationState

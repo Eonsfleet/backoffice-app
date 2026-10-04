@@ -4,7 +4,8 @@ import { useMemo } from 'react'
 import { Download, Plus, Truck, Upload } from 'lucide-react'
 
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
-import { DataTable } from '@/components/shared/DataTable'
+import { BulkRecordsTable } from '@/components/shared/BulkRecordsTable'
+import { bulkDeleteVehicles } from '@/features/vehicles/api'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { SlideOver } from '@/components/shared/SlideOver'
 import { Button } from '@/components/ui/button'
@@ -86,12 +87,16 @@ export function VehicleWorkspace() {
 
       <VehicleMetrics metrics={queries.metrics.data} isLoading={queries.metrics.isLoading} />
 
-      <DataTable
+      <BulkRecordsTable
+        selectionScope={JSON.stringify({ page: filters.page, search: filters.search, status: filters.status, organization: filters.orgFilter })}
+        actions={[{ label: 'Delete selected vehicles', description: 'Remove the selected vehicles from the fleet using soft deletion. Existing billing capacity release behavior applies.', run: bulkDeleteVehicles }]}
+        invalidateKeys={['vehicles', 'vehicle-metrics', 'organizations', 'subscribers']}
         error={queries.vehicles.error}
         onRetry={() => void queries.vehicles.refetch()}
         data={data?.data ?? []}
         columns={columns}
         isLoading={queries.vehicles.isLoading}
+        isFetching={queries.vehicles.isFetching}
         toolbar={toolbar}
         pagination={{ pageIndex: filters.page - 1, pageSize: filters.perPage }}
         pageCount={data?.meta?.last_page ?? 1}
@@ -210,7 +215,7 @@ export function VehicleWorkspace() {
           open={!!panels.deleteTarget}
           onOpenChange={(open) => !open && panels.setDeleteTarget(null)}
           title="Delete Vehicle"
-          description={`Permanently delete vehicle "${panels.deleteTarget.plate_number}"? This cannot be undone.`}
+          description={`Remove vehicle "${panels.deleteTarget.plate_number}" from the fleet? Its record will be soft-deleted.`}
           confirmLabel="Delete"
           variant="destructive"
           onConfirm={() => mutations.delete.mutateAsync(panels.deleteTarget!.id)}

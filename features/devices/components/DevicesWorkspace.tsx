@@ -19,6 +19,8 @@ import {
 
 import { PageHeader }    from '@/components/shared/PageHeader'
 import { DataTable }     from '@/components/shared/DataTable'
+import { BulkRecordsTable } from '@/components/shared/BulkRecordsTable'
+import { bulkDeleteDevices } from '@/features/devices/api'
 import { StatusBadge }   from '@/components/shared/StatusBadge'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { SlideOver }     from '@/components/shared/SlideOver'
@@ -96,7 +98,7 @@ function DevicesTab() {
   const [exportOrgId, setExportOrgId]           = useState('all')
   const [exportStatus, setExportStatus]         = useState('all')
 
-  const { data, isLoading, error, refetch } = useQuery({
+  const { data, isLoading, isFetching, error, refetch } = useQuery({
     queryKey: ['devices', { search: debouncedSearch, status, page }],
     queryFn: () => listDevices({
       q:        debouncedSearch || undefined,
@@ -308,7 +310,11 @@ function DevicesTab() {
 
   return (
     <div className="space-y-4">
-      <DataTable
+      <BulkRecordsTable
+        selectionScope={JSON.stringify({ page, search: debouncedSearch, status })}
+        actions={canManage ? [{ label: 'Delete selected devices', description: 'Remove the selected devices from the fleet using soft deletion. Their historical records are retained.', run: bulkDeleteDevices }] : []}
+        invalidateKeys={['devices', 'device-metrics', 'vehicles']}
+        isFetching={isFetching}
         error={error}
         onRetry={() => void refetch()}
         data={data?.data ?? []}

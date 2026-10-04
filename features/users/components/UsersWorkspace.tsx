@@ -4,6 +4,8 @@ import { useDebounce } from '@/hooks/useDebounce'
 
 
 import { useState } from 'react'
+import Link from 'next/link'
+import { BulkRecordsTable } from '@/components/shared/BulkRecordsTable'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { type ColumnDef } from '@tanstack/react-table'
@@ -38,7 +40,7 @@ import { Label } from '@/components/ui/label'
 import { SearchableSelect } from '@/components/ui/searchable-select'
 
 import {
-  listUsers, getUserMetrics, deactivateUser, activateUser, deleteUser,
+  listUsers, getUserMetrics, deactivateUser, activateUser, deleteUser, bulkDeleteUsers,
   exportUsers, importUsers, downloadUserTemplate,
 } from '@/features/users/api'
 import { listOrganizations } from '@/features/organizations/api'
@@ -344,7 +346,10 @@ function TenantUsersTab() {
         <KpiCard label="New This Month"  value={metrics?.new_this_month} icon={TrendingUp} isLoading={metricsLoading} iconClassName="bg-blue-500/10" />
       </div>
 
-      <DataTable
+      <BulkRecordsTable
+        selectionScope={JSON.stringify({ page, search: debouncedSearch, status, orgFilter })}
+        actions={[{ label: 'Delete selected users', description: 'Move the selected users to Deleted users. You can restore them or permanently delete them from that page.', run: bulkDeleteUsers }]}
+        invalidateKeys={['users', 'deleted-users', 'user-metrics', 'drivers']}
         error={error}
         onRetry={() => void refetch()}
         data={data?.data ?? []}
@@ -380,7 +385,7 @@ function TenantUsersTab() {
           open={!!deleteTarget}
           onOpenChange={(o) => !o && setDeleteTarget(null)}
           title="Delete User"
-          description={`Permanently delete "${deleteTarget.name}"? This cannot be undone.`}
+          description={`Move "${deleteTarget.name}" to Deleted users? You can restore the account from that page.`}
           confirmLabel="Delete"
           variant="destructive"
           onConfirm={() => deleteMutation.mutateAsync(deleteTarget.id)}
@@ -701,5 +706,5 @@ export function AdminUsersTab() {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function UsersPage() {
-  return <div className="space-y-6"><PageHeader title="Customer users" description="Manage people and account access within customer organizations." icon={Users} /><TenantUsersTab /></div>
+  return <div className="space-y-6"><PageHeader title="Customer users" description="Manage people and account access within customer organizations." icon={Users} actions={<Button variant="outline" asChild><Link href="/users/deleted"><Trash2 className="mr-2 h-4 w-4" />Deleted users</Link></Button>} /><TenantUsersTab /></div>
 }

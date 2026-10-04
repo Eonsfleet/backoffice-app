@@ -354,6 +354,7 @@ export interface TenantUser {
   email_verified_at?: string | null
   last_login?: string | null
   created_at: string
+  deleted_at?: string | null
   organization: Pick<Organization, 'id' | 'name'> | null
 }
 
@@ -414,5 +415,5 @@ export interface SubscriptionSummary {
   total:    number
   active:   number
   inactive: number
-  canceled: number
+  cancelled: number
 }

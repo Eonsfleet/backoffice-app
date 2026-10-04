@@ -29,6 +29,7 @@ type RawUser = {
     email_verified_at?: string | null
     employee_number?: string | null
     date_of_birth?: string | null
+    deleted_at?: string | null
   }
   relationships?: {
     organization?: {
@@ -63,6 +64,7 @@ function normalizeUser(raw: RawUser): TenantUser {
     last_login:       a.last_login ?? null,
     email_verified_at: a.email_verified_at ?? null,
     created_at:       a.joined_date ?? '',
+    deleted_at:       a.deleted_at ?? null,
     organization:     org,
   }
 }
@@ -85,9 +87,10 @@ export const createUser = async (payload: UserPayload): Promise<TenantUser> => {
 }
 
 export const listUsers = async (
-  params?: UserFilters
+  params?: UserFilters,
+  deleted = false,
 ): Promise<PaginatedResponse<TenantUser>> => {
-  const { data: res } = await api.get('/admin/users', { params })
+  const { data: res } = await api.get(deleted ? '/admin/users/deleted' : '/admin/users', { params })
   const inner = res.data
   const raw: RawUser[] = inner?.users ?? inner?.data ?? []
   const pg = inner?.pagination
@@ -232,6 +235,20 @@ export interface UserMetrics {
 export const getUserMetrics = async (): Promise<UserMetrics> => {
   const { data: res } = await api.get('/admin/analytics/users/summary')
   return res.data
+}
+
+export const bulkDeleteUsers = async (ids: Array<string | number>): Promise<void> => {
+  await api.delete('/admin/users/bulk', { data: { ids } })
+}
+
+export const listDeletedUsers = (params?: UserFilters) => listUsers(params, true)
+
+export const restoreDeletedUsers = async (ids: Array<string | number>): Promise<void> => {
+  await api.post('/admin/users/deleted/restore', { ids })
+}
+
+export const permanentlyDeleteUsers = async (ids: Array<string | number>): Promise<void> => {
+  await api.delete('/admin/users/deleted/bulk', { data: { ids } })
 }
 
 export type DriverProfile = TenantUser & {
