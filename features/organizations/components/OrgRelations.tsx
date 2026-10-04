@@ -14,7 +14,9 @@ import { Input } from '@/components/ui/input'
 
 type EntityRow = { id: string | number; name: string; detail: string; status: string; href?: string }
 
-export function OrgRelations({ organizationId, kind }: { organizationId: string | number; kind: 'users' | 'vehicles' | 'devices' }) {
+// vehicles.organization_id stores the organization's identifier, whereas the users and
+// devices endpoints accept the primary key and resolve it server-side.
+export function OrgRelations({ organizationId, organizationIdentifier, kind }: { organizationId: string | number; organizationIdentifier?: string | number; kind: 'users' | 'vehicles' | 'devices' }) {
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
   const term = useDebounce(search, 300)
@@ -27,7 +29,7 @@ export function OrgRelations({ organizationId, kind }: { organizationId: string 
         return { ...result, data: result.data.map(d => ({ id: d.id, name: d.device_id, detail: d.vehicle?.plate_number ?? 'No assigned vehicle', status: d.status, href: `/devices/${d.id}` })) }
       }
       if (kind === 'vehicles') {
-        const result = await listVehicles(params)
+        const result = await listVehicles({ ...params, organization_id: organizationIdentifier ?? organizationId })
         return { ...result, data: result.data.map(v => ({ id: v.id, name: v.plate_number, detail: [v.make, v.model].filter(Boolean).join(' '), status: v.status, href: `/vehicles?q=${encodeURIComponent(v.plate_number)}` })) }
       }
       const result = await listUsers(params)

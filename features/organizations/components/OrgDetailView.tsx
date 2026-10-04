@@ -2,6 +2,7 @@
 import { usePermission } from '@/hooks/usePermission'
 import { useAuthStore } from '@/stores/auth.store'
 import { QueryError } from '@/components/shared/QueryError'
+import { OrgAuditTrail } from './OrgAuditTrail'
 import { OrgRelations } from './OrgRelations'
 
 
@@ -448,6 +449,7 @@ export function OrgDetailView({ id }: { id: string }) {
   const [suspendOpen, setSuspendOpen] = useState(false)
   const [deleteOpen, setDeleteOpen]   = useState(false)
   const [planOpen, setPlanOpen]       = useState(false)
+  const [activitySource, setActivitySource] = useState<'audit' | 'operational'>('audit')
 
   const { data: org, isLoading, error, refetch } = useQuery({
     queryKey: ['organization', id],
@@ -693,17 +695,28 @@ export function OrgDetailView({ id }: { id: string }) {
         {/* ── Activity ── */}
         {canAudit && <TabsContent value="activity" className="mt-4">
           <Card>
-            <CardHeader className="pb-3">
+            <CardHeader className="flex flex-col gap-3 pb-3 sm:flex-row sm:items-center sm:justify-between">
               <CardTitle className="text-base">Activity Log</CardTitle>
+              <Tabs value={activitySource} onValueChange={(v) => setActivitySource(v as 'audit' | 'operational')}>
+                <TabsList className="h-9">
+                  <TabsTrigger value="audit" className="text-xs">Audit trail</TabsTrigger>
+                  <TabsTrigger value="operational" className="text-xs">Operational changes</TabsTrigger>
+                </TabsList>
+              </Tabs>
             </CardHeader>
             <CardContent>
-              <p className="mb-4 text-sm text-muted-foreground">Events recorded for this organization, including the actor who made each change.</p>
-              <OrgActivityTab key={org.id} identifier={org.id} />
+              {activitySource === 'audit' ? <>
+                <p className="mb-4 text-sm text-muted-foreground">Actions taken on this organization by internal admins and by its own users.</p>
+                <OrgAuditTrail key={org.id} organizationId={org.id} />
+              </> : <>
+                <p className="mb-4 text-sm text-muted-foreground">Changes to trips, incidents, maintenance, geofences and fuel records inside this organization.</p>
+                <OrgActivityTab key={org.id} identifier={org.id} />
+              </>}
             </CardContent>
           </Card>
         </TabsContent>}
         {superAdmin && <TabsContent value="users" className="mt-4"><OrgRelations organizationId={org.id} kind="users" /></TabsContent>}
-        {superAdmin && <TabsContent value="vehicles" className="mt-4"><OrgRelations organizationId={org.id} kind="vehicles" /></TabsContent>}
+        {superAdmin && <TabsContent value="vehicles" className="mt-4"><OrgRelations organizationId={org.id} organizationIdentifier={org.identifier} kind="vehicles" /></TabsContent>}
         {canDevices && <TabsContent value="devices" className="mt-4"><OrgRelations organizationId={org.id} kind="devices" /></TabsContent>}
         </Tabs>
 
