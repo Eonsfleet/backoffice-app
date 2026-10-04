@@ -24,7 +24,17 @@ const createSchema = z.object({
 })
 type CreateForm = z.infer<typeof createSchema>
 
-export function UserCreateForm({ onSuccess, onCancel }: { onSuccess: () => void; onCancel: () => void }) {
+interface UserCreateFormProps {
+  onSuccess: () => void
+  onCancel: () => void
+  /** Fixes the user to this organization and hides the organization picker. */
+  organization?: { id: string | number; name: string }
+  /** Fixes the user's role and hides the role picker. */
+  role?: { name: string; label: string }
+  cancelLabel?: string
+}
+
+export function UserCreateForm({ onSuccess, onCancel, organization, role: fixedRole, cancelLabel = 'Cancel' }: UserCreateFormProps) {
   const qc = useQueryClient()
 
   const [orgSearch, setOrgSearch] = useState('')
@@ -32,12 +42,14 @@ export function UserCreateForm({ onSuccess, onCancel }: { onSuccess: () => void;
     queryKey: ['orgs-search', orgSearch],
     queryFn: () => listOrganizations({ q: orgSearch || undefined, per_page: 20 }),
     staleTime: 30_000,
+    enabled: !organization,
   })
 
   const { data: rolesData } = useQuery({
     queryKey: ['roles', 'client'],
     queryFn: () => listRoles('client'),
     staleTime: 300_000,
+    enabled: !fixedRole,
   })
 
   const orgOptions = (orgsData?.data ?? []).map((o) => ({ value: String(o.id), label: o.name }))
@@ -45,6 +57,7 @@ export function UserCreateForm({ onSuccess, onCancel }: { onSuccess: () => void;
 
   const { register, handleSubmit, setValue, control, formState: { errors } } = useForm<CreateForm>({
     resolver: zodResolver(createSchema),
+    defaultValues: { organization_id: organization ? String(organization.id) : '', role: fixedRole?.name },
   })
   const role = useWatch({ control, name: 'role' }) ?? ''
   const organizationId = useWatch({ control, name: 'organization_id' }) ?? ''
@@ -59,7 +72,11 @@ export function UserCreateForm({ onSuccess, onCancel }: { onSuccess: () => void;
       toast.success('User created')
       onSuccess()
     },
-    onError: () => toast.error('Failed to create user'),
+    onError: (err) => {
+      // Show the API's reason (e.g. "The email has already been taken.").
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
+      toast.error(msg ?? 'Failed to create user')
+    },
   })
 
   return (
@@ -87,32 +104,36 @@ export function UserCreateForm({ onSuccess, onCancel }: { onSuccess: () => void;
       </div>
       <div className="space-y-1.5">
         <Label>Role</Label>
-        <SearchableSelect
-          options={roleOptions}
-          value={role}
-          onValueChange={(v) => setValue('role', v)}
-          placeholder="Select role…"
-          searchPlaceholder="Search roles…"
-        />
+        {fixedRole ? <Input value={fixedRole.label} disabled readOnly /> : (
+          <SearchableSelect
+            options={roleOptions}
+            value={role}
+            onValueChange={(v) => setValue('role', v)}
+            placeholder="Select role…"
+            searchPlaceholder="Search roles…"
+          />
+        )}
       </div>
       <div className="space-y-1.5">
-        <Label>Organization *</Label>
-        <SearchableSelect
-          options={orgOptions}
-          value={organizationId}
-          onValueChange={(v) => setValue('organization_id', v)}
-          placeholder="Select organization…"
-          searchPlaceholder="Search organizations…"
-          onSearch={setOrgSearch}
-          isLoading={orgsFetching}
-        />
+        <Label>Organization{organization ? '' : ' *'}</Label>
+        {organization ? <Input value={organization.name} disabled readOnly /> : (
+          <SearchableSelect
+            options={orgOptions}
+            value={organizationId}
+            onValueChange={(v) => setValue('organization_id', v)}
+            placeholder="Select organization…"
+            searchPlaceholder="Search organizations…"
+            onSearch={setOrgSearch}
+            isLoading={orgsFetching}
+          />
+        )}
         {errors.organization_id && <p className="text-xs text-destructive">{errors.organization_id.message}</p>}
       </div>
       <div className="flex gap-2 pt-2">
         <Button type="submit" disabled={mutation.isPending} className="flex-1">
           {mutation.isPending ? 'Creating…' : 'Create User'}
         </Button>
-        <Button type="button" variant="outline" onClick={onCancel}>Cancel</Button>
+        <Button type="button" variant="outline" onClick={onCancel} disabled={mutation.isPending}>{cancelLabel}</Button>
       </div>
     </form>
   )
