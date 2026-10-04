@@ -185,7 +185,7 @@ export function DashboardAnalytics() {
 
   const deviceQ = useQuery({
     queryKey: ['dashboard-analytics-device'],
-    queryFn: getDeviceHealthMetrics,
+    queryFn: () => getDeviceHealthMetrics(),
     staleTime: 60_000,
   })
 
