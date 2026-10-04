@@ -7,7 +7,7 @@ export default function FleetMapPage() {
     <div className="flex flex-col gap-4">
       <PageHeader
         title="Fleet Map"
-        description="Live GPS positions of all active vehicles."
+        description="Monitor vehicle locations, movement and connectivity in one place."
         icon={MapPin}
       />
       <FleetMapView />

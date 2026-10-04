@@ -7,7 +7,7 @@ import { formatDistanceToNow } from 'date-fns'
 import {
   Search, RefreshCw, Navigation, WifiOff,
   MapPin, Car, ChevronRight, ExternalLink, Route, UserRound,
-  Gauge, ShieldCheck,
+  Gauge, ShieldCheck, X, LocateFixed,
 } from 'lucide-react'
 import Link from 'next/link'
 import { Input }    from '@/components/ui/input'
@@ -65,40 +65,17 @@ const STATUS_BG: Record<'moving' | 'idle' | 'offline', string> = {
 
 // ─── Status strip pill ────────────────────────────────────────────────────────
 
-function Pill({
-  filter, label, count, colorClass, activeClass, statusFilter, setStatusFilter, isLoading,
-}: {
-  filter: StatusFilter
-  label: string
-  count: number | string
-  colorClass: string
-  activeClass: string
-  statusFilter: StatusFilter
-  setStatusFilter: (f: StatusFilter) => void
-  isLoading: boolean
-}) {
-  const active = statusFilter === filter
-  return (
-    <button
-      onClick={() => setStatusFilter(active ? 'all' : filter)}
-      className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-all ${
-        active ? activeClass : `${colorClass} hover:opacity-80`
-      }`}
-    >
-      {isLoading ? '…' : count} {label}
-    </button>
-  )
-}
-
 function SelectedVehiclePanel({
   vehicle,
   isLoading,
+  onClose,
   driverName,
   activeTrip,
   healthScore,
 }: {
   vehicle: Vehicle
   isLoading: boolean
+  onClose: () => void
   driverName?: string
   activeTrip?: boolean
   healthScore?: number
@@ -109,7 +86,7 @@ function SelectedVehiclePanel({
     : null
 
   return (
-    <div className="absolute right-3 top-3 z-[500] w-[min(360px,calc(100%-1.5rem))] rounded-lg border bg-background/95 p-4 shadow-lg backdrop-blur">
+    <div className="relative z-[500] shrink-0 lg:absolute lg:right-4 lg:top-4 w-full lg:w-[340px] rounded-lg border bg-background/95 p-4 shadow-lg backdrop-blur">
       <div className="mb-3 flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
@@ -120,6 +97,7 @@ function SelectedVehiclePanel({
             {vehicle.organization?.name ?? 'No organization'} · {[vehicle.make, vehicle.model].filter(Boolean).join(' ') || 'Vehicle'}
           </p>
         </div>
+        <Button variant="ghost" size="icon" aria-label="Close vehicle details" onClick={onClose}><X className="h-4 w-4" /></Button>
         {isLoading && <RefreshCw className="h-4 w-4 shrink-0 animate-spin text-muted-foreground" />}
       </div>
 
@@ -167,16 +145,18 @@ function SelectedVehiclePanel({
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function FleetMapView() {
+  const [listLimit, setListLimit] = useState(50)
+  const [fitRequest, setFitRequest] = useState(0)
   const [search, setSearch]               = useState('')
   const [statusFilter, setStatusFilter]   = useState<StatusFilter>('all')
   const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null)
 
   const {
     data, isLoading, isFetching, isFetchingNextPage,
-    hasNextPage, fetchNextPage, refetch, dataUpdatedAt,
+    hasNextPage, fetchNextPage, refetch, dataUpdatedAt, isError,
   } = useInfiniteQuery({
-    queryKey:        ['fleet-map-vehicles'],
-    queryFn:         ({ pageParam }) => listVehicles({ has_device: true, per_page: 50, page: pageParam }),
+    queryKey:        ['fleet-map-vehicles', { view: 'map', per_page: 1000 }],
+    queryFn:         ({ pageParam }) => listVehicles({ view: 'map', has_device: true, per_page: 1000, page: pageParam }),
     initialPageParam: 1,
     getNextPageParam: (last) =>
       last.meta.current_page < last.meta.last_page ? last.meta.current_page + 1 : undefined,
@@ -186,8 +166,8 @@ export function FleetMapView() {
 
   // Auto-fetch every page so the map shows all vehicles
   useEffect(() => {
-    if (hasNextPage && !isFetchingNextPage) fetchNextPage()
-  }, [hasNextPage, isFetchingNextPage, fetchNextPage])
+    if (hasNextPage && !isFetching && !isError) fetchNextPage()
+  }, [hasNextPage, isFetching, isError, fetchNextPage])
 
   const vehicles = useMemo(() => data?.pages.flatMap((p) => p.data) ?? [], [data])
   const selectedVehicleId = selectedVehicle?.id
@@ -228,10 +208,10 @@ export function FleetMapView() {
 
   // Summary counts
   const stats = useMemo(() => ({
-    total:   mappedVehicles.length,
+    total:   vehicles.length,
     moving:  mappedVehicles.filter((v) => getVehicleMapStatus(v) === 'moving').length,
     idle:    mappedVehicles.filter((v) => getVehicleMapStatus(v) === 'idle').length,
-    offline: vehicles.filter((v) => !v.current_location).length,
+    offline: vehicles.filter((v) => getVehicleMapStatus(v) === 'offline').length,
   }), [mappedVehicles, vehicles])
 
   // Sidebar list — filter + search
@@ -239,18 +219,22 @@ export function FleetMapView() {
     let list = [...vehicles]
     if (statusFilter === 'moving')  list = list.filter((v) => getVehicleMapStatus(v) === 'moving')
     if (statusFilter === 'idle')    list = list.filter((v) => getVehicleMapStatus(v) === 'idle')
-    if (statusFilter === 'offline') list = list.filter((v) => !v.current_location)
+    if (statusFilter === 'offline') list = list.filter((v) => getVehicleMapStatus(v) === 'offline')
     if (search.trim()) {
-      const q = search.toLowerCase()
+      const q = search.trim().toLowerCase()
       list = list.filter(
         (v) =>
           v.plate_number.toLowerCase().includes(q) ||
+          v.model?.toLowerCase().includes(q) ||
           v.driver?.name?.toLowerCase().includes(q) ||
           v.organization?.name?.toLowerCase().includes(q),
       )
     }
     return list
   }, [vehicles, statusFilter, search])
+
+  const visibleMappedVehicles = sidebarVehicles.filter(v => v.current_location != null)
+  const currentSelection = vehicles.find(v => v.id === selectedVehicle?.id) ?? selectedVehicle
 
   const lastUpdated = dataUpdatedAt
     ? formatDistanceToNow(new Date(dataUpdatedAt), { addSuffix: true })
@@ -262,61 +246,45 @@ export function FleetMapView() {
     <div className="flex flex-col flex-1 gap-3" style={{ minHeight: 0 }}>
 
       {/* ── Status strip ─────────────────────────────────────────────────────── */}
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="flex items-center gap-1.5 rounded-full bg-muted px-3 py-1.5 text-xs font-medium text-muted-foreground">
-          <MapPin className="h-3 w-3" />
-          {isLoading ? '…' : stats.total} on map
-        </div>
-
-        <Pill
-          filter="moving" label="moving" count={stats.moving}
-          colorClass="bg-emerald-500/10 text-emerald-700" activeClass="bg-emerald-600 text-white"
-          statusFilter={statusFilter} setStatusFilter={setStatusFilter} isLoading={isLoading}
-        />
-        <Pill
-          filter="idle" label="idle" count={stats.idle}
-          colorClass="bg-amber-500/10 text-amber-700" activeClass="bg-amber-500 text-white"
-          statusFilter={statusFilter} setStatusFilter={setStatusFilter} isLoading={isLoading}
-        />
-        <Pill
-          filter="offline" label="offline" count={stats.offline}
-          colorClass="bg-slate-500/10 text-slate-600" activeClass="bg-slate-600 text-white"
-          statusFilter={statusFilter} setStatusFilter={setStatusFilter} isLoading={isLoading}
-        />
-
-        <div className="ml-auto flex items-center gap-2">
-          {lastUpdated && (
-            <span className="hidden text-xs text-muted-foreground sm:block">
-              Updated {lastUpdated}
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4" aria-label="Fleet status filters">
+        {(['all', 'moving', 'idle', 'offline'] as const).map(status => (
+          <button key={status} aria-pressed={statusFilter === status} onClick={() => { setStatusFilter(status); setListLimit(50) }}
+            className={`rounded-xl border bg-card p-4 text-left transition-colors focus-visible:outline-2 focus-visible:outline-primary ${statusFilter === status ? 'border-primary bg-primary/5 ring-1 ring-primary/20' : 'hover:bg-muted/50'}`}>
+            <span className="flex items-center justify-between text-sm text-muted-foreground">
+              {status === 'all' ? 'Tracked vehicles' : status === 'idle' ? 'Idle vehicles' : status === 'offline' ? 'Offline vehicles' : 'Moving vehicles'}
+              {status === 'all' ? <Car className="h-4 w-4" /> : <span className={`h-2.5 w-2.5 rounded-full ${STATUS_DOT[status]}`} />}
             </span>
-          )}
-          {isFetchingNextPage && (
-            <span className="text-xs text-muted-foreground hidden sm:block">
-              Loading more…
-            </span>
-          )}
-          <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching}>
-            <RefreshCw className={`mr-1.5 h-3.5 w-3.5 ${isFetching ? 'animate-spin' : ''}`} />
-            Refresh
-          </Button>
+            <span className="mt-2 block text-2xl font-semibold tabular-nums">{isLoading ? '?' : stats[status === 'all' ? 'total' : status].toLocaleString()}</span>
+          </button>
+        ))}
+      </div>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="text-sm text-muted-foreground"><span className="font-medium text-foreground">Fleet overview</span> ? {mappedVehicles.length.toLocaleString()} with GPS</div>
+        <div className="flex items-center gap-3">
+          <span className="hidden text-xs text-muted-foreground sm:block">{isFetchingNextPage ? 'Loading more vehicles?' : lastUpdated ? `Updated ${lastUpdated} ? Refreshes every 30s` : 'Refreshes every 30s'}</span>
+          <Button variant="outline" className="min-h-11" onClick={() => refetch()} disabled={isFetching}><RefreshCw className={`mr-2 h-4 w-4 ${isFetching ? 'animate-spin motion-reduce:animate-none' : ''}`} />Refresh</Button>
         </div>
       </div>
+      {isError && <div role="alert" className="rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm">Unable to refresh fleet data. {vehicles.length > 0 ? 'Showing the last loaded positions.' : 'Use Refresh to try again.'}</div>}
 
       {/* ── Main area ─────────────────────────────────────────────────────────── */}
       <div className="flex min-h-[640px] flex-col gap-3 lg:h-[calc(100dvh-220px)] lg:min-h-[520px] lg:flex-row">
 
         {/* Sidebar */}
-        <aside className="flex max-h-72 w-full shrink-0 flex-col overflow-hidden rounded-xl border bg-card lg:max-h-none lg:w-72">
+        <aside className="flex max-h-[420px] w-full shrink-0 flex-col overflow-hidden rounded-xl border bg-card lg:max-h-none lg:w-80 xl:w-96">
 
           {/* Search */}
-          <div className="border-b p-3">
+          <div className="border-b p-4">
+            <h2 className="mb-3 text-sm font-semibold">Vehicles</h2>
+            <label htmlFor="fleet-search" className="sr-only">Search vehicles by plate or model</label>
             <div className="relative">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
               <Input
-                placeholder="Plate, driver, org…"
+                id="fleet-search"
+                placeholder="Search plate or model…"
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pl-8 h-8 text-xs"
+                onChange={(e) => { setSearch(e.target.value); setListLimit(50) }}
+                className="pl-8 h-11 text-sm"
               />
             </div>
           </div>
@@ -342,15 +310,15 @@ export function FleetMapView() {
               </div>
             ) : (
               <ul className="divide-y divide-border/40">
-                {sidebarVehicles.map((v) => {
+                {sidebarVehicles.slice(0, listLimit).map((v) => {
                   const mapStatus = getVehicleMapStatus(v)
                   const isSelected = selectedVehicle?.id === v.id
                   const hasLocation = v.current_location != null
                   return (
-                    <li
-                      key={v.id}
+                    <li key={v.id}>
+                    <button type="button" aria-pressed={isSelected}
                       onClick={() => handleVehicleSelect(v)}
-                      className={`flex cursor-pointer items-center gap-2.5 px-3 py-2.5 transition-colors border-l-2 ${
+                      className={`flex w-full text-left focus-visible:outline-2 focus-visible:outline-primary items-center gap-3 px-4 py-3 transition-colors border-l-2 ${
                         isSelected
                           ? 'bg-primary/5 border-l-primary'
                           : 'border-l-transparent hover:bg-muted/40'
@@ -364,11 +332,11 @@ export function FleetMapView() {
 
                       {/* Text */}
                       <div className="min-w-0 flex-1">
-                        <p className="truncate font-mono text-xs font-semibold text-foreground">
+                        <p className="truncate font-mono text-sm font-semibold text-foreground">
                           {v.plate_number}
                         </p>
                         <p className="truncate text-[11px] text-muted-foreground">
-                          {v.driver?.name ?? v.organization?.name ?? '—'}
+                          {v.model ?? 'Vehicle'} · {mapStatus}{!hasLocation ? ' · No GPS' : ''}
                         </p>
                       </div>
 
@@ -385,26 +353,28 @@ export function FleetMapView() {
                           <ChevronRight className="h-3 w-3 text-primary mt-0.5" />
                         )}
                       </div>
-                    </li>
+                    </button></li>
                   )
                 })}
               </ul>
             )}
           </div>
 
+          {listLimit < sidebarVehicles.length && <Button variant="ghost" className="min-h-11 shrink-0" onClick={() => setListLimit(n => n + 50)}>Show more vehicles</Button>}
           {/* Footer */}
           {!isLoading && (
             <div className="shrink-0 border-t bg-muted/30 px-3 py-2 text-[11px] text-muted-foreground">
-              {sidebarVehicles.length} of {vehicles.length} vehicles shown
+              {Math.min(listLimit, sidebarVehicles.length)} of {sidebarVehicles.length} matching vehicles shown
             </div>
           )}
         </aside>
 
         {/* Map canvas */}
-        <div className="relative min-h-[420px] flex-1 overflow-hidden rounded-xl border">
+        <div className="relative flex min-h-[460px] flex-1 flex-col overflow-hidden rounded-xl border bg-card">
           {selectedVehicle && (
             <SelectedVehiclePanel
-              vehicle={vehicleDetailQ.data ?? selectedVehicle}
+              vehicle={{ ...(vehicleDetailQ.data ?? selectedVehicle), current_location: currentSelection?.current_location, is_online: currentSelection?.is_online }}
+              onClose={() => setSelectedVehicle(null)}
               isLoading={vehicleDetailQ.isFetching || currentDriverQ.isFetching || currentTripQ.isFetching || sensorHealthQ.isFetching}
               driverName={currentDriverQ.data?.driver_name}
               activeTrip={!!currentTripQ.data}
@@ -412,24 +382,28 @@ export function FleetMapView() {
             />
           )}
 
+          <div className="relative min-h-[460px] flex-1">
+          <Button variant="secondary" className="absolute bottom-8 right-3 z-[500] min-h-11 shadow-sm" onClick={() => { setSelectedVehicle(null); setFitRequest(n => n + 1) }}><LocateFixed className="mr-2 h-4 w-4" />Fit fleet</Button>
           <VehicleMap
-            vehicles={mappedVehicles}
-            selectedVehicle={selectedVehicle}
+            fitRequest={fitRequest}
+            vehicles={visibleMappedVehicles}
+            selectedVehicle={currentSelection}
             onVehicleClick={handleVehicleSelect}
           />
 
           {/* Empty state overlay */}
-          {!isLoading && mappedVehicles.length === 0 && (
+          {!isLoading && visibleMappedVehicles.length === 0 && !isError && (
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-muted/40 backdrop-blur-sm">
               <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-muted border">
                 <MapPin className="h-7 w-7 text-muted-foreground/50" />
               </div>
               <div className="text-center">
-                <p className="text-sm font-medium text-foreground">No GPS data available</p>
+                <p className="text-sm font-medium text-foreground">{vehicles.length > 0 && sidebarVehicles.length === 0 ? 'No vehicles match your filters' : 'No GPS data available'}</p>
                 <p className="mt-1 text-xs text-muted-foreground">Vehicles with active devices will appear here</p>
               </div>
             </div>
           )}
+          </div>
         </div>
       </div>
     </div>
