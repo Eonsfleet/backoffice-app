@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { SLUG_PATTERN } from '@/features/organizations/onboarding'
 
 export const organizationDetailsSchema = z.object({
   name: z.string().min(3, 'Name must have at least 3 characters'),
@@ -12,7 +13,15 @@ export const organizationDetailsSchema = z.object({
   country: z.string().optional(),
 })
 
-export const organizationCreateSchema = organizationDetailsSchema.extend({
+// Slug is edit-only: the server generates it on create and ignores any sent.
+export const organizationEditSchema = organizationDetailsSchema.extend({
+  slug: z.string().trim().toLowerCase().optional().refine(
+    (v) => !v || SLUG_PATTERN.test(v),
+    'Use 3–63 lowercase letters, numbers or hyphens, not starting or ending with a hyphen',
+  ),
+})
+
+export const organizationCreateSchema =organizationDetailsSchema.extend({
   plan_id: z.string().regex(/^[1-9]\d*$/, 'Plan is required'),
   billing_type: z.enum(['poc', 'production']),
   billing_cycle: z.enum(['monthly', 'yearly']).optional(),

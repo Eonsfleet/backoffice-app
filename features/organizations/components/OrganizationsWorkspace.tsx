@@ -7,7 +7,7 @@ import { Timestamp } from '@/components/shared/Timestamp'
 import { useDebounce } from '@/hooks/useDebounce'
 
 
-import { useState, useCallback } from 'react'
+import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
 import { type ColumnDef } from '@tanstack/react-table'
@@ -34,7 +34,8 @@ import {
   unsuspendOrganization,
   deleteOrganization,
 } from '@/features/organizations/api'
-import type { Organization } from '@/types/api'
+import { ONBOARDING_SOURCE_LABELS, onboardingSourceLabel, trialSummary } from '@/features/organizations/onboarding'
+import type { OnboardingSource, Organization } from '@/types/api'
 import { DEFAULT_PAGE_SIZE } from '@/lib/constants'
 
 // Only these values filter anything server-side: `active`/`inactive`/`suspended`
@@ -51,6 +52,11 @@ const STATUS_OPTIONS = [
   { value: 'cancelled', label: 'Cancelled' },
 ]
 
+const SOURCE_OPTIONS = [
+  { value: 'all', label: 'All Sources' },
+  ...Object.entries(ONBOARDING_SOURCE_LABELS).map(([value, label]) => ({ value, label })),
+]
+
 export default function OrganizationsPage() {
   const canManage = usePermission('admin.organizations.manage')
   const canSuspend = usePermission('admin.organizations.suspend')
@@ -59,7 +65,9 @@ export default function OrganizationsPage() {
   const qc = useQueryClient()
 
   // Filters & pagination
-  const { search, status, page, setSearch, setStatus, setPage, reset } = useUrlListState()
+  const { search, status, page, setSearch, setStatus, setPage, reset, getFilter, setFilter } = useUrlListState()
+  const source = getFilter('source')
+  const setSource = (value: string) => setFilter('source', value)
   const debouncedSearch = useDebounce(search, 300)
   const perPage               = DEFAULT_PAGE_SIZE
 
@@ -71,10 +79,11 @@ export default function OrganizationsPage() {
   const [deleteTarget, setDeleteTarget]   = useState<Organization | null>(null)
 
   const { data, isLoading, isFetching, error, refetch } = useQuery({
-    queryKey: ['organizations', { search: debouncedSearch, status, page, perPage }],
+    queryKey: ['organizations', { search: debouncedSearch, status, source, page, perPage }],
     queryFn: () => listOrganizations({
       q: debouncedSearch || undefined,
       status: status === 'all' ? undefined : status,
+      onboarding_source: source === 'all' ? undefined : source as OnboardingSource,
       page,
       per_page: perPage,
     }),
@@ -108,8 +117,8 @@ export default function OrganizationsPage() {
     },
   })
 
-  const openCreate = useCallback(() => { setEditOrg(null); setFormOpen(true) }, [])
-  const openEdit   = useCallback((org: Organization) => { setEditOrg(org); setFormOpen(true) }, [])
+  const openCreate = () => { setEditOrg(null); setFormOpen(true) }
+  const openEdit   = (org: Organization) => { setEditOrg(org); setFormOpen(true) }
 
   const columns: ColumnDef<Organization, unknown>[] = [
     {
@@ -124,8 +133,10 @@ export default function OrganizationsPage() {
             </div>
             <div className="min-w-0">
               <p className="max-w-72 whitespace-normal break-words font-medium text-foreground">{org.name}</p>
-              {org.identifier && (
-                <p className="text-xs text-muted-foreground">{org.identifier}</p>
+              {(org.identifier || org.onboarding_source) && (
+                <p className="text-xs text-muted-foreground">
+                  {[org.identifier, onboardingSourceLabel(org.onboarding_source)].filter(Boolean).join(' · ')}
+                </p>
               )}
             </div>
           </div>
@@ -158,7 +169,13 @@ export default function OrganizationsPage() {
       header: 'Plan',
       cell: ({ row }) => {
         const plan = row.original.current_plan?.plan?.name ?? row.original.subscription_plan
-        return <span className="text-sm">{plan ?? <span className="text-muted-foreground">—</span>}</span>
+        const trial = trialSummary(row.original.current_plan)
+        return (
+          <div className="text-sm">
+            {plan ?? <span className="text-muted-foreground">—</span>}
+            {trial && <p className="text-xs text-amber-600 dark:text-amber-400">{trial}</p>}
+          </div>
+        )
       },
     },
     {
@@ -233,11 +250,22 @@ export default function OrganizationsPage() {
   const pageCount = data?.meta?.last_page ?? 1
 
   const toolbar = (
-    <FilterBar search={search} onSearchChange={setSearch} searchLabel="Search organizations" placeholder="Organization name or identifier" onReset={reset} filters={status !== 'all' ? [{ key: 'status', label: `Status: ${status}`, onRemove: () => setStatus('all') }] : []}>
+    <FilterBar
+      search={search} onSearchChange={setSearch} searchLabel="Search organizations" placeholder="Organization name or identifier" onReset={reset}
+      filters={[
+        ...(status !== 'all' ? [{ key: 'status', label: `Status: ${status}`, onRemove: () => setStatus('all') }] : []),
+        ...(source !== 'all' ? [{ key: 'source', label: `Source: ${onboardingSourceLabel(source as OnboardingSource)}`, onRemove: () => setSource('all') }] : []),
+      ]}
+    >
       <div><label id="organization-status-label" className="mb-1.5 block text-xs font-medium">Status</label>
       <Select value={status} onValueChange={setStatus}>
         <SelectTrigger aria-labelledby="organization-status-label" className="w-40"><SelectValue /></SelectTrigger>
         <SelectContent>{STATUS_OPTIONS.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
+      </Select></div>
+      <div><label id="organization-source-label" className="mb-1.5 block text-xs font-medium">Onboarding source</label>
+      <Select value={source} onValueChange={setSource}>
+        <SelectTrigger aria-labelledby="organization-source-label" className="w-40"><SelectValue /></SelectTrigger>
+        <SelectContent>{SOURCE_OPTIONS.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
       </Select></div>
     </FilterBar>
   )
