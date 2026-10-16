@@ -1,4 +1,4 @@
-import { LayoutDashboard, Building2, Users, Truck, Cpu, Map, CreditCard, ScrollText, BarChart3, Settings, Bell, ClipboardList, Shield, Layers, Wrench, Activity, FileText } from 'lucide-react'
+import { LayoutDashboard, Building2, Users, Truck, Cpu, Map, CreditCard, ScrollText, BarChart3, Settings, Bell, ClipboardList, Shield, Layers, Wrench, Activity, FileText, Video } from 'lucide-react'
 import type { AdminUser } from '@/types/api'
 import { hasPermission } from '@/hooks/usePermission'
 import { COMMERCIAL_SECTIONS, LEGACY_BILLING_ROUTES } from './commercial-navigation'
@@ -27,6 +27,9 @@ export const NAV_GROUPS = [
     { href: '/installers', label: 'Installers', icon: Wrench, superOnly: true },
     { href: '/analytics', label: 'Operational reports', icon: BarChart3, superOnly: true },
     { href: '/notifications', label: 'Notification center', icon: Bell },
+  ] },
+  { label: 'Engagement', items: [
+    { href: '/webinars', label: 'Webinars', icon: Video, permission: 'admin.webinars.view' },
   ] },
   { label: 'Platform', items: [
     { href: '/platform-health', label: 'Service health', icon: Activity, superOnly: true },
