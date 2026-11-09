@@ -23,6 +23,9 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
     'admin.audit.view',
     // Tracking / fleet map
     'admin.tracking.view',
+    // Fuel reference list: support can look; changing it is super-admin only
+    // ('admin.fuel_specs.manage' is granted to no role here), as on the API.
+    'admin.fuel_specs.view',
   ],
   // Mirrors the backend's billing.money gate (finance | super_admin) — a
   // finance admin previously had NO entry here at all, so every
