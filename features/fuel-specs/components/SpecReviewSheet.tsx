@@ -4,7 +4,7 @@ import { useId, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { AlertTriangle, CheckCircle2, Pencil, Trash2, XCircle } from 'lucide-react'
 import { toast } from 'sonner'
-import { apiErrorMessage, approveFuelSpec, discardFuelSpecProposal, getFuelSpec, rejectFuelSpec } from '../api'
+import { apiErrorMessage, approveFuelSpec, discardFuelSpecProposal, getFuelSpec, rejectFuelSpec, type FuelSpec } from '../api'
 import { approvalBlocker, attentionReasons, formatFigure, impactSummary, proposalDiff } from '../lib'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { QueryError } from '@/components/shared/QueryError'
@@ -21,7 +21,7 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
 }
 
 /** Everything a reviewer needs to decide on an entry or on the change waiting beside it. */
-export function SpecReviewSheet({ id, canManage, onClose, onEdit }: { id: number; canManage: boolean; onClose: () => void; onEdit: () => void }) {
+export function SpecReviewSheet({ id, canManage, onClose, onEdit }: { id: number; canManage: boolean; onClose: () => void; onEdit: (spec: FuelSpec) => void }) {
   const qc = useQueryClient()
   const field = useId()
   const query = useQuery({ queryKey: ['fuel-spec', id], queryFn: ({ signal }) => getFuelSpec(id, signal) })
@@ -56,7 +56,7 @@ export function SpecReviewSheet({ id, canManage, onClose, onEdit }: { id: number
           </SheetHeader>
           <div className="space-y-5 px-4 pb-6">
             {query.isPending && <div className="space-y-2"><Skeleton className="h-6 w-1/2" /><Skeleton className="h-32 w-full" /></div>}
-            {query.isError && <QueryError error={query.error} onRetry={() => void query.refetch()} />}
+            {query.isError && <QueryError error={query.error} retry={() => void query.refetch()} />}
             {spec && (
               <>
                 <div className="flex flex-wrap items-center gap-2">
@@ -109,7 +109,7 @@ export function SpecReviewSheet({ id, canManage, onClose, onEdit }: { id: number
                       {spec.review_status !== 'rejected' && needsApproval && (
                         <Button onClick={() => approve.mutate()} disabled={!!blocker || approve.isPending}><CheckCircle2 aria-hidden="true" className="mr-1.5 h-4 w-4" />{approve.isPending ? 'Approving…' : spec.proposed ? 'Approve change' : spec.review_status === 'approved' ? 'Confirm review' : 'Approve'}</Button>
                       )}
-                      <Button variant="outline" onClick={onEdit}><Pencil aria-hidden="true" className="mr-1.5 h-4 w-4" />Edit</Button>
+                      <Button variant="outline" onClick={() => onEdit(spec)}><Pencil aria-hidden="true" className="mr-1.5 h-4 w-4" />Edit</Button>
                       {spec.proposed && <Button variant="outline" onClick={() => { discard.reset(); setConfirm('discard') }}><Trash2 aria-hidden="true" className="mr-1.5 h-4 w-4" />Discard change</Button>}
                       {spec.review_status !== 'rejected' && <Button variant="ghost" className="text-status-error" onClick={() => { reject.reset(); setConfirm('reject') }}><XCircle aria-hidden="true" className="mr-1.5 h-4 w-4" />Reject</Button>}
                     </div>
@@ -126,11 +126,11 @@ export function SpecReviewSheet({ id, canManage, onClose, onEdit }: { id: number
           description={spec?.review_status === 'approved' && inUse
             ? `${impact?.linked_vehicles.toLocaleString()} vehicles use this entry. Rejecting it stops their fuel estimates until another entry is linked, and drops any change waiting on it.`
             : 'It will no longer be offered at onboarding or used for estimates, and any change waiting on it is dropped.'}
-          confirmLabel="Reject entry" onConfirm={() => reject.mutateAsync()}
+          confirmLabel="Reject entry" onConfirm={async () => { await reject.mutateAsync() }}
         />
       )}
       {confirm === 'discard' && (
-        <ConfirmDialog open onOpenChange={open => { if (!open) setConfirm(null) }} title="Discard the proposed change?" description="The approved figures stay as they are. The proposal is dropped." confirmLabel="Discard change" variant="default" onConfirm={() => discard.mutateAsync()} />
+        <ConfirmDialog open onOpenChange={open => { if (!open) setConfirm(null) }} title="Discard the proposed change?" description="The approved figures stay as they are. The proposal is dropped." confirmLabel="Discard change" variant="default" onConfirm={async () => { await discard.mutateAsync() }} />
       )}
     </>
   )

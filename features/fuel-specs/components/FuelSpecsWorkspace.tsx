@@ -133,7 +133,7 @@ export function FuelSpecsWorkspace() {
         <TabsContent value="unlinked" className="mt-4"><UnlinkedVehicles canManage={canManage} /></TabsContent>
       </Tabs>
 
-      {reviewId !== null && !editing && <SpecReviewSheet key={reviewId} id={reviewId} canManage={canManage} onClose={() => setReviewId(null)} onEdit={() => void query.data && setEditing(query.data.specs.find(s => s.id === reviewId) ?? null)} />}
+      {reviewId !== null && !editing && <SpecReviewSheet key={reviewId} id={reviewId} canManage={canManage} onClose={() => setReviewId(null)} onEdit={setEditing} />}
       {editing && <SpecFormSheet key={editing === 'new' ? 'new' : editing.id} spec={editing === 'new' ? undefined : editing} onClose={() => setEditing(null)} />}
       <p className="text-xs text-muted-foreground">Editing an approved entry never stops its estimates: the change waits beside the approved figures until a super-admin approves it. Rates reach the platform with the next hourly sync.</p>
     </div>
