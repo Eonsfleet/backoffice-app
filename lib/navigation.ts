@@ -1,4 +1,4 @@
-import { LayoutDashboard, Building2, Users, Truck, Cpu, Map, CreditCard, ScrollText, BarChart3, Settings, Bell, ClipboardList, Shield, Layers, Wrench, Activity, FileText, Video } from 'lucide-react'
+import { LayoutDashboard, Building2, Users, Truck, Cpu, Map, CreditCard, ScrollText, BarChart3, Settings, Bell, ClipboardList, Shield, Layers, Wrench, Activity, FileText, Video, Fuel } from 'lucide-react'
 import type { AdminUser } from '@/types/api'
 import { hasPermission } from '@/hooks/usePermission'
 import { COMMERCIAL_SECTIONS, LEGACY_BILLING_ROUTES } from './commercial-navigation'
@@ -21,6 +21,7 @@ export const NAV_GROUPS = [
     { href: '/vehicles', label: 'Vehicles & assets', icon: Truck, superOnly: true },
     { href: '/drivers', label: 'Drivers', icon: Users, superOnly: true },
     { href: '/devices', label: 'Devices', icon: Cpu, permission: 'admin.devices.view' },
+    { href: '/fuel-specs', label: 'Fuel reference', icon: Fuel, permission: 'admin.fuel_specs.view' },
     { href: '/fleet-map', label: 'Fleet map', icon: Map, permission: 'admin.tracking.view' },
   ] },
   { label: 'Operations', items: [

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { canAccessNavigation, getRouteItem } from '@/lib/navigation'
+import { hasPermission } from '@/hooks/usePermission'
 import type { AdminUser } from '@/types/api'
 
 const user = (role: string, permissions?: string[]): AdminUser => ({ id: '1', name: 'Test', email: 'test@example.com', avatar: null, last_login: null, role, permissions })
@@ -25,5 +26,15 @@ describe('workspace access', () => {
   })
   it('preserves super-admin governance access', () => {
     expect(canAccessNavigation(user('super_admin'), getRouteItem('/admin-users/roles')!)).toBe(true)
+  })
+  it('lets support look at the fuel reference list but not change it, as the API does', () => {
+    const item = getRouteItem('/fuel-specs')!
+    expect(item.href).toBe('/fuel-specs')
+    expect(canAccessNavigation(user('support'), item)).toBe(true)
+    expect(canAccessNavigation(user('super_admin'), item)).toBe(true)
+    expect(canAccessNavigation(user('finance'), item)).toBe(false)
+    expect(canAccessNavigation(user('installer'), item)).toBe(false)
+    expect(hasPermission(user('support'), 'admin.fuel_specs.manage')).toBe(false)
+    expect(hasPermission(user('super_admin'), 'admin.fuel_specs.manage')).toBe(true)
   })
 })
