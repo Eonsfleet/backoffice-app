@@ -10,7 +10,11 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { SearchableSelect } from '@/components/ui/searchable-select'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Switch } from '@/components/ui/switch'
 import { listOrganizations } from '@/features/organizations/api'
+import {
+  estimationDefaults, estimationPayload, MAX_CONSUMPTION_L_PER_100KM, MAX_IDLE_L_PER_HOUR, rateError, type EstimationPayload,
+} from '@/features/vehicles/fuel-estimation'
 import type { Vehicle } from '@/types/api'
 
 const FUEL_TYPES = ['Petrol', 'Diesel', 'Electric', 'Hybrid', 'CNG', 'LPG']
@@ -26,6 +30,13 @@ const FUEL_CAPACITY_UNITS = [
 ]
 const CURRENT_YEAR = new Date().getFullYear()
 
+/** A rate typed as text: blank is allowed, anything else must be above 0 and within the limit. */
+const optionalRate = (max: number, label: string) =>
+  z.string().optional().superRefine((value, ctx) => {
+    const message = rateError(value, max, label)
+    if (message) ctx.addIssue({ code: 'custom', message })
+  })
+
 export const vehicleSchema = z.object({
   registration_number: z.string().min(2, 'Registration number is required'),
   organization_id:     z.string().min(1, 'Organization is required'),
@@ -37,10 +48,16 @@ export const vehicleSchema = z.object({
   fuel_type:           z.string().optional(),
   fuel_capacity:       z.number({ error: 'Fuel tank capacity is required' }).min(1, 'Fuel tank capacity must be greater than 0'),
   fuel_capacity_unit:  z.string().min(1),
+  fuel_estimation_enabled:        z.boolean(),
+  estimated_liters_per_100km:     optionalRate(MAX_CONSUMPTION_L_PER_100KM, 'Consumption'),
+  estimated_idle_liters_per_hour: optionalRate(MAX_IDLE_L_PER_HOUR, 'Idle burn'),
   chasis_number:       z.string().optional(),
   status:              z.string().min(1),
 })
-export type VehicleForm = z.infer<typeof vehicleSchema>
+type VehicleFormValues = z.infer<typeof vehicleSchema>
+
+/** What the form hands on: the rates as numbers, and null where they were left blank. */
+export type VehicleForm = Omit<VehicleFormValues, keyof EstimationPayload> & EstimationPayload
 
 export function VehicleFormFields({
   vehicle,
@@ -65,7 +82,7 @@ export function VehicleFormFields({
   const bodyTypeOptions = BODY_TYPES.map((b) => ({ value: b, label: b }))
   const statusOptions = VEHICLE_STATUSES.map((s) => ({ value: s, label: s.replace('_', ' ') }))
 
-  const { register, handleSubmit, formState: { errors }, setValue, control } = useForm<VehicleForm>({
+  const { register, handleSubmit, formState: { errors }, setValue, control } = useForm<VehicleFormValues>({
     resolver: zodResolver(vehicleSchema),
     defaultValues: {
       registration_number: vehicle?.plate_number ?? '',
@@ -78,6 +95,7 @@ export function VehicleFormFields({
       fuel_type:           vehicle?.fuel_type ?? '',
       fuel_capacity:       vehicle?.fuel_capacity ?? undefined,
       fuel_capacity_unit:  vehicle?.fuel_capacity_unit ?? 'L',
+      ...estimationDefaults(vehicle),
       chasis_number:       vehicle?.chasis_number ?? '',
       status:              vehicle?.status ?? 'active',
     },
@@ -87,9 +105,10 @@ export function VehicleFormFields({
   const fuelType = useWatch({ control, name: 'fuel_type' }) ?? ''
   const fuelCapacityUnit = useWatch({ control, name: 'fuel_capacity_unit' }) ?? 'L'
   const status = useWatch({ control, name: 'status' }) ?? 'active'
+  const estimationEnabled = useWatch({ control, name: 'fuel_estimation_enabled' })
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 px-5">
+    <form onSubmit={handleSubmit((values) => onSubmit({ ...values, ...estimationPayload(values) }))} className="space-y-4 px-5">
       <div className="space-y-1.5">
         <Label>Registration Number *</Label>
         <Input {...register('registration_number')} placeholder="e.g. LSD-101-AA" className="uppercase" />
@@ -180,6 +199,48 @@ export function VehicleFormFields({
           </Select>
         </div>
       </div>
+
+      <fieldset className="space-y-3 rounded-lg border p-3">
+        <legend className="px-1 text-sm font-medium">Fuel estimation</legend>
+        <div className="flex items-start justify-between gap-4">
+          <div className="space-y-0.5">
+            <Label htmlFor="fuel-estimation-enabled">Estimate fuel use</Label>
+            <p className="text-xs text-muted-foreground">
+              For vehicles whose tracker reports no fuel level, fuel use is estimated from distance and idling time.
+            </p>
+          </div>
+          <Switch
+            id="fuel-estimation-enabled"
+            checked={estimationEnabled}
+            onCheckedChange={(v) => setValue('fuel_estimation_enabled', v, { shouldDirty: true })}
+          />
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="space-y-1.5">
+            <Label htmlFor="estimated-consumption">Consumption (L/100 km)</Label>
+            <Input
+              id="estimated-consumption"
+              {...register('estimated_liters_per_100km')}
+              type="number" inputMode="decimal" min={0} step="any" disabled={!estimationEnabled}
+              placeholder="Typical for this make and model"
+            />
+            {errors.estimated_liters_per_100km && <p role="alert" className="text-xs text-destructive">{errors.estimated_liters_per_100km.message}</p>}
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="estimated-idle">Idle burn (L/hour)</Label>
+            <Input
+              id="estimated-idle"
+              {...register('estimated_idle_liters_per_hour')}
+              type="number" inputMode="decimal" min={0} step="any" disabled={!estimationEnabled}
+              placeholder="Typical for this make and model"
+            />
+            {errors.estimated_idle_liters_per_hour && <p role="alert" className="text-xs text-destructive">{errors.estimated_idle_liters_per_hour.message}</p>}
+          </div>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          The vehicle&apos;s own figures win. Leave a rate blank to use the typical figure from the fuel reference list for its make and model. With neither, no estimate is made. Changes reach the platform with the next hourly sync.
+        </p>
+      </fieldset>
 
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="space-y-1.5">
