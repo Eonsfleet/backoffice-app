@@ -1,6 +1,7 @@
 import { api } from '@/lib/api/client'
 import type { Vehicle, VehicleLocation, PaginatedResponse } from '@/types/api'
 import type { ImportStartedResponse } from '@/features/imports/api'
+import { normalizeEstimation } from './fuel-estimation'
 
 export interface VehicleFilters {
   page?: number
@@ -23,6 +24,10 @@ export interface VehiclePayload {
   fuel_type?: string
   fuel_capacity?: number
   fuel_capacity_unit?: string
+  fuel_estimation_enabled?: boolean
+  /** null clears the vehicle's own rate, so the make and model's typical figure applies. */
+  estimated_liters_per_100km?: number | null
+  estimated_idle_liters_per_hour?: number | null
   body_type?: string
   status?: string
   organization_id: string | number
@@ -115,6 +120,7 @@ function normalizeVehicle(raw: RawVehicle): Vehicle {
     fuel_type:           (a.fuel_type as string) ?? null,
     fuel_capacity:       (a.fuel_capacity as number) ?? null,
     fuel_capacity_unit:  (a.fuel_capacity_unit as string) ?? null,
+    fuel_estimation:     normalizeEstimation(a.fuel_estimation),
     chasis_number:       (a.chasis_number as string) ?? null,
     image:               (a.image as string) ?? null,
     device_id:           (a.device_id as string) ?? null,

@@ -400,6 +400,8 @@ export interface Vehicle {
   fuel_type?: string | null
   fuel_capacity?: number | null
   fuel_capacity_unit?: string | null
+  /** The vehicle's own fuel estimation rates; null rates mean the make and model's typical figure applies. */
+  fuel_estimation?: { enabled: boolean; liters_per_100km: number | null; idle_liters_per_hour: number | null } | null
   chasis_number?: string | null
   image?: string | null
   // device
