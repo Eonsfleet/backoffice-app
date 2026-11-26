@@ -1,4 +1,4 @@
-import { LayoutDashboard, Building2, Users, Truck, Cpu, Map, CreditCard, ScrollText, BarChart3, Settings, Bell, ClipboardList, Shield, Layers, Wrench, Activity, FileText, Video, Fuel } from 'lucide-react'
+import { LayoutDashboard, Building2, Users, Truck, Cpu, Map, CreditCard, ScrollText, BarChart3, Settings, Bell, ClipboardList, Shield, Layers, Wrench, ClipboardCheck, Activity, FileText, Video, Fuel } from 'lucide-react'
 import type { AdminUser } from '@/types/api'
 import { hasPermission } from '@/hooks/usePermission'
 import { COMMERCIAL_SECTIONS, LEGACY_BILLING_ROUTES } from './commercial-navigation'
@@ -26,6 +26,7 @@ export const NAV_GROUPS = [
   ] },
   { label: 'Operations', items: [
     { href: '/installers', label: 'Installers', icon: Wrench, superOnly: true },
+    { href: '/odometer-reviews', label: 'Odometer reviews', icon: ClipboardCheck },
     { href: '/analytics', label: 'Operational reports', icon: BarChart3, superOnly: true },
     { href: '/notifications', label: 'Notification center', icon: Bell },
   ] },
