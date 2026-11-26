@@ -12,6 +12,7 @@ import { cn } from '@/lib/utils'
 import { listDevices } from '@/features/devices/api'
 import { DeviceCreateForm } from '@/features/devices/components/DeviceCreateForm'
 import { assignDeviceToVehicle } from '@/features/vehicles/api'
+import { DashboardReadingPrompt } from '@/features/odometer/components/DashboardReadingPrompt'
 import type { Vehicle } from '@/types/api'
 
 const MIN_IMEI_LENGTH = 6
@@ -33,6 +34,8 @@ export function AssignDeviceForm({
 }) {
   const [imei, setImei] = useState('')
   const [creating, setCreating] = useState(false)
+  // Set once the device is assigned: the reading prompt follows, and never blocks finishing.
+  const [assigned, setAssigned] = useState(false)
   const qc = useQueryClient()
 
   const term = imei.trim()
@@ -60,7 +63,7 @@ export function AssignDeviceForm({
       qc.invalidateQueries({ queryKey: ['vehicles'] })
       qc.invalidateQueries({ queryKey: ['vehicle-metrics'] })
       qc.invalidateQueries({ queryKey: ['devices'] })
-      onSuccess()
+      setAssigned(true)
     },
     onError: (err) => {
       toast.error(apiMessage(err) ?? 'Failed to assign device')
@@ -70,6 +73,17 @@ export function AssignDeviceForm({
       qc.invalidateQueries({ queryKey: ['assignable-devices'] })
     },
   })
+
+  if (assigned) {
+    return (
+      <DashboardReadingPrompt
+        orgId={organization?.id ?? null}
+        vehicleId={vehicle.id}
+        plate={vehicle.plate_number}
+        onFinish={onSuccess}
+      />
+    )
+  }
 
   if (creating) {
     return (
