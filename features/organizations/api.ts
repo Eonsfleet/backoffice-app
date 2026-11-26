@@ -135,7 +135,8 @@ export const deleteOrganization = async (id: string | number): Promise<void> => 
 
 export interface OrgPerformanceStats {
   total_trips:       number
-  total_distance_km: number
+  /** Null when the server has no trusted figure: unavailable, never 0. */
+  total_distance_km: number | null
   active_vehicles:   number
   avg_uptime_pct:    number
   fleet_status: {
@@ -143,8 +144,13 @@ export interface OrgPerformanceStats {
     idle:        number
     maintenance: number
   }
-  trip_activity: Array<{ label: string; trips: number; distance_km: number }>
-  top_vehicles:  Array<{ plate: string; make_model: string; trips: number; distance_km: number }>
+  trip_activity: Array<{ label: string; trips: number; distance_km: number | null }>
+  top_vehicles:  Array<{ plate: string; make_model: string; trips: number; distance_km: number | null }>
+}
+
+/** A distance from the server: a finite number, or null. Missing mileage is never 0. */
+export function distanceOrNull(value: unknown): number | null {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null
 }
 
 export const getOrgPerformanceStats = async (
@@ -155,7 +161,7 @@ export const getOrgPerformanceStats = async (
 
   const kpis   = d.kpis   ?? {}
   const charts = d.charts ?? {}
-  const rawVehicles: Array<{ plate_number: string; make_model: string; trip_count: number; distance_km: number }> =
+  const rawVehicles: Array<{ plate_number: string; make_model: string; trip_count: number; distance_km: number | null }> =
     d.top_vehicles ?? []
 
   // trip_activity: grouped_bar { labels, datasets } → flat array
@@ -166,7 +172,7 @@ export const getOrgPerformanceStats = async (
   const tripActivity = labels.map((label: string, i: number) => ({
     label,
     trips:       (tripsDs?.data?.[i] as number) ?? 0,
-    distance_km: (distDs?.data?.[i]  as number) ?? 0,
+    distance_km: distanceOrNull(distDs?.data?.[i]),
   }))
 
   // fleet_status: donut { labels, data } → named fields
@@ -178,7 +184,7 @@ export const getOrgPerformanceStats = async (
 
   return {
     total_trips:       kpis.total_trips           ?? 0,
-    total_distance_km: kpis.distance_km           ?? 0,
+    total_distance_km: distanceOrNull(kpis.distance_km),
     active_vehicles:   kpis.active_vehicles       ?? 0,
     avg_uptime_pct:    kpis.avg_device_uptime_pct ?? 0,
     fleet_status: {
@@ -191,7 +197,7 @@ export const getOrgPerformanceStats = async (
       plate:       v.plate_number,
       make_model:  v.make_model,
       trips:       v.trip_count,
-      distance_km: v.distance_km,
+      distance_km: distanceOrNull(v.distance_km),
     })),
   }
 }

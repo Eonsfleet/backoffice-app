@@ -253,7 +253,7 @@ function TopVehiclesList({
                     </div>
                     <div className="text-right">
                       <span className="text-xs font-semibold tabular-nums text-foreground">{fmt(v.trips)} trips</span>
-                      <span className="ml-2 text-xs text-muted-foreground">{fmt(v.distance_km, 1)} km</span>
+                      <span className="ml-2 text-xs text-muted-foreground">{v.distance_km == null ? 'Distance unavailable' : `${fmt(v.distance_km, 1)} km`}</span>
                     </div>
                   </div>
                   <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
@@ -292,7 +292,7 @@ export function OrgPerformanceTab({ identifier }: { identifier: string | number 
         />
         <KpiCard
           label="Distance Traveled"
-          value={data ? `${fmt(data.total_distance_km, 1)} km` : undefined}
+          value={data ? (data.total_distance_km == null ? 'Unavailable' : `${fmt(data.total_distance_km, 1)} km`) : undefined}
           icon={TrendingUp}
           iconClass="bg-blue-500/10 text-blue-500"
           isLoading={isLoading}

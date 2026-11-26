@@ -130,7 +130,7 @@ export function FleetReport({ fleet, rates, isLoading }: { fleet?: FleetHealth; 
             <StatBlock label="Trips today" icon={Route} value={formatNumber(fleet.trips.total_today)} hint="Started since midnight" />
             <StatBlock label="In progress" icon={Car} value={formatNumber(fleet.trips.in_progress)} hint="Currently in transit" />
             <StatBlock label="Completed this month" icon={CalendarCheck} value={formatNumber(fleet.trips.completed_this_month)} hint="Since the 1st of the month" />
-            <StatBlock label="Distance this month" icon={Gauge} value={formatKm(fleet.trips.total_distance_km_this_month)} hint="From daily odometer readings" />
+            <StatBlock label="Distance this month" icon={Gauge} value={formatKm(fleet.trips.total_distance_km_this_month)} hint="Trusted days only; may not cover the whole month" />
           </dl>
         )}
       </ReportSection>

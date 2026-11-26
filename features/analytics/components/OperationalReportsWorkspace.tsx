@@ -278,7 +278,7 @@ export default function OperationalReportsWorkspace() {
       </Tabs>
 
       <p className="text-xs leading-5 text-muted-foreground">
-        Fleet and device figures are a live platform-wide snapshot. Trip distance uses daily odometer readings for the current calendar month. Timestamps use West Africa Time (UTC+1).
+        Fleet and device figures are a live platform-wide snapshot. Trip distance counts only days with trusted platform mileage this calendar month, so it may not cover the whole month. Timestamps use West Africa Time (UTC+1).
       </p>
     </div>
   )

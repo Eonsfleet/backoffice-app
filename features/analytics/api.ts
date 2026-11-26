@@ -61,7 +61,8 @@ export interface FleetHealth {
     total_today:                  number
     completed_this_month:         number
     in_progress:                  number
-    total_distance_km_this_month: number
+    /** Null when no trusted figure exists; shown as unavailable, never 0. */
+    total_distance_km_this_month: number | null
   }
   status_distribution: { status: string; count: number }[]
 }
