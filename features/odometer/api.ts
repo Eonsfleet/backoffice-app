@@ -38,8 +38,8 @@ export const reviewSchema = z.object({
   history: z.array(z.object({
     at: text, event: z.string(), by: actor, detail: text,
   })).nullish().transform(value => value ?? []),
-  // Not in the contract: the evidence the photo download needs. Used if the API adds it.
-  evidence: z.array(z.object({ id, kind: text })).nullish().transform(value => value ?? []),
+  // Files attached to the reading under review; ids go to the admin download endpoint.
+  evidence: z.array(z.object({ id, kind: text, mime: text, created_at: text })).nullish().transform(value => value ?? []),
 })
 export type OdometerReview = z.infer<typeof reviewSchema>
 
@@ -73,10 +73,24 @@ export async function assignOdometerReview(reviewId: string | number, adminId: s
   return reviewSchema.parse(data.data?.review ?? data.data)
 }
 
-/** The file is private and every download is logged, so it is fetched with the session, never linked. */
+/** The file is private and every open is logged, so it is fetched with the session, never linked. */
 export async function fetchEvidence(evidenceId: string | number): Promise<Blob> {
-  const { data } = await api.get(`/odometer-evidence/${evidenceId}/download`, { responseType: 'blob' })
+  const { data } = await api.get(`/admin/odometer-evidence/${evidenceId}/download`, { responseType: 'blob' })
   return data as Blob
+}
+
+/** Attaches a photo to an open review, so one blocked by photo_required can be approved. */
+export async function attachReviewEvidence(reviewId: string | number, file: File): Promise<void> {
+  const form = new FormData()
+  form.append('file', file)
+  await api.post(`/admin/odometer-reviews/${reviewId}/evidence`, form, { headers: { 'Content-Type': 'multipart/form-data' } })
+}
+
+const reviewersSchema = z.object({ reviewers: z.array(z.object({ id, name: text, email: text })) })
+/** Admins holding odometer_reviewer: the only ones a review can be assigned to. */
+export async function listOdometerReviewers(signal?: AbortSignal) {
+  const { data } = await api.get('/admin/odometer-reviewers', { signal })
+  return reviewersSchema.parse(data.data).reviewers
 }
 
 // ─── Installer readings ───────────────────────────────────────────────────────
@@ -95,10 +109,23 @@ const installerPath = (orgId: string | number, vehicleId: string | number) =>
 
 export async function submitInstallerReading(
   orgId: string | number, vehicleId: string | number,
-  body: { value: number; unit: ReadingUnit; physically_inspected: boolean; note?: string },
+  body: {
+    value: number; unit: ReadingUnit; physically_inspected: boolean; note?: string
+    evidence_ids?: Array<string | number>; confirm_zero?: boolean; confirm_large_jump?: boolean
+  },
 ): Promise<ReadingResult> {
   const { data } = await api.post(`${installerPath(orgId, vehicleId)}/odometer-readings`, { ...body, kind: 'reading' })
   return readingResultSchema.parse(data.data)
+}
+
+/** Uploads the installer's dashboard photo; its id then goes in evidence_ids on the reading. */
+export async function uploadInstallerEvidence(orgId: string | number, vehicleId: string | number, file: File): Promise<string | number> {
+  const form = new FormData()
+  form.append('file', file)
+  form.append('kind', 'dashboard_photo')
+  const { data } = await api.post(`${installerPath(orgId, vehicleId)}/odometer-evidence`, form, { headers: { 'Content-Type': 'multipart/form-data' } })
+  const parsed = z.object({ evidence: z.object({ id }) }).parse(data.data)
+  return parsed.evidence.id
 }
 
 export async function skipInstallerReading(

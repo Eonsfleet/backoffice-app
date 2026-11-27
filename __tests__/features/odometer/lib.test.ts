@@ -5,7 +5,7 @@ vi.mock('@/lib/api/client', () => ({ api: {} }))
 import type { AdminUser } from '@/types/api'
 import { reviewSchema } from '@/features/odometer/api'
 import {
-  approvalProgress, canReviewOdometer, errorText, formatKm, parseReading, reviewAction,
+  approvalProgress, canReviewOdometer, errorCode, errorText, formatKm, parseReading, reviewAction,
 } from '@/features/odometer/lib'
 
 const navAccess = (user: AdminUser | null) => canAccessNavigation(user, getRouteItem('/odometer-reviews')!)
@@ -110,6 +110,19 @@ describe('installer reading entry', () => {
   it('accepts 0 only when confirmed', () => {
     expect(parseReading(form({ value: '0' }))).toEqual({ error: expect.stringMatching(/Confirm/) })
     expect(parseReading(form({ value: '0', zeroConfirmed: true }))).toMatchObject({ value: 0 })
+  })
+})
+
+describe('error codes', () => {
+  const failure = (code: string) => ({ response: { status: 422, data: { code, message: 'server text' } } })
+  it('words the stable codes for people', () => {
+    expect(errorText(failure('photo_required'), 'x')).toMatch(/photo is required/)
+    expect(errorText(failure('own_submission'), 'x')).toMatch(/submitted yourself/)
+    expect(errorText(failure('same_reviewer'), 'x')).toMatch(/different reviewer/)
+    expect(errorText(failure('review_closed'), 'x')).toMatch(/already been decided/)
+    expect(errorText(failure('something_new'), 'x')).toBe('server text')
+    expect(errorCode(failure('photo_required'))).toBe('photo_required')
+    expect(errorCode(new Error('x'))).toBeNull()
   })
 })
 

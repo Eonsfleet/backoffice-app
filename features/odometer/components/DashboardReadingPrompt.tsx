@@ -8,10 +8,10 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import {
-  SKIP_REASONS, skipInstallerReading, submitInstallerReading,
+  SKIP_REASONS, skipInstallerReading, submitInstallerReading, uploadInstallerEvidence,
   type ReadingResult, type SkipReason,
 } from '@/features/odometer/api'
-import { errorText, parseReading, readingOutcomeText, type ParsedReading, type ReadingForm } from '@/features/odometer/lib'
+import { errorCode, errorText, parseReading, readingOutcomeText, type ParsedReading, type ReadingForm } from '@/features/odometer/lib'
 
 const SKIP_LABELS: Record<SkipReason, string> = {
   locked_vehicle: 'Vehicle is locked',
@@ -37,11 +37,33 @@ export function DashboardReadingPrompt({ orgId, vehicleId, plate, onFinish }: {
   const [skipNote, setSkipNote] = useState('')
   const [problem, setProblem] = useState<string | null>(null)
   const [done, setDone] = useState<string | null>(null)
+  const [photo, setPhoto] = useState<File | null>(null)
+  // The uploaded photo is remembered, so a retry never uploads it twice.
+  const [uploaded, setUploaded] = useState<{ file: File; id: string | number } | null>(null)
+  const [largeJump, setLargeJump] = useState<{ asked: boolean; confirmed: boolean }>({ asked: false, confirmed: false })
 
   const save = useMutation({
-    mutationFn: (body: ParsedReading) => submitInstallerReading(orgId!, vehicleId, body),
+    mutationFn: async (body: ParsedReading) => {
+      let evidenceId = uploaded && uploaded.file === photo ? uploaded.id : null
+      if (photo && evidenceId === null) {
+        try { evidenceId = await uploadInstallerEvidence(orgId!, vehicleId, photo) } catch (e) {
+          throw Object.assign(new Error('photo'), { photoFailure: errorText(e, 'The photo could not be uploaded.') })
+        }
+        setUploaded({ file: photo, id: evidenceId })
+      }
+      return submitInstallerReading(orgId!, vehicleId, {
+        ...body,
+        ...(evidenceId !== null ? { evidence_ids: [evidenceId] } : {}),
+        ...(largeJump.confirmed ? { confirm_large_jump: true } : {}),
+      })
+    },
     onSuccess: (result: ReadingResult) => setDone(readingOutcomeText(result)),
-    onError: (error) => setProblem(errorText(error, 'The reading could not be saved. You can finish the installation and enter it later.')),
+    onError: (error) => {
+      const photoFailure = (error as { photoFailure?: string }).photoFailure
+      if (photoFailure) { setProblem(`${photoFailure} Remove the photo to save the reading without it, or try again.`); return }
+      if (errorCode(error) === 'confirmation_required') setLargeJump({ asked: true, confirmed: false })
+      setProblem(errorText(error, 'The reading could not be saved. You can finish the installation and enter it later.'))
+    },
   })
   const skip = useMutation({
     mutationFn: () => skipInstallerReading(orgId!, vehicleId, { reason: skipReason, note: skipNote.trim() || null }),
@@ -109,6 +131,19 @@ export function DashboardReadingPrompt({ orgId, vehicleId, plate, onFinish }: {
               onChange={e => setForm(f => ({ ...f, inspected: e.target.checked }))} />
             I physically inspected the dashboard
           </label>
+          <div className="space-y-1.5">
+            <Label htmlFor="dash-photo">Dashboard photo (optional)</Label>
+            <input id="dash-photo" type="file" accept="image/*" disabled={busy} className="block w-full text-sm"
+              onChange={e => setPhoto(e.target.files?.[0] ?? null)} />
+            {photo && <Button type="button" variant="ghost" size="sm" disabled={busy} onClick={() => { setPhoto(null); const input = document.getElementById('dash-photo') as HTMLInputElement | null; if (input) input.value = '' }}>Remove photo</Button>}
+          </div>
+          {largeJump.asked && (
+            <label className="flex items-start gap-2 text-sm">
+              <input type="checkbox" className="mt-1" checked={largeJump.confirmed} disabled={busy}
+                onChange={e => setLargeJump(l => ({ ...l, confirmed: e.target.checked }))} />
+              This reading is far above what the tracker saw, and I confirm it is correct
+            </label>
+          )}
           <div className="space-y-1.5">
             <Label htmlFor="dash-note">Note (optional)</Label>
             <Input id="dash-note" value={form.note} disabled={busy} onChange={e => setForm(f => ({ ...f, note: e.target.value }))} />

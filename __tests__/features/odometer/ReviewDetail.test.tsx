@@ -5,16 +5,19 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import type { AdminUser } from '@/types/api'
 
 vi.mock('@/lib/api/client', () => ({ api: {} }))
-vi.mock('@/features/admin-users/api', () => ({ listAdminUsers: vi.fn().mockResolvedValue({ data: [{ id: 9, name: 'N. Reviewer' }], meta: {} }) }))
 const decide = vi.fn()
 const assign = vi.fn()
 const getReview = vi.fn()
+const attach = vi.fn()
+const fetchEvidence = vi.fn()
 vi.mock('@/features/odometer/api', async importOriginal => ({
   ...(await importOriginal<typeof import('@/features/odometer/api')>()),
   getOdometerReview: (...a: unknown[]) => getReview(...a),
   decideOdometerReview: (...a: unknown[]) => decide(...a),
   assignOdometerReview: (...a: unknown[]) => assign(...a),
-  fetchEvidence: vi.fn(),
+  fetchEvidence: (...a: unknown[]) => fetchEvidence(...a),
+  attachReviewEvidence: (...a: unknown[]) => attach(...a),
+  listOdometerReviewers: vi.fn().mockResolvedValue([{ id: 9, name: 'N. Reviewer', email: 'n@x.test' }]),
 }))
 
 import { reviewSchema } from '@/features/odometer/api'
@@ -103,5 +106,42 @@ describe('review detail', () => {
     await person.selectOptions(screen.getByLabelText('Assign to'), '9')
     await person.click(screen.getByRole('button', { name: 'Assign' }))
     await waitFor(() => expect(assign).toHaveBeenCalledWith(5, '9'))
+  })
+
+  it('lets a reviewer attach a photo to a review that needs one, then approve', async () => {
+    const person = userEvent.setup()
+    useAuthStore.setState({ user: user(4, ['odometer_reviewer']) })
+    attach.mockResolvedValue(undefined)
+    decide.mockRejectedValueOnce({ response: { status: 422, data: { code: 'photo_required', message: 'photo' } } })
+    show({ requires_photo: true, has_photo: false, approvals_required: 1 })
+    expect(screen.getByText(/photo is required before this can be approved/)).toBeInTheDocument()
+    const file = new File(['x'], 'dash.jpg', { type: 'image/jpeg' })
+    await person.upload(screen.getByLabelText('Attach a dashboard photo'), file)
+    await waitFor(() => expect(attach).toHaveBeenCalledWith(5, file))
+    // The review is read again so it shows the photo.
+    await waitFor(() => expect(getReview).toHaveBeenCalled())
+    await person.type(screen.getByLabelText('Reason (required)'), 'ok')
+    await person.click(screen.getByRole('button', { name: 'Approve' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent(/photo is required first/i)
+  })
+
+  it('does not offer to attach a photo without the permission', () => {
+    useAuthStore.setState({ user: user(1, [], 'super_admin') })
+    show({ requires_photo: true, has_photo: false })
+    expect(screen.queryByLabelText('Attach a dashboard photo')).toBeNull()
+  })
+
+  it('opens evidence through the authenticated download, never a link', async () => {
+    const person = userEvent.setup()
+    useAuthStore.setState({ user: user(4, ['odometer_reviewer']) })
+    fetchEvidence.mockResolvedValue(new Blob(['x']))
+    const open = vi.fn()
+    vi.stubGlobal('open', open)
+    URL.createObjectURL = vi.fn(() => 'blob:abc')
+    show({ has_photo: true, evidence: [{ id: 12, kind: 'dashboard_photo', mime: 'image/jpeg', created_at: null }] })
+    expect(screen.queryByRole('link')).toBeNull()
+    await person.click(screen.getByRole('button', { name: /View dashboard photo/ }))
+    await waitFor(() => expect(fetchEvidence).toHaveBeenCalledWith(12))
+    expect(open).toHaveBeenCalledWith('blob:abc', '_blank', 'noopener')
   })
 })

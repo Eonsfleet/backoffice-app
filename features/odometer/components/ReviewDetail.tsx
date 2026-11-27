@@ -10,20 +10,24 @@ import { StatusBadge } from '@/components/shared/StatusBadge'
 import { Timestamp } from '@/components/shared/Timestamp'
 import { QueryError } from '@/components/shared/QueryError'
 import { useAuthStore } from '@/stores/auth.store'
-import { listAdminUsers } from '@/features/admin-users/api'
 import {
-  assignOdometerReview, decideOdometerReview, fetchEvidence, getOdometerReview, type OdometerReview,
+  assignOdometerReview, attachReviewEvidence, decideOdometerReview, listOdometerReviewers, fetchEvidence, getOdometerReview, type OdometerReview,
 } from '@/features/odometer/api'
 import {
-  approvalProgress, errorText, formatKm, originalReading, reasonLabel, reviewAction,
+  approvalProgress, canReviewOdometer, errorText, formatKm, originalReading, reasonLabel, reviewAction,
 } from '@/features/odometer/lib'
 
 function Fact({ label, children }: { label: string; children: React.ReactNode }) {
   return <div><dt className="text-xs text-muted-foreground">{label}</dt><dd className="text-sm">{children}</dd></div>
 }
 
-function Evidence({ review }: { review: OdometerReview }) {
+function Evidence({ review, canAttach, onAttached }: { review: OdometerReview; canAttach: boolean; onAttached: () => void }) {
   const [error, setError] = useState<string | null>(null)
+  const attach = useMutation({
+    mutationFn: (file: File) => attachReviewEvidence(review.id, file),
+    onSuccess: onAttached,
+    onError: e => setError(errorText(e, 'The photo could not be attached.')),
+  })
   const open = async (evidenceId: string | number) => {
     setError(null)
     try {
@@ -42,8 +46,14 @@ function Evidence({ review }: { review: OdometerReview }) {
           View {file.kind?.replace(/_/g, ' ') ?? 'file'}
         </Button>
       ))}
-      {review.has_photo && review.evidence.length === 0 && (
-        <p className="text-xs text-muted-foreground">The photo can’t be opened from here yet: the review does not list its file.</p>
+      {canAttach && (
+        <div className="space-y-1.5">
+          <Label htmlFor="odo-attach">Attach a dashboard photo</Label>
+          <input id="odo-attach" type="file" accept="image/*,application/pdf" disabled={attach.isPending}
+            className="block w-full text-sm"
+            onChange={e => { const file = e.target.files?.[0]; if (file) { setError(null); attach.mutate(file); e.target.value = '' } }} />
+          {attach.isPending && <p className="text-xs text-muted-foreground">Uploading…</p>}
+        </div>
       )}
       {error && <p role="alert" className="text-xs text-status-error">{error}</p>}
     </div>
@@ -52,7 +62,7 @@ function Evidence({ review }: { review: OdometerReview }) {
 
 function Assign({ review, onDone }: { review: OdometerReview; onDone: (r: OdometerReview) => void }) {
   const [adminId, setAdminId] = useState('')
-  const admins = useQuery({ queryKey: ['odometer-assignable-admins'], queryFn: () => listAdminUsers({ per_page: 100 }), staleTime: 60_000 })
+  const admins = useQuery({ queryKey: ['odometer-reviewers'], queryFn: ({ signal }) => listOdometerReviewers(signal), staleTime: 60_000 })
   const assign = useMutation({
     mutationFn: () => assignOdometerReview(review.id, adminId),
     onSuccess: onDone,
@@ -64,7 +74,7 @@ function Assign({ review, onDone }: { review: OdometerReview; onDone: (r: Odomet
         <select id="assign-admin" value={adminId} onChange={e => setAdminId(e.target.value)} disabled={assign.isPending}
           className="h-9 min-w-0 flex-1 rounded-md border border-input bg-transparent px-2 text-sm">
           <option value="">Choose an admin</option>
-          {(admins.data?.data ?? []).map(a => <option key={String(a.id)} value={String(a.id)}>{a.name}</option>)}
+          {(admins.data ?? []).map(a => <option key={String(a.id)} value={String(a.id)}>{a.name ?? a.email}</option>)}
         </select>
         <Button variant="outline" disabled={!adminId || assign.isPending} onClick={() => assign.mutate()}>
           {assign.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Assign
@@ -123,7 +133,7 @@ export function ReviewDetail({ reviewId, initial }: { reviewId: string | number;
 
       <section aria-labelledby="odo-photo" className="space-y-2">
         <h3 id="odo-photo" className="text-sm font-semibold">Dashboard photo</h3>
-        <Evidence review={review} />
+        <Evidence review={review} canAttach={review.status === 'pending' && canReviewOdometer(user)} onAttached={() => void query.refetch()} />
       </section>
 
       <section aria-labelledby="odo-approvals" className="space-y-2">
