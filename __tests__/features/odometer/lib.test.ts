@@ -3,9 +3,9 @@ import { canAccessNavigation, getRouteItem } from '@/lib/navigation'
 
 vi.mock('@/lib/api/client', () => ({ api: {} }))
 import type { AdminUser } from '@/types/api'
-import { reviewSchema } from '@/features/odometer/api'
+import { readingResultSchema, reviewSchema, syncSchema } from '@/features/odometer/api'
 import {
-  approvalProgress, canReviewOdometer, errorCode, errorText, formatKm, parseReading, reviewAction,
+  approvalProgress, canReviewOdometer, describeSync, errorCode, errorText, readingOutcomeText, formatKm, parseReading, reviewAction,
 } from '@/features/odometer/lib'
 
 const navAccess = (user: AdminUser | null) => canAccessNavigation(user, getRouteItem('/odometer-reviews')!)
@@ -131,5 +131,46 @@ describe('errors', () => {
     expect(errorText({ response: { status: 403, data: { message: 'You cannot approve your own submission' } } }, 'x')).toBe('You cannot approve your own submission')
     expect(errorText({ response: { status: 403 } }, 'x')).toMatch(/not allowed/)
     expect(errorText(new Error('boom'), 'fallback')).toBe('fallback')
+  })
+})
+
+describe('sync state', () => {
+  const sync = (over: Record<string, unknown> = {}) => syncSchema.parse({ attempts: 1, blocked: false, blocked_reason: null, message: null, ...over })
+
+  it('shows a switched-off feature as a calm saved state, not a failure', () => {
+    const view = describeSync(sync({ blocked: true, blocked_reason: 'engine_feature_disabled', message: 'Not switched on for Acme.' }), 'pending_sync')!
+    expect(view.tone).toBe('calm')
+    expect(view.label).toBe('Not switched on yet')
+    expect(view.message).toBe('Not switched on for Acme.')
+  })
+  it('shows an unavailable platform as retrying automatically', () => {
+    const view = describeSync(sync({ blocked: true, blocked_reason: 'engine_unavailable' }), 'pending_sync')!
+    expect(view.tone).toBe('info')
+    expect(view.label).toBe('Retrying automatically')
+  })
+  it('shows an unblocked pending reading as simply pending', () => {
+    expect(describeSync(sync(), 'pending_sync')?.tone).toBe('pending')
+  })
+  it('shows nothing once the reading is no longer pending, or without sync', () => {
+    expect(describeSync(sync({ blocked: true, blocked_reason: 'engine_unavailable' }), 'accepted')).toBeNull()
+    expect(describeSync(null, 'pending_sync')).toBeNull()
+    expect(describeSync(syncSchema.parse(undefined))).toBeNull()
+  })
+  it('wording works for a vehicle block (no reading status)', () => {
+    expect(describeSync(syncSchema.parse({ pending: 2, blocked: true, blocked_reason: 'engine_feature_disabled', message: null }))?.label).toBe('Not switched on yet')
+    expect(describeSync(syncSchema.parse({ pending: 0, blocked: false }))).toBeNull()
+  })
+  it('is null-safe: an older backend with no sync parses and behaves as before', () => {
+    const r = reviewSchema.parse(raw())
+    expect(r.reading?.sync).toBeNull()
+    expect(describeSync(r.reading?.sync ?? null, r.reading?.status)).toBeNull()
+    const result = readingResultSchema.parse({ outcome: 'pending_sync' })
+    expect(readingOutcomeText(result)).toBe('Reading saved. It takes effect once the tracking system confirms it.')
+  })
+  it('tells the installer a blocked reading is saved, without suggesting a retry', () => {
+    const text = readingOutcomeText(readingResultSchema.parse({ outcome: 'pending_sync', reading: { status: 'pending_sync', sync: { attempts: 0, blocked: true, blocked_reason: 'engine_feature_disabled', message: 'Not switched on yet for this organization.' } } }))
+    expect(text).toContain('Not switched on yet for this organization.')
+    expect(text).toMatch(/Nothing more is needed/)
+    expect(text).not.toMatch(/retry|try again/i)
   })
 })

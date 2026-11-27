@@ -13,7 +13,8 @@ import { Button } from '@/components/ui/button'
 import { useUrlListState } from '@/hooks/useUrlListState'
 import { useAuthStore } from '@/stores/auth.store'
 import { listOdometerReviews, type OdometerReview, type ReviewStatusFilter } from '@/features/odometer/api'
-import { approvalProgress, canReviewOdometer, formatKm, reasonLabel } from '@/features/odometer/lib'
+import { approvalProgress, canReviewOdometer, describeSync, formatKm, reasonLabel } from '@/features/odometer/lib'
+import { SyncNotice } from './SyncNotice'
 import { ReviewDetail } from './ReviewDetail'
 
 const FILTERS: { value: ReviewStatusFilter; label: string }[] = [
@@ -38,7 +39,7 @@ export function OdometerReviewsWorkspace() {
     { id: 'vehicle', header: 'Vehicle', cell: ({ row }) => <span className="font-mono text-sm font-semibold uppercase">{row.original.vehicle?.registration_number ?? 'Unavailable'}</span> },
     { id: 'reason', header: 'Reason', cell: ({ row }) => <div><p>{reasonLabel(row.original.reason)}</p><p className="text-xs capitalize text-muted-foreground">{row.original.level} level</p></div> },
     { id: 'reading', header: 'Previous → submitted', cell: ({ row }) => <span className="tabular-nums">{formatKm(row.original.previous_accepted_km)} → {formatKm(row.original.proposed_km)}</span> },
-    { id: 'status', header: 'Status', cell: ({ row }) => <div className="space-y-1"><StatusBadge status={row.original.overdue && row.original.status === 'pending' ? 'overdue' : row.original.status} />{approvalProgress(row.original) && <p className="text-xs text-muted-foreground">{approvalProgress(row.original)!.split('.')[0]}</p>}</div> },
+    { id: 'status', header: 'Status', cell: ({ row }) => <div className="space-y-1"><StatusBadge status={row.original.overdue && row.original.status === 'pending' ? 'overdue' : row.original.status} /><SyncNotice compact view={describeSync(row.original.reading?.sync ?? null, row.original.reading?.status)} />{approvalProgress(row.original) && <p className="text-xs text-muted-foreground">{approvalProgress(row.original)!.split('.')[0]}</p>}</div> },
     { id: 'responsible', header: 'Responsible', cell: ({ row }) => row.original.responsible?.name ?? <span className="text-muted-foreground">Unassigned</span> },
     { id: 'created', header: 'Opened', cell: ({ row }) => <Timestamp value={row.original.created_at} /> },
     { id: 'open', header: () => <span className="sr-only">Open</span>, cell: ({ row }) => <Button variant="outline" size="sm" onClick={() => setSelected(row.original)} aria-label={`Open review ${row.original.id}`}>Open</Button> },

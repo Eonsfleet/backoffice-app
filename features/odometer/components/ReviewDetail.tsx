@@ -6,6 +6,7 @@ import { Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { SyncNotice } from '@/features/odometer/components/SyncNotice'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { Timestamp } from '@/components/shared/Timestamp'
 import { QueryError } from '@/components/shared/QueryError'
@@ -14,7 +15,7 @@ import {
   assignOdometerReview, attachReviewEvidence, decideOdometerReview, listOdometerReviewers, fetchEvidence, getOdometerReview, type OdometerReview,
 } from '@/features/odometer/api'
 import {
-  approvalProgress, canReviewOdometer, errorText, formatKm, originalReading, reasonLabel, reviewAction,
+  approvalProgress, canReviewOdometer, describeSync, errorText, formatKm, originalReading, reasonLabel, reviewAction,
 } from '@/features/odometer/lib'
 
 function Fact({ label, children }: { label: string; children: React.ReactNode }) {
@@ -120,6 +121,8 @@ export function ReviewDetail({ reviewId, initial }: { reviewId: string | number;
         <span className="text-sm font-medium">{reasonLabel(review.reason)}</span>
         <span className="text-xs text-muted-foreground capitalize">{review.level} level</span>
       </div>
+
+      <SyncNotice view={describeSync(review.reading?.sync ?? null, review.reading?.status)} />
 
       <dl className="grid grid-cols-2 gap-4">
         <Fact label="Vehicle">{review.vehicle?.registration_number ?? 'Unavailable'}</Fact>

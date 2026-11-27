@@ -144,4 +144,19 @@ describe('review detail', () => {
     await waitFor(() => expect(fetchEvidence).toHaveBeenCalledWith(12))
     expect(open).toHaveBeenCalledWith('blob:abc', '_blank', 'noopener')
   })
+
+  it('shows a blocked pending_sync reading calmly, with the server message', () => {
+    useAuthStore.setState({ user: user(1, []) })
+    show({ reading: { id: 41, value_km: 83900, original_value: 83900, original_unit: 'km', effective_at: null, status: 'pending_sync', sync: { attempts: 3, blocked: true, blocked_reason: 'engine_feature_disabled', message: 'Switched off for this organization.' } } })
+    const notice = screen.getByTestId('sync-notice')
+    expect(notice).toHaveTextContent('Not switched on yet')
+    expect(notice).toHaveTextContent('Switched off for this organization.')
+    expect(notice).toHaveAttribute('role', 'status')
+  })
+
+  it('shows no sync notice for an older backend', () => {
+    useAuthStore.setState({ user: user(1, []) })
+    show()
+    expect(screen.queryByTestId('sync-notice')).toBeNull()
+  })
 })

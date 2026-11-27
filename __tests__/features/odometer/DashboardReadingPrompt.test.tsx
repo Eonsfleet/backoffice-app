@@ -156,4 +156,15 @@ describe('installer dashboard reading prompt', () => {
     await person.click(screen.getByRole('button', { name: 'Save reading' }))
     await waitFor(() => expect(submit).toHaveBeenCalledWith('org-1', 7, { value: 0, unit: 'km', physically_inspected: false, confirm_zero: true }))
   })
+
+  it('tells the installer a blocked reading is saved and sent automatically', async () => {
+    const person = userEvent.setup()
+    submit.mockResolvedValue({ outcome: 'pending_sync', reading: { status: 'pending_sync', sync: { attempts: 0, blocked: true, blocked_reason: 'engine_feature_disabled', message: 'Not switched on yet for Acme.' } } })
+    show()
+    await person.type(screen.getByLabelText('Dashboard reading'), '100')
+    await person.click(screen.getByRole('button', { name: 'Save reading' }))
+    const done = await screen.findByTestId('reading-done')
+    expect(done).toHaveTextContent('Not switched on yet for Acme.')
+    expect(done).not.toHaveTextContent(/retry|try again/i)
+  })
 })

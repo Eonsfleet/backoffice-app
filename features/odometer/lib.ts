@@ -1,5 +1,5 @@
 import type { AdminUser } from '@/types/api'
-import type { OdometerReview, ReadingResult } from './api'
+import type { OdometerReview, OdometerSync, ReadingResult } from './api'
 
 export const REVIEWER_PERMISSION = 'odometer_reviewer'
 
@@ -98,10 +98,34 @@ export function errorText(error: unknown, fallback: string): string {
   return response?.data?.message ?? fallback
 }
 
+export type SyncView = { tone: 'calm' | 'info' | 'pending'; label: string; message: string }
+
+/**
+ * How a reading waiting for the telemetry platform is shown. Never styled as a failure:
+ * a switched-off feature is calm (saved, sent automatically later), an unavailable
+ * platform is retried automatically, and no reason is simply pending. Null when there
+ * is nothing waiting to show (so an older backend with no sync looks as before).
+ */
+export function describeSync(sync: OdometerSync, status?: string | null): SyncView | null {
+  if (!sync) return null
+  if (status != null && status !== 'pending_sync') return null
+  if (!sync.blocked && !(sync.pending && sync.pending > 0) && status !== 'pending_sync') return null
+  if (sync.blocked && sync.blocked_reason === 'engine_feature_disabled')
+    return { tone: 'calm', label: 'Not switched on yet', message: sync.message ?? 'The telemetry platform’s odometer ledger is not switched on for this organization yet. The reading is saved and is sent automatically once it is.' }
+  if (sync.blocked && sync.blocked_reason === 'engine_unavailable')
+    return { tone: 'info', label: 'Retrying automatically', message: sync.message ?? 'The telemetry platform could not take the reading just now. It is retried automatically.' }
+  return { tone: 'pending', label: 'Waiting for confirmation', message: sync.message ?? 'The reading is saved and waiting for the telemetry platform to confirm it.' }
+}
+
 export function readingOutcomeText(result: ReadingResult): string {
   switch (result.outcome) {
     case 'accepted': return 'Reading accepted.'
-    case 'pending_sync': return 'Reading saved. It takes effect once the tracking system confirms it.'
+    case 'pending_sync': {
+      const view = describeSync(result.reading?.sync ?? result.odometer?.sync ?? null, 'pending_sync')
+      const base = 'Reading saved. It takes effect once the tracking system confirms it.'
+      // A blocked reading is saved and sent on its own: say so, and never suggest a retry.
+      return view && (result.reading?.sync?.blocked || result.odometer?.sync?.blocked) ? `${base} ${view.message} Nothing more is needed.` : base
+    }
     case 'pending_review': return 'Reading saved and sent for review. The odometer is unchanged until it is approved.'
     case 'rejected': return 'Reading was rejected.'
   }

@@ -12,6 +12,16 @@ const id = z.union([z.string(), z.number()])
 const km = z.number().finite().nullish().transform(value => value ?? null)
 const text = z.string().nullish().transform(value => value ?? null)
 
+/** Sync state of a reading or a vehicle's readings. Every field optional: an older backend sends none. */
+export const syncSchema = z.object({
+  pending: z.number().nullish().transform(value => value ?? null),
+  attempts: z.number().nullish().transform(value => value ?? null),
+  blocked: z.boolean().nullish().transform(value => value === true),
+  blocked_reason: text,
+  message: text,
+}).nullish().transform(value => value ?? null)
+export type OdometerSync = z.infer<typeof syncSchema>
+
 const actor = z.object({ type: z.string().nullish(), id: id.nullish(), name: text }).nullish()
 
 export const reviewSchema = z.object({
@@ -19,6 +29,7 @@ export const reviewSchema = z.object({
   vehicle: z.object({ id: id.nullish(), registration_number: text }).nullish(),
   reading: z.object({
     id: id.nullish(), value_km: km, original_value: km, original_unit: text, effective_at: text,
+    status: text, sync: syncSchema,
   }).nullish(),
   level: z.string(),
   reason: z.string(),
@@ -101,6 +112,8 @@ export type SkipReason = (typeof SKIP_REASONS)[number]
 
 export const readingResultSchema = z.object({
   outcome: z.enum(['accepted', 'pending_sync', 'pending_review', 'rejected']),
+  reading: z.object({ status: text, sync: syncSchema }).loose().nullish().transform(value => value ?? null),
+  odometer: z.object({ sync: syncSchema }).loose().nullish().transform(value => value ?? null),
 }).loose()
 export type ReadingResult = z.infer<typeof readingResultSchema>
 
