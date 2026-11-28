@@ -138,6 +138,11 @@ export const activateUser = async (id: string | number): Promise<void> => {
   await api.patch(`/admin/users/${id}`, { status: 'active' })
 }
 
+/** Email the user a fresh link to set their password. Only valid for a user who has never logged in. */
+export const resendInvite = async (id: string | number): Promise<void> => {
+  await api.post(`/admin/users/${id}/resend-invite`)
+}
+
 function triggerBlobDownload(blob: Blob, filename: string): void {
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')

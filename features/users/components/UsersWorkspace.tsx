@@ -13,7 +13,7 @@ import { format, formatDistanceToNow } from 'date-fns'
 import {
   Users, Search, MoreHorizontal, Eye, Pencil, Trash2,
   UserCheck, UserX, TrendingUp, Plus,
-  KeyRound, Download, Upload,
+  KeyRound, Download, Upload, MailPlus,
 } from 'lucide-react'
 
 import { PageHeader }   from '@/components/shared/PageHeader'
@@ -40,7 +40,7 @@ import { Label } from '@/components/ui/label'
 import { SearchableSelect } from '@/components/ui/searchable-select'
 
 import {
-  listUsers, getUserMetrics, deactivateUser, activateUser, deleteUser, bulkDeleteUsers,
+  listUsers, getUserMetrics, deactivateUser, activateUser, resendInvite, deleteUser, bulkDeleteUsers,
   exportUsers, importUsers, downloadUserTemplate,
 } from '@/features/users/api'
 import { listOrganizations } from '@/features/organizations/api'
@@ -179,6 +179,18 @@ function TenantUsersTab() {
     onError: () => toast.error('Action failed'),
   })
 
+  // The invitation only makes sense for a user who has never got in.
+  const canResendInvite = (u: TenantUser) => u.status === 'pending_activation' && !u.last_login
+
+  const resendInviteMutation = useMutation({
+    mutationFn: (user: TenantUser) => resendInvite(user.id),
+    onSuccess: (_, user) => toast.success(`Invitation sent to ${user.email}`),
+    onError: (err) => {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
+      toast.error(msg ?? 'Could not send the invitation')
+    },
+  })
+
   const deleteMutation = useMutation({
     mutationFn: (id: string | number) => deleteUser(id),
     onSuccess: async () => {
@@ -275,6 +287,14 @@ function TenantUsersTab() {
                 <Pencil className="mr-2 h-4 w-4" /> Edit
               </DropdownMenuItem>
               <DropdownMenuSeparator />
+              {canResendInvite(u) && (
+                <DropdownMenuItem
+                  disabled={resendInviteMutation.isPending}
+                  onClick={() => resendInviteMutation.mutate(u)}
+                >
+                  <MailPlus className="mr-2 h-4 w-4" /> Resend invite
+                </DropdownMenuItem>
+              )}
               <DropdownMenuItem onClick={() => toggleStatusMutation.mutate(u)}>
                 {u.status === 'active'
                   ? <><UserX className="mr-2 h-4 w-4" /> Deactivate</>
