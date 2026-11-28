@@ -48,6 +48,7 @@ import {
 } from '@/features/devices/api'
 import { listOrganizations } from '@/features/organizations/api'
 import { DeviceCreateForm } from '@/features/devices/components/DeviceCreateForm'
+import { DeviceEditForm } from '@/features/devices/components/DeviceEditForm'
 import { DeviceImportForm } from '@/features/devices/components/DeviceImportForm'
 import { HardwareForm, type HardwareFormValues } from '@/features/devices/components/HardwareForm'
 import { ApnForm, type ApnFormValues } from '@/features/devices/components/ApnForm'
@@ -93,6 +94,7 @@ function DevicesTab() {
   const [importOpen, setImportOpen]             = useState(false)
   const [deactivateTarget, setDeactivateTarget] = useState<Device | null>(null)
   const [deleteDeviceTarget, setDeleteDeviceTarget] = useState<Device | null>(null)
+  const [editDeviceTarget, setEditDeviceTarget]     = useState<Device | null>(null)
   const [exporting, setExporting]               = useState(false)
   const [exportOpen, setExportOpen]             = useState(false)
   const [exportOrgId, setExportOrgId]           = useState('all')
@@ -252,6 +254,9 @@ function DevicesTab() {
               <DropdownMenuItem onClick={() => router.push(`/devices/${d.id}`)}>
                 <Eye className="mr-2 h-4 w-4" /> View Details
               </DropdownMenuItem>
+              <DropdownMenuItem disabled={!canManage} onClick={() => setEditDeviceTarget(d)}>
+                <Pencil className="mr-2 h-4 w-4" /> Edit
+              </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 className="text-destructive focus:text-destructive"
@@ -328,6 +333,22 @@ function DevicesTab() {
 
       <SlideOver open={createOpen} onOpenChange={setCreateOpen} title="Add Device" description="Register a new GPS tracking device.">
         <DeviceCreateForm onSuccess={() => setCreateOpen(false)} onCancel={() => setCreateOpen(false)} />
+      </SlideOver>
+
+      <SlideOver
+        open={!!editDeviceTarget}
+        onOpenChange={(o) => !o && setEditDeviceTarget(null)}
+        title="Edit Device"
+        description={editDeviceTarget ? `Update details for ${editDeviceTarget.device_id}.` : undefined}
+      >
+        {editDeviceTarget && (
+          <DeviceEditForm
+            key={editDeviceTarget.id}
+            device={editDeviceTarget}
+            onSuccess={() => setEditDeviceTarget(null)}
+            onCancel={() => setEditDeviceTarget(null)}
+          />
+        )}
       </SlideOver>
 
       <SlideOver open={importOpen} onOpenChange={setImportOpen} title="Import Devices" description="Upload a CSV or Excel file to bulk-add devices. Select the organization first, then upload.">

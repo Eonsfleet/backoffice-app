@@ -9,8 +9,10 @@ import { format, formatDistanceToNow } from 'date-fns'
 import {
   Cpu, ArrowLeft, Wifi, WifiOff, CircleDashed,
   Building2, Car, Fingerprint, Layers, Radio,
-  Calendar, Clock, PowerOff, Loader2,
+  Calendar, Clock, PowerOff, Loader2, Pencil,
 } from 'lucide-react'
+import { SlideOver } from '@/components/shared/SlideOver'
+import { DeviceEditForm } from '@/features/devices/components/DeviceEditForm'
 
 import { PageHeader } from '@/components/shared/PageHeader'
 import { StatusBadge } from '@/components/shared/StatusBadge'
@@ -56,6 +58,7 @@ export function DeviceDetailView({ id }: { id: string }) {
   const router = useRouter()
   const qc = useQueryClient()
   const [deactivateOpen, setDeactivateOpen] = useState(false)
+  const [editOpen, setEditOpen] = useState(false)
 
   const { data: device, isLoading } = useQuery({
     queryKey: ['device', id],
@@ -111,6 +114,10 @@ export function DeviceDetailView({ id }: { id: string }) {
           icon={Cpu}
           className="pb-0"
           actions={
+            <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => setEditOpen(true)} disabled={!canManage}>
+              <Pencil className="mr-1.5 h-3.5 w-3.5" /> Edit
+            </Button>
             <Button
               variant="destructive"
               size="sm"
@@ -123,6 +130,7 @@ export function DeviceDetailView({ id }: { id: string }) {
               }
               Deactivate
             </Button>
+            </div>
           }
         />
       </div>
@@ -237,7 +245,15 @@ export function DeviceDetailView({ id }: { id: string }) {
             <CardHeader className="pb-3">
               <CardTitle className="text-sm uppercase tracking-wide text-muted-foreground">Quick Actions</CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-2">
+              <Button
+                variant="outline"
+                className="w-full justify-start"
+                size="sm"
+                disabled={!canManage} onClick={() => setEditOpen(true)}
+              >
+                <Pencil className="mr-2 h-3.5 w-3.5" /> Edit Device
+              </Button>
               <Button
                 variant="outline"
                 className="w-full justify-start text-destructive hover:text-destructive"
@@ -250,6 +266,19 @@ export function DeviceDetailView({ id }: { id: string }) {
           </Card>
         </div>
       </div>
+
+      <SlideOver
+        open={canManage && editOpen}
+        onOpenChange={setEditOpen}
+        title="Edit Device"
+        description={`Update details for ${device.device_id}.`}
+      >
+        <DeviceEditForm
+          device={device}
+          onSuccess={() => setEditOpen(false)}
+          onCancel={() => setEditOpen(false)}
+        />
+      </SlideOver>
 
       <ConfirmDialog
         open={canManage && deactivateOpen}

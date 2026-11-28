@@ -17,7 +17,7 @@ import { listOrganizations } from '@/features/organizations/api'
 
 // ─── Countries ────────────────────────────────────────────────────────────────
 
-const COUNTRIES = [
+export const COUNTRIES = [
   { code: 'NG', name: 'Nigeria',               dial: '+234' },
   { code: 'GH', name: 'Ghana',                dial: '+233' },
   { code: 'KE', name: 'Kenya',                dial: '+254' },
@@ -76,7 +76,7 @@ const COUNTRIES = [
   { code: 'JP', name: 'Japan',                dial: '+81'  },
 ] as const
 
-const COUNTRY_OPTIONS = COUNTRIES.map((c) => ({
+export const COUNTRY_OPTIONS =COUNTRIES.map((c) => ({
   value: c.code,
   label: `${c.name} (${c.dial})`,
 }))

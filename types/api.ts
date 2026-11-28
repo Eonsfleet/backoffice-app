@@ -134,6 +134,7 @@ export interface Device {
   phone_number?: string | null
   is_online?: boolean
   has_fuel?: boolean
+  is_active?: boolean
   last_packet_received_at: string | null   // last seen
   created_at: string
   hardware?: Hardware | null

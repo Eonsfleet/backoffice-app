@@ -95,6 +95,25 @@ export const createDevice = async (payload: DevicePayload): Promise<Device> => {
   return normalizeDevice(data.data)
 }
 
+export interface DeviceUpdatePayload {
+  organization_id: string | number
+  hardware_id: string | number
+  imei: string
+  phone_number: string
+  country: string
+  /** true = active, false = deactivated. */
+  status: boolean
+  has_fuel: boolean
+  device_id: string | number
+}
+
+export const updateDevice = async (
+  id: string | number,
+  payload: DeviceUpdatePayload
+): Promise<void> => {
+  await api.put(`/devices/${id}`, payload)
+}
+
 export const deactivateDevice = async (id: string | number): Promise<void> => {
   await api.post(`/admin/devices/${id}/deactivate`)
 }
